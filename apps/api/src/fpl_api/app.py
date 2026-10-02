@@ -55,6 +55,17 @@ from fpl_storage import models as m
 from fpl_storage.db import session_scope
 
 log = structlog.get_logger("fpl_api")
+REPORTS = (
+    "forecast_eval",
+    "backtest",
+    "price_change",
+    "optimizer_benchmark",
+    "rate_shrinkage",
+    "feature_importance",
+    "ensemble_conformal",
+    "baselines",
+    "team_strength_tuning",
+)
 API = "/api/v1"
 
 
@@ -235,6 +246,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         names, teams = svc.data.names(ctx.season), svc.data.teams(ctx.season)
         sm = fc.summary
         nxt = sm[sm["gw"] == ctx.gameweek].set_index("player_code")
+        sm = sm[sm["gw"] < ctx.gameweek + h]
         tot = sm.groupby("player_code")["mean"].sum()
         df = pool.assign(
             name=pool["player_code"].map(names),
@@ -322,7 +334,10 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     ) -> dict[str, Any]:
         ctx = svc.context()
         fc = svc.forecast_for(ctx, svc.horizon(horizon))
-        rows = fc.summary[fc.summary["player_code"] == code].sort_values("gw")
+        h = svc.horizon(horizon)
+        rows = fc.summary[
+            (fc.summary["player_code"] == code) & (fc.summary["gw"] < svc.context().gameweek + h)
+        ].sort_values("gw")
         return {
             "player_code": code,
             "gameweeks": _records(rows),
@@ -830,6 +845,83 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                 "data_snapshot_id": b.data_snapshot_id,
                 "results": b.results_json,
             }
+
+    # ------------------------------------------------------------------ reports, models, settings
+    @r.get("/reports")
+    def list_reports() -> dict[str, Any]:
+        rep = REPO_ROOT / "ml" / "reports"
+        return {"reports": sorted(n for n in REPORTS if (rep / f"{n}.md").exists())}
+
+    @r.get("/reports/{name}")
+    def get_report(name: str) -> dict[str, Any]:
+        if name not in REPORTS:  # allow-list: no path traversal into the filesystem
+            raise HTTPException(404, f"unknown report {name}")
+        rep = REPO_ROOT / "ml" / "reports"
+        md = rep / f"{name}.md"
+        js = rep / f"{name}.json"
+        if not md.exists():
+            raise HTTPException(404, f"report {name} not generated")
+        return {
+            "name": name,
+            "markdown": md.read_text(encoding="utf-8"),
+            "data": json.loads(js.read_text()) if js.exists() else None,
+        }
+
+    @r.get("/reports/figures/{name}")
+    def get_figure(name: str) -> Response:
+        figs = REPO_ROOT / "ml" / "reports" / "figures"
+        allowed = {p.name for p in figs.glob("*.svg")} if figs.exists() else set()
+        if name not in allowed:
+            raise HTTPException(404, f"unknown figure {name}")
+        return Response((figs / name).read_text(encoding="utf-8"), media_type="image/svg+xml")
+
+    @r.get("/models")
+    def models_status() -> dict[str, Any]:
+        rep = REPO_ROOT / "ml" / "reports"
+        out: dict[str, Any] = {}
+        for name in ("forecast_eval", "price_change"):
+            path = rep / f"{name}.json"
+            if path.exists():
+                data = json.loads(path.read_text())
+                out[name] = {
+                    "promotion_gates": data.get("promotion_gates"),
+                    "gate_history": data.get("gate_history"),
+                    "gate_metrics": data.get("gate_metrics"),
+                }
+        ctx = svc.context()
+        try:
+            fc = svc.forecasts.get(ctx.season, ctx.gameweek, svc.horizon(None), compute=False)
+            out["serving"] = _jsonable(fc.provenance)
+        except ForecastUnavailable:
+            out["serving"] = None
+        return out
+
+    @r.get("/settings")
+    def get_settings(manager_key: str = Query(..., max_length=64)) -> dict[str, Any]:
+        need_db()
+        assert svc.engine is not None
+        with session_scope(svc.engine) as ses:
+            row = ses.get(m.ManagerSettingsRow, manager_key)
+            return {
+                "manager_key": manager_key,
+                "settings": row.settings_json if row else s.ManagerSettingsIn().model_dump(),
+            }
+
+    @r.post("/settings")
+    def put_settings(
+        body: s.ManagerSettingsIn, manager_key: str = Query(..., max_length=64)
+    ) -> dict[str, Any]:
+        need_db()
+        assert svc.engine is not None
+        with session_scope(svc.engine) as ses:
+            row = ses.get(m.ManagerSettingsRow, manager_key)
+            if row is None:
+                ses.add(
+                    m.ManagerSettingsRow(manager_key=manager_key, settings_json=body.model_dump())
+                )
+            else:
+                row.settings_json = body.model_dump()
+        return {"manager_key": manager_key, "settings": body.model_dump()}
 
     @r.get("/jobs/{job_id}")
     def job_status(job_id: str) -> dict[str, Any]:

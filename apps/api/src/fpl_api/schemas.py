@@ -120,3 +120,14 @@ class BacktestIn(_Req):
     horizon: int | None = Field(None, ge=1, le=10)
     n_sims: int = Field(500, ge=100, le=5000)
     profile: Literal["default", "conservative", "aggressive"] = "default"
+
+
+class ManagerSettingsIn(_Req):
+    """Settings screen (§73.1): horizon, risk profile, differential tolerance, notifications."""
+
+    horizon: int = Field(5, ge=1, le=10)
+    profile: Literal["default", "conservative", "aggressive"] = "default"
+    differential_tolerance: float = Field(0.0, ge=0.0, le=1.0)
+    league_rivals: list[int] = Field(default_factory=list, max_length=20)
+    notify_min_gain: float = Field(1.0, ge=0.0, le=20.0)
+    notify_injuries: bool = True

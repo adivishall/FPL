@@ -89,6 +89,46 @@ jobs:
       - name: optimiser + decision engine on real forecasts
         run: uv run pytest -q tests/integration/test_optimizer_real_data.py tests/integration/test_decision_real_data.py
 
+  web-e2e:
+    # Next.js typecheck + production build, then Playwright flows against the real API stack
+    # (fixture snapshot + PostgreSQL service + migrations) — §70.2 e2e, §73.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fpl
+          POSTGRES_PASSWORD: fpl
+          POSTGRES_DB: fpl_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fpl" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      FPL_E2E_DATABASE_URL: postgresql+psycopg://fpl:fpl@localhost:5432/fpl_e2e
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_API_BASE: http://127.0.0.1:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - run: uv sync --frozen
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - working-directory: apps/web
+        run: npm ci && npm run typecheck && npm run build
+      - working-directory: apps/web
+        run: npx playwright install --with-deps chromium && npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+
   security:
     runs-on: ubuntu-latest
     steps:

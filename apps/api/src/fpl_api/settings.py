@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     feature_store_dir: Path | None = None
     # forecasting / decision limits (§80 cost control)
     horizon_default: int = 5
-    horizon_max: int = 10
+    horizon_max: int = 8
+    forecast_horizon: int = Field(
+        8, description="one canonical forecast per gameweek covers every request horizon ≤ it"
+    )
     n_sims: int = 1000
     n_sims_max: int = 5000
     forecast_on_demand: bool = Field(

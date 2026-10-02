@@ -203,6 +203,8 @@ class ForecastService:
     ) -> Forecast:
         n = min(n_sims or self.settings.n_sims, self.settings.n_sims_max)
         seed = points_spec()[0].simulation.seed
+        # one canonical forecast per gameweek serves every shorter horizon (no recomputation)
+        horizon = max(horizon, self.settings.forecast_horizon)
         k = self.key(season, gw, horizon, n, seed)
         if k in self._mem:
             return self._mem[k]
@@ -231,7 +233,9 @@ class ForecastService:
     def features(self, season: str, gw: int, horizon: int) -> pd.DataFrame:
         hist = self.data.history_cutoffs(season)
         cut = next(c for c in hist if c.season == season and c.gw == gw)
-        return FeatureCache(self.data.ds, horizon, self.settings.feature_store_dir).get(cut).frame
+        h = max(horizon, self.settings.forecast_horizon)
+        frame = FeatureCache(self.data.ds, h, self.settings.feature_store_dir).get(cut).frame
+        return frame[frame["target_gw"] < gw + horizon]
 
 
 # ----------------------------------------------------------------------------- app state

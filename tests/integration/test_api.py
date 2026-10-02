@@ -28,6 +28,8 @@ def _settings(db: str | None, tmp: Path, **kw) -> Settings:  # type: ignore[no-u
         artifact_dir=tmp / "artifacts",
         n_sims=200,
         horizon_default=2,
+        horizon_max=2,
+        forecast_horizon=2,
         sync_horizon_limit=2,
         **kw,
     )
@@ -231,6 +233,31 @@ def test_sync_degrades_when_live_source_is_unreachable(
     monkeypatch.setattr(app_mod.FplApiClient, "from_config", classmethod(lambda cls, cfg: boom()))
     r = client.post("/api/v1/squad/sync", json={"manager_key": "demo", "manager_id": 123})
     assert r.status_code == 503 and r.json()["degraded"] is True
+
+
+def test_reports_models_settings(client: TestClient) -> None:
+    rl = client.get("/api/v1/reports").json()["reports"]
+    assert "forecast_eval" in rl
+    rep = client.get("/api/v1/reports/forecast_eval").json()
+    assert rep["markdown"].startswith("# Forecast evaluation")
+    assert client.get("/api/v1/reports/..%2Fsecrets").status_code == 404
+    assert (
+        client.get("/api/v1/reports/figures/forecast_pit.svg")
+        .headers["content-type"]
+        .startswith("image/svg+xml")
+    )
+    models = client.get("/api/v1/models").json()
+    assert models["forecast_eval"]["promotion_gates"]["points"]["passed"] is True
+    assert (
+        client.post(
+            "/api/v1/settings",
+            params={"manager_key": "demo"},
+            json={"horizon": 6, "profile": "conservative"},
+        ).status_code
+        == 200
+    )
+    got = client.get("/api/v1/settings", params={"manager_key": "demo"}).json()
+    assert got["settings"]["horizon"] == 6 and got["settings"]["profile"] == "conservative"
 
 
 def test_metrics_and_validation(client: TestClient) -> None:
