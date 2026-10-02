@@ -42,6 +42,7 @@ from fpl_domain.enums import POSITIONS, ChipType, Position
 from fpl_domain.rules.model import ChipFtPolicy
 from fpl_domain.squad import Lineup
 from fpl_domain.state import ChipState, next_free_transfers
+from fpl_optimizer.lineup import best_lineup
 from fpl_optimizer.problem import OptimizationProblem
 
 INF = highspy.kHighsInf
@@ -700,7 +701,7 @@ def build_and_solve(
     )
     if chip_cost:
         terms["chip_opportunity_cost"] = -float(chip_cost)
-    return Solution(
+    result = Solution(
         plans=plans,
         objective=objective,
         status=status,
@@ -709,6 +710,64 @@ def build_and_solve(
         terms=terms,
         values={n: float(v) for n, v in zip(m.names, sol, strict=True) if v != 0.0},
     )
+    if status != "Optimal":
+        _polish(prob, result, round(sol[f[n_gw]]))
+    return result
+
+
+def _polish(prob: OptimizationProblem, sol: Solution, ft_end_var: int) -> None:
+    """Repair a non-optimal (time-limited) incumbent without changing any transfer decision:
+    re-solve each gameweek's lineup exactly for the chosen playing squad (the incumbent's
+    lineup need not be optimal) and replace the free-transfer term by the true end count (the
+    variable may be slack). The objective is corrected by the same amounts, so it stays equal to
+    an independent recomputation (ADR-0007)."""
+    pl, w = prob.players, prob.config.objective
+    idx = pl.index()
+    pos = pl.positions_map()
+    down = pl.downside()
+    gain = 0.0
+    for t, plan in enumerate(sol.plans):
+        ev = {c: float(pl.ev[idx[c], t]) for c in plan.playing_squad}
+        val = {
+            c: float(pl.ev[idx[c], t] - w.risk_aversion * down[idx[c], t])
+            for c in plan.playing_squad
+        }
+        best = best_lineup(plan.playing_squad, pos, ev, val, w, prob.ruleset, plan.chip_type)
+        mine = _lineup_objective(plan, ev, val, w, prob, pos)
+        if best.value > mine + 1e-9:
+            gain += w.discount**t * (best.value - mine)
+            plan.lineup = best.lineup
+            plan.expected_points = best.expected_points
+    gain += w.free_transfer_value * (sol.free_transfers_end - ft_end_var)
+    sol.objective += gain
+    sol.stats["polished_gain"] = gain
+
+
+def _lineup_objective(
+    plan: GameweekPlan,
+    ev: dict[int, float],
+    val: dict[int, float],
+    w: Any,
+    prob: OptimizationProblem,
+    pos: dict[int, Position],
+) -> float:
+    lu, rs = plan.lineup, prob.ruleset
+    ct = plan.chip_type
+    mult = (
+        rs.chips.triple_captain_multiplier
+        if ct is ChipType.TRIPLE_CAPTAIN
+        else rs.captaincy.captain_multiplier
+    )
+    v = sum(val[c] for c in lu.starters) + (mult - 1) * val[lu.captain]
+    v += w.vice_weight * val[lu.vice_captain]
+    gk_bench = [c for c in lu.bench if pos[c] is Position.GK]
+    out_bench = [c for c in lu.bench if c not in gk_bench]
+    if ct is ChipType.BENCH_BOOST:
+        v += sum(val[c] for c in lu.bench)
+    else:
+        v += sum(wk * ev[c] for wk, c in zip(w.bench_weights, out_bench, strict=False))
+        v += w.bench_gk_weight * sum(ev[c] for c in gk_bench)
+    return float(v)
 
 
 def solve_with_chips(prob: OptimizationProblem) -> Solution:

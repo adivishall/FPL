@@ -170,3 +170,28 @@ def test_warm_started_chip_choice_is_never_worse_than_no_chip() -> None:
     assert sol.objective >= no_chip.objective - 1e-9
     assert validate_solution(prob, sol).valid
     assert brute_force(prob).objective == pytest.approx(sol.objective, abs=1e-5)
+
+
+def test_time_limited_incumbent_is_polished_and_valid() -> None:
+    """A time-limited incumbent may carry a sub-optimal lineup; polishing re-solves lineups
+    exactly so independent validation (incl. the recomputed objective) passes."""
+    from fpl_optimizer.problem import SolverSettings
+
+    prob = tiny_league(1200, extras=(3, 6, 6, 4), horizon=3)
+    base = build_and_solve(prob)
+    # corrupt the warm start: move the armband to the weakest starter in the first gameweek
+    vals = dict(base.values)
+    idx = prob.players.index()
+    first = base.plans[0].lineup
+    weak = min(first.starters, key=lambda c: prob.players.ev[idx[c], 0])
+    vals.pop(f"c[{idx[first.captain]},0]", None)
+    vals.pop(f"v[{idx[weak]},0]", None)
+    vals[f"c[{idx[weak]},0]"] = 1.0
+    if weak == first.vice_captain:
+        vals[f"v[{idx[first.captain]},0]"] = 1.0
+    bad = replace(base, values=vals)
+    cfg = prob.config.model_copy(update={"solver": SolverSettings(time_limit_seconds=1e-4)})
+    sol = build_and_solve(replace(prob, config=cfg), start=bad)
+    v = validate_solution(prob, sol)
+    assert v.valid, (sol.status, v.issues)
+    assert sol.objective == pytest.approx(base.objective, abs=1e-6)  # repaired to the optimum
