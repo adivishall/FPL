@@ -30,3 +30,4 @@ apps/web/test-results/
 apps/web/playwright-report/
 *.log
 data/dev-pg/
+data/eval/

@@ -64,6 +64,7 @@ class SimulationResult:
     gameweeks: I  # [G] sorted
     points: npt.NDArray[np.int16]  # [S, P, G]
     minutes: npt.NDArray[np.int16]  # [S, P, G]
+    starts: npt.NDArray[np.int8]  # [S, P, G] starts in the GW (2 possible in a double)
     has_fixture: npt.NDArray[np.bool_]  # [P, G]
     components: dict[str, npt.NDArray[np.float32]]  # mean points per component [P, G]
     events: dict[str, npt.NDArray[np.float32]]  # mean event counts [P, G]
@@ -104,6 +105,8 @@ class SimulationResult:
             "minutes_p50": mq[1],
             "minutes_p90": mq[2],
             "prob_play": (mins > 0).mean(axis=0),
+            # coherent with the lineup constraints the simulator enforces (one GK per side)
+            "prob_start": (self.starts > 0).mean(axis=0),
         }
 
 
@@ -182,6 +185,7 @@ def simulate(
     g_idx = np.searchsorted(gws, players.gameweek)
     points = np.zeros((s, len(codes), len(gws)), dtype=np.int16)
     minutes_out = np.zeros((s, len(codes), len(gws)), dtype=np.int16)
+    starts_out = np.zeros((s, len(codes), len(gws)), dtype=np.int8)
     has_fixture = np.zeros((len(codes), len(gws)), dtype=bool)
     comp_sum = {c: np.zeros((len(codes), len(gws)), dtype=np.float64) for c in COMPONENTS}
     ev_names = (
@@ -350,6 +354,7 @@ def simulate(
         at_idx: Any = (slice(None), pi, gi)
         np.add.at(points, at_idx, total.astype(np.int16))
         np.add.at(minutes_out, at_idx, mins.astype(np.int16))
+        np.add.at(starts_out, at_idx, started.astype(np.int8))
         has_fixture[pi, gi] = True
         for c in COMPONENTS:
             np.add.at(comp_sum[c], (pi, gi), comps[c].mean(axis=0))
@@ -371,6 +376,7 @@ def simulate(
         gameweeks=gws,
         points=points,
         minutes=minutes_out,
+        starts=starts_out,
         has_fixture=has_fixture,
         components={c: v.astype(np.float32) for c, v in comp_sum.items()},
         events={e: v.astype(np.float32) for e, v in ev_sum.items()},

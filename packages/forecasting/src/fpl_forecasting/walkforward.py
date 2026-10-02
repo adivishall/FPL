@@ -121,8 +121,14 @@ class FeatureCache:
         return ff
 
 
-def training_table(cache: FeatureCache, upto: Cutoff, history: Sequence[Cutoff]) -> pd.DataFrame:
-    """Horizon-0 feature rows of earlier cutoffs joined with outcomes known at ``upto``."""
+def training_table(
+    cache: FeatureCache,
+    upto: Cutoff,
+    history: Sequence[Cutoff],
+    horizons: Iterable[int] = (0,),
+) -> pd.DataFrame:
+    """Feature rows of earlier cutoffs (for the given horizons) joined with outcomes known at
+    ``upto`` — a target fixture's label is only included once its ``available_at`` ≤ cutoff."""
     labels = PointInTimeView(cache.ds, upto.cutoff).player_match()
     lab = labels[
         [
@@ -141,12 +147,13 @@ def training_table(cache: FeatureCache, upto: Cutoff, history: Sequence[Cutoff])
             "goals_conceded",
         ]
     ]
+    hz = set(horizons)
     parts = []
     for c in history:
         if c.cutoff >= upto.cutoff:
             continue
         f = cache.get(c).frame
-        parts.append(f[f["horizon"] == 0])
+        parts.append(f[f["horizon"].isin(hz)])
     if not parts:
         return pd.DataFrame()
     feats = pd.concat(parts, ignore_index=True)

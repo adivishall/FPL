@@ -12,6 +12,7 @@ dependencies = [
   "pandas>=3.0",
   "pyarrow>=25.0",
   "numpy>=2.5",
+  "joblib>=1.5",
 ]
 
 [build-system]

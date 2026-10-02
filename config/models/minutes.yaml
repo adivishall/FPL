@@ -1,0 +1,35 @@
+# Minutes model (fpl_forecasting.minutes; §10, §58). Gates fixed before evaluation.
+version: "1.0.0"
+model: minutes
+params:
+  n_estimators: 300
+  learning_rate: 0.05
+  num_leaves: 31
+  min_child_samples: 100
+  subsample: 0.8
+  colsample_bytree: 0.8
+  reg_lambda: 1.0
+  calibration_fraction: 0.15
+  seed: 7
+  n_jobs: 2
+promotion_gates:
+  - name: start_brier_beats_rate_baseline
+    metric: brier_start_all_h0
+    op: "<"
+    reference: brier_start_all_h0_rate_baseline
+    rationale: P(start) must beat the recency-weighted start-rate baseline.
+  - name: start_log_loss_beats_rate_baseline
+    metric: log_loss_start_all_h0
+    op: "<"
+    reference: log_loss_start_all_h0_rate_baseline
+    rationale: Penalises over-confident start/no-start calls.
+  - name: start_probability_calibrated
+    metric: ece_start_all_h0
+    op: "<="
+    threshold: 0.03
+    rationale: Start probabilities are displayed and drive bench decisions.
+  - name: minutes_mae_beats_rate_baseline
+    metric: minutes_mae_all_h0
+    op: "<"
+    reference: minutes_mae_all_h0_rate_baseline
+    rationale: Expected minutes must be more accurate than the baseline.

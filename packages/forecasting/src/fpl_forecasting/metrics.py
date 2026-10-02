@@ -65,18 +65,21 @@ def ece(p: Arr, y: Arr, n_bins: int = 10) -> float:
     return float(np.sum(t["count"] * np.abs(t["mean_pred"] - t["observed"])) / t["count"].sum())
 
 
-def crps_samples(samples: npt.NDArray[np.floating], y: Arr) -> float:
-    """Mean CRPS of an ensemble: E|X − y| − ½ E|X − X'| (per row; rows = observations).
-
-    Uses the sorted-sample identity E|X − X'| = 2/n² Σ_i (2i − n − 1) x_(i) for O(n log n).
-    """
+def crps_rows(samples: npt.NDArray[np.floating], y: Arr) -> npt.NDArray[np.float64]:
+    """Per-row CRPS of an ensemble (rows = observations, columns = samples):
+    E|X − y| − ½ E|X − X'|, using E|X − X'| = 2/n² Σ_i (2i − n − 1) x_(i) for O(n log n)."""
     x = np.sort(np.asarray(samples, float), axis=1)
     yy = np.asarray(y, float)[:, None]
     n = x.shape[1]
     term1 = np.mean(np.abs(x - yy), axis=1)
     i = np.arange(1, n + 1)
     term2 = (2.0 / n**2) * np.sum((2 * i - n - 1) * x, axis=1)
-    return float(np.mean(term1 - 0.5 * term2))
+    return np.asarray(term1 - 0.5 * term2, dtype=np.float64)
+
+
+def crps_samples(samples: npt.NDArray[np.floating], y: Arr) -> float:
+    """Mean CRPS over rows (see ``crps_rows``)."""
+    return float(np.mean(crps_rows(samples, y)))
 
 
 def pinball(q_pred: Arr, y: Arr, tau: float) -> float:

@@ -148,7 +148,7 @@ class PointInTimeView:
         pm = self.ds["player_match"]
         pm = pm[(pm["season"] == season) & (pm["kickoff_at"] < self.as_of)]
         self.log.touch("price_observations", pm["kickoff_at"] if len(pm) else None)
-        return pm[["season", "player_code", "kickoff_at", "price", "ownership_count"]].rename(
+        return pm[["season", "gw", "player_code", "kickoff_at", "price", "ownership_count"]].rename(
             columns={"kickoff_at": "observed_at"}
         )
 

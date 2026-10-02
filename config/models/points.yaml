@@ -1,0 +1,70 @@
+# Decomposed probabilistic points model (fpl_forecasting.pipeline; ADR-0006, docs/MODEL_CARD.md).
+# Promotion gates were fixed BEFORE the walk-forward evaluation that applies them
+# (ml/reports/forecast_eval.md) — thresholds are never tuned to the result.
+version: "1.0.0"
+model: points-decomposed
+training:
+  horizons: [0, 1, 2, 3, 4]
+  bps_seasons: 2           # most recent seasons used for the BPS map and global shares
+rates:
+  goal_weight: 0.3          # finishing signal: blend = 0.3·goals + 0.7·xG
+  half_life_matches: 12.0
+  kappa_bounds: [0.5, 500.0]
+  min_half_exposure: 1.0
+  pool_strength: 100.0
+simulation:
+  n_sims: 2000
+  seed: 20260828
+  max_goals: 10
+availability:               # live-only adjustment layer (uncalibrated configuration, ADR-0001 #7)
+  doubtful_default: 0.6
+  out_default: 0.05
+  recovery_per_gw: 0.2
+  floor_chance_zero: 0.02
+  departed: 0.0
+promotion_gates:
+  - name: beats_best_point_baseline_all
+    metric: rmse_all_h0
+    op: "<="
+    reference: rmse_all_h0_best_baseline
+    rationale: Expected points must be at least as accurate (RMSE) as the best naive/domain baseline.
+  - name: beats_best_point_baseline_regulars
+    metric: rmse_regulars_h0
+    op: "<="
+    reference: rmse_regulars_h0_best_baseline
+    rationale: The decision-relevant population (regular starters) must not be worse either.
+  - name: competitive_with_direct_regressor
+    metric: rmse_all_h0
+    op: "<="
+    reference: rmse_all_h0_direct_lgbm
+    margin: 0.02
+    rationale: The decomposition may cost at most 0.02 RMSE vs a direct GBM; it must earn its keep via distributions and explanations.
+  - name: ranking_not_worse_than_baselines
+    metric: spearman_all_h0
+    op: ">="
+    reference: spearman_all_h0_best_baseline
+    margin: -0.01
+    rationale: Ranking quality drives selection.
+  - name: crps_beats_climatology
+    metric: crps_all_h0
+    op: "<"
+    reference: crps_all_h0_climatology
+    rationale: The distribution must be more informative than a position × role climatology.
+  - name: interval_80_coverage
+    metric: coverage_80_all_h0
+    op: between
+    bounds: [0.75, 0.90]
+    rationale: Discrete outcomes make exact 80% impossible; gross mis-coverage fails.
+  - name: haul_probability_calibrated
+    metric: ece_6_all_h0
+    op: "<="
+    threshold: 0.02
+    rationale: P(points ≥ 6) is shown to users and drives captaincy upside.
+retraining:
+  every_gameweeks: 4
+  drift:
+    psi_major: 0.25
+    max_major_features: 3
+    rmse_ratio: 1.15
+    abs_bias: 0.4
+    ece: 0.05

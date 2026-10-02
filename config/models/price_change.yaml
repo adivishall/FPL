@@ -1,0 +1,33 @@
+# Price-change model (fpl_forecasting.price_change; §23, §57.1, §66). Gates fixed before evaluation.
+version: "1.0.0"
+model: price-change
+params:
+  n_estimators: 300
+  learning_rate: 0.03
+  num_leaves: 15
+  min_child_samples: 100
+  calibration_fraction: 0.2
+  seed: 13
+  n_jobs: 2
+retrain_every_gameweeks: 5
+promotion_gates:
+  - name: rise_log_loss_beats_trend
+    metric: log_loss_rise_all
+    op: "<"
+    reference: log_loss_rise_all_trend_baseline
+    rationale: Must add information beyond last-change persistence.
+  - name: fall_log_loss_beats_trend
+    metric: log_loss_fall_all
+    op: "<"
+    reference: log_loss_fall_all_trend_baseline
+    rationale: Falls are the commoner event and drive selling-price risk.
+  - name: rise_calibrated
+    metric: ece_rise_all
+    op: "<="
+    threshold: 0.01
+    rationale: Rare-event probabilities must not be inflated.
+  - name: fall_calibrated
+    metric: ece_fall_all
+    op: "<="
+    threshold: 0.015
+    rationale: As above.
