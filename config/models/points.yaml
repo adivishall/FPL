@@ -1,7 +1,18 @@
 # Decomposed probabilistic points model (fpl_forecasting.pipeline; ADR-0006, docs/MODEL_CARD.md).
 # Promotion gates were fixed BEFORE the walk-forward evaluation that applies them
 # (ml/reports/forecast_eval.md) — thresholds are never tuned to the result.
-version: "1.0.0"
+#
+# Gate history (kept permanently; see docs/MODEL_CARD.md):
+#   1.0.0 — gate `interval_80_coverage` required the inclusive [p10, p90] interval to cover
+#           75–90% of outcomes. The walk-forward evaluation gave 0.938 → FAILED. Diagnosis: the
+#           gate was mis-specified, not the model — points are integers and 40% of rows have
+#           p10 = p90 (mostly 0, non-playing squad players), so an inclusive quantile interval
+#           over-covers even under perfect calibration. The randomised-PIT central coverage
+#           (exactly 0.80 under calibration) was 0.803 and the PIT histogram max deviation 0.004.
+#   1.1.0 — the coverage gate is replaced by the PIT-based central coverage with the same
+#           tolerance width; every other gate unchanged. This correction was made AFTER seeing the
+#           1.0.0 result and is reported as such; the 1.0.0 outcome remains in the report.
+version: "1.1.0"
 model: points-decomposed
 training:
   horizons: [0, 1, 2, 3, 4]
@@ -50,11 +61,11 @@ promotion_gates:
     op: "<"
     reference: crps_all_h0_climatology
     rationale: The distribution must be more informative than a position × role climatology.
-  - name: interval_80_coverage
-    metric: coverage_80_all_h0
+  - name: central_80_coverage_pit
+    metric: pit_coverage_80_all_h0
     op: between
-    bounds: [0.75, 0.90]
-    rationale: Discrete outcomes make exact 80% impossible; gross mis-coverage fails.
+    bounds: [0.77, 0.83]
+    rationale: Share of outcomes inside the model's central 80% (randomised PIT, valid for discrete outcomes).
   - name: haul_probability_calibrated
     metric: ece_6_all_h0
     op: "<="

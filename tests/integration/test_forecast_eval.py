@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from fpl_forecasting.direct import DirectConfig
 from fpl_forecasting.forecast_eval import (
@@ -56,3 +57,10 @@ def test_forecast_eval_end_to_end() -> None:
     boot = paired_cutoff_bootstrap(r, "pred_mc_mean", "pred_position_mean", n_boot=50)
     assert boot["ci_low"] <= boot["difference"] <= boot["ci_high"]
     assert boot["n_cutoffs"] == 3
+    y = r["points"].to_numpy(float)
+    direct = np.sqrt(np.mean((r["pred_mc_mean"] - y) ** 2)) - np.sqrt(
+        np.mean((r["pred_position_mean"] - y) ** 2)
+    )
+    assert boot["difference"] == pytest.approx(direct)
+    crps = paired_cutoff_bootstrap(r, "crps_mc", "crps_climatology", metric="mean", n_boot=50)
+    assert crps["difference"] == pytest.approx(r["crps_mc"].mean() - r["crps_climatology"].mean())

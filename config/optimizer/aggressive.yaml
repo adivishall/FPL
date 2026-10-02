@@ -1,0 +1,32 @@
+# Optimiser objective profile (fpl_optimizer; ADR-0007, §16, §61.3). Every run stores this
+# file's version + content hash. Weights express preferences explicitly; the hit cost itself is
+# always the ruleset's real penalty and is not configurable here.
+version: "1.0.0"
+profile: aggressive
+description: Upside-seeking — no risk or churn penalty, little discounting, smaller gains accepted.
+objective:
+  discount: 0.97               # per-gameweek weight δ^t: later forecasts are less certain
+  risk_aversion: 0.0           # λ_risk × (EV − p10) penalty on starters (0 = expected points)
+  transfer_penalty: 0.0        # λ_transfer points per transfer (anti-churn preference)
+  vice_weight: 0.05            # ≈ P(captain blanks) — value of the vice armband
+  bench_weights: [0.10, 0.05, 0.02]   # outfield bench slots 1–3 (expected auto-sub usage)
+  bench_gk_weight: 0.03
+  free_transfer_value: 1.0     # points per free transfer still banked after the horizon
+  bank_value_per_tenth: 0.0    # points per £0.1m left in the bank after the horizon
+  terminal_squad_weight: 0.0   # × last-GW EV of the final squad (value beyond the horizon)
+  chip_values: {}              # points of keeping a chip unused (set by the chip planner)
+solver:
+  time_limit_seconds: 60.0
+  mip_rel_gap: 0.0
+  threads: 1
+  random_seed: 7
+pool:
+  per_position_top_ev: 30      # by horizon EV
+  per_position_top_value: 12   # by horizon EV per £
+  per_position_cheapest: 5     # enablers
+decision:
+  min_gain: 0.25               # E[gain] vs HOLD required to recommend a move
+  min_prob_positive: 0.55      # P(gain > 0) required to recommend a move
+stability:
+  perturbations: 20
+  stable_share: 0.7

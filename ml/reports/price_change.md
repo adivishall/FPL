@@ -30,5 +30,14 @@ Target: direction of price(t+1) − price(t). Information set: GW rows ≤ t−1
 | all | fall | trend_baseline | 76516 | 0.0484 | 0.04376 | 0.1763 | 0.0093 | 0.733 |
 | all | fall | base_rate | 76516 | 0.0484 | 0.04626 | 0.1955 | 0.0108 | 0.479 |
 
+## Promotion gates (`models/price_change@1.0.0#2f70183a`, fixed before evaluation): PASSED
+
+| gate | metric | value | target | result |
+|---|---|---|---|---|
+| rise_log_loss_beats_trend | log_loss_rise_all | 0.05875 | < log_loss_rise_all_trend_baseline +0 (= 0.08359) | pass |
+| fall_log_loss_beats_trend | log_loss_fall_all | 0.15111 | < log_loss_fall_all_trend_baseline +0 (= 0.17627) | pass |
+| rise_calibrated | ece_rise_all | 0.00120 | <= 0.01 | pass |
+| fall_calibrated | ece_fall_all | 0.00470 | <= 0.015 | pass |
+
 ![reliability](figures/price_reliability.svg)
 

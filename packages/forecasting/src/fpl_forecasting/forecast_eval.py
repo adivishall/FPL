@@ -22,7 +22,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -260,6 +260,10 @@ def distribution_metrics(rows: pd.DataFrame) -> pd.DataFrame:
                 rec["coverage_80"] = fm.coverage(g["p10"], g["p90"], yv)
                 rec["coverage_50"] = fm.coverage(g["p25"], g["p75"], yv)
             pit = g[f"pit_{model}"].to_numpy(float)
+            # central coverage via the randomised PIT: exactly 0.80 / 0.50 under calibration,
+            # also for discrete outcomes (quantile intervals are not — atoms at the endpoints)
+            rec["pit_coverage_80"] = float(np.mean((pit >= 0.1) & (pit <= 0.9)))
+            rec["pit_coverage_50"] = float(np.mean((pit >= 0.25) & (pit <= 0.75)))
             hist = np.histogram(pit, bins=10, range=(0, 1))[0] / max(len(pit), 1)
             rec["pit_max_dev"] = float(np.max(np.abs(hist - 0.1)))
             met.append(rec)
@@ -305,32 +309,42 @@ def paired_cutoff_bootstrap(
     rows: pd.DataFrame,
     a: str,
     b: str,
-    metric: Callable[[np.ndarray, np.ndarray], float] = fm.rmse,
+    metric: Literal["rmse", "mean"] = "rmse",
     n_boot: int = 2000,
     seed: int = 0,
 ) -> dict[str, float]:
     """Difference metric(a) − metric(b) with a bootstrap CI that resamples whole decision
-    cutoffs (rows within a cutoff are dependent: same models, same gameweek shocks)."""
-    groups = [g for _, g in rows.groupby(["season", "decision_gw"])]
+    cutoffs (rows within a cutoff are dependent: same models, same gameweek shocks).
+
+    ``rmse``: columns are predictions, compared with ``points``; ``mean``: columns are per-row
+    losses (e.g. CRPS). Works on per-cutoff sufficient statistics, so it is fast.
+    """
+    g = rows.groupby(["season", "decision_gw"])
+    if metric == "rmse":
+        y = rows["points"].to_numpy(float)
+        sa = pd.Series((rows[a].to_numpy(float) - y) ** 2, index=rows.index)
+        sb = pd.Series((rows[b].to_numpy(float) - y) ** 2, index=rows.index)
+    else:
+        sa, sb = rows[a].astype(float), rows[b].astype(float)
+    ssa = sa.groupby([rows["season"], rows["decision_gw"]]).sum().to_numpy()
+    ssb = sb.groupby([rows["season"], rows["decision_gw"]]).sum().to_numpy()
+    n = g.size().to_numpy().astype(float)
+
+    def stat(wts: np.ndarray) -> float:
+        ma, mb = (wts @ ssa) / (wts @ n), (wts @ ssb) / (wts @ n)
+        return float(np.sqrt(ma) - np.sqrt(mb)) if metric == "rmse" else float(ma - mb)
+
+    k = len(n)
     rng = np.random.default_rng(seed)
-
-    def diff(gs: list[pd.DataFrame]) -> float:
-        d = pd.concat(gs)
-        yv = d["points"].to_numpy(float)
-        return metric(d[a].to_numpy(float), yv) - metric(d[b].to_numpy(float), yv)
-
-    point = diff(groups)
-    boots = np.array(
-        [
-            diff([groups[i] for i in rng.integers(0, len(groups), len(groups))])
-            for _ in range(n_boot)
-        ]
-    )
+    idx = rng.integers(0, k, (n_boot, k))
+    counts = np.zeros((n_boot, k))
+    np.add.at(counts, (np.repeat(np.arange(n_boot), k), idx.ravel()), 1.0)
+    boots = np.array([stat(c) for c in counts])
     return {
-        "difference": float(point),
+        "difference": stat(np.ones(k)),
         "ci_low": float(np.quantile(boots, 0.025)),
         "ci_high": float(np.quantile(boots, 0.975)),
-        "n_cutoffs": len(groups),
+        "n_cutoffs": k,
     }
 
 
@@ -351,6 +365,8 @@ def gate_metrics(pm: pd.DataFrame, dm: pd.DataFrame, mm: pd.DataFrame) -> dict[s
         out[f"crps_{pop}_h0"] = float(d.loc["mc", "crps"])
         out[f"crps_{pop}_h0_climatology"] = float(d.loc["climatology", "crps"])
         out[f"coverage_80_{pop}_h0"] = float(d.loc["mc", "coverage_80"])
+        out[f"pit_coverage_80_{pop}_h0"] = float(d.loc["mc", "pit_coverage_80"])
+        out[f"pit_coverage_50_{pop}_h0"] = float(d.loc["mc", "pit_coverage_50"])
         out[f"ece_6_{pop}_h0"] = float(d.loc["mc", "ece_6"])
         m = mm[(mm["population"] == pop) & (mm["horizon"] == 0)].set_index("model")
         for k in ("brier_start", "log_loss_start", "ece_start", "minutes_mae"):

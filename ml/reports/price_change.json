@@ -129,6 +129,7 @@
       "rows": 99803
     }
   ],
+  "config": "models/price_change@1.0.0#2f70183a",
   "metrics": [
     {
       "season": "2023-24",
@@ -395,6 +396,70 @@
       "auc": 0.47899473005656357
     }
   ],
+  "gate_metrics": {
+    "brier_rise_all": 0.016569039873588605,
+    "log_loss_rise_all": 0.058745862033817195,
+    "ece_rise_all": 0.0012031213718459487,
+    "auc_rise_all": 0.9565922328045072,
+    "brier_rise_all_trend_baseline": 0.01874877023649977,
+    "log_loss_rise_all_trend_baseline": 0.0835932064312485,
+    "ece_rise_all_trend_baseline": 0.00054273851402714,
+    "auc_rise_all_trend_baseline": 0.7922585592841156,
+    "brier_rise_all_base_rate": 0.020489505102429535,
+    "log_loss_rise_all_base_rate": 0.1017060984862968,
+    "ece_rise_all_base_rate": 0.0007129806541440811,
+    "auc_rise_all_base_rate": 0.4775396000539108,
+    "brier_fall_all": 0.04105344817108694,
+    "log_loss_fall_all": 0.15110870347047675,
+    "ece_fall_all": 0.004700503590872978,
+    "auc_fall_all": 0.8629341423789775,
+    "brier_fall_all_trend_baseline": 0.04376389573855627,
+    "log_loss_fall_all_trend_baseline": 0.17626929322539348,
+    "ece_fall_all_trend_baseline": 0.009292453227863602,
+    "auc_fall_all_trend_baseline": 0.7333236026329681,
+    "brier_fall_all_base_rate": 0.046256340339721584,
+    "log_loss_fall_all_base_rate": 0.1954950170776828,
+    "ece_fall_all_base_rate": 0.010796541911839284,
+    "auc_fall_all_base_rate": 0.47899473005656357
+  },
+  "promotion_gates": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "rise_log_loss_beats_trend",
+        "metric": "log_loss_rise_all",
+        "value": 0.058745862033817195,
+        "target": "< log_loss_rise_all_trend_baseline +0 (= 0.08359)",
+        "passed": true,
+        "rationale": "Must add information beyond last-change persistence."
+      },
+      {
+        "name": "fall_log_loss_beats_trend",
+        "metric": "log_loss_fall_all",
+        "value": 0.15110870347047675,
+        "target": "< log_loss_fall_all_trend_baseline +0 (= 0.17627)",
+        "passed": true,
+        "rationale": "Falls are the commoner event and drive selling-price risk."
+      },
+      {
+        "name": "rise_calibrated",
+        "metric": "ece_rise_all",
+        "value": 0.0012031213718459487,
+        "target": "<= 0.01",
+        "passed": true,
+        "rationale": "Rare-event probabilities must not be inflated."
+      },
+      {
+        "name": "fall_calibrated",
+        "metric": "ece_fall_all",
+        "value": 0.004700503590872978,
+        "target": "<= 0.015",
+        "passed": true,
+        "rationale": "As above."
+      }
+    ],
+    "config_ref": "models/price_change@1.0.0#2f70183a"
+  },
   "reliability": {
     "rise \u00b7 model": [
       {
@@ -594,5 +659,5 @@
       }
     ]
   },
-  "elapsed_seconds": 107.8
+  "elapsed_seconds": 107.9
 }

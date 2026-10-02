@@ -17,7 +17,7 @@ build environment (see notes) · ✗ not done (with reason)
 | M2 | Data: ingestion, canonical schema, quality gates, freshness | ☑ | Reproducible historical snapshot | 5 real seasons ingested (113,870 player-fixture rows); `snap_b64560a8c4f434ad984e` reproduced via memory/DB/Parquet; 84 tests |
 | M3 | Rules: scoring, transfers, chips, squad validity, state transitions | ☑ | Rule/property tests pass | official points reproduced on 113,870/113,870 real rows; 153 tests incl. 4 Hypothesis invariant suites |
 | M4 | Forecasting baselines: PIT features, team strength, baselines | ☑ | Metrics reproducible | 49 registered PIT features (leak-free property test); team model +0.055–0.12 nats/match vs league avg; 4 baselines over 114 walk-forward cutoffs (`ml/reports/`) |
-| M5 | ML forecasting: minutes, point distributions, calibration, registry | ☐ | Out-of-sample results improve or justify model choice | |
+| M5 | ML forecasting: minutes, point distributions, calibration, registry | ☑ | Out-of-sample results improve or justify model choice | 114-cutoff walk-forward: MC RMSE 1.927 vs 1.938 direct GBM vs 2.034 best baseline (bootstrap CIs exclude 0); CRPS −13 % vs climatology; PIT-calibrated; minutes/price gates pass; `docs/MODEL_CARD.md` |
 | M6 | Optimizer: single-GW transfer/lineup, replacement, captaincy | ☐ | 100% generated squads legal on fixture suite | |
 | M7 | Multi-GW planner, chips, scenarios | ☐ | Historical scenario tests pass | |
 | M8 | Decision engine: hold/transfer/hit/chip, risk, stability | ☐ | Recommendation contract stable | |
@@ -32,7 +32,10 @@ Order note: backtesting (M10) precedes API/UI (M11–M12); see ADR-0001 #19.
 
 ## 2. Current milestone
 
-**M5 — ML forecasting** (in progress: simulation engine done + tested; minutes/rates/BPS estimators written, under test). M0–M4 complete.
+**M6 — Optimizer** (in progress: MILP with chips/FH/FT dynamics, exact lineup solver, independent
+validator, brute-force verifier, candidate pool, HOLD + top-N alternatives, vectorised lineup
+scoring on samples, captaincy engine — all tested; remaining: replacement engine, rotation
+pairing, optimizer benchmark/perf report, formulation doc, CI optimizer-suite job). M0–M5 complete.
 
 Environment: Python 3.12 (uv-managed; numpy 2.5 requires ≥3.12), Node 22, PostgreSQL 16
 binaries, Redis 7, Docker 29, 4 CPU, 15 GB RAM. Network: historical dataset + PyPI + npm + Docker
@@ -65,16 +68,16 @@ Hub reachable; FPL API, premierleague.com, Debian mirrors and GHCR blobs blocked
 ### Forecasting (§10–§14, §57–§59, §67, §71)
 | Item | Spec | Milestone | Status |
 |------|------|-----------|--------|
-| P(start), expected minutes, sub risk, return probability | §10, §58 | M5 | ☐ |
-| Decomposed points: appearance, goals, assists, CS, DC, cards, bonus, other | §11, §57.1 | M5 | ☐ |
-| Price-change model | §57.1, §23, §66 | M5 | ☐ |
-| Monte Carlo point distributions with correlation | §12, §59 | M5 | ☐ |
-| Recency weighting, Bayesian updating, hierarchical priors | §13 | M4/M5 | ◐ recency weighting + MAP/Laplace team priors done; EB player rates in M5 |
-| Calibration (reliability, Brier, ECE), conformal intervals, ensemble, drift | §13, §57.2, §71 | M5/M13 | ☐ |
-| Baselines compared; temporal splits; MAE/RMSE/log loss/Brier/CRPS | §57.2 | M4/M5 | ◐ 4 baselines, walk-forward harness, metric library done; ML comparison in M5 |
-| Model registry, promotion gates, rollback, seeds | §71 | M5 | ☐ |
+| P(start), expected minutes, sub risk, return probability | §10, §58 | M5 | ☑ calibrated multi-horizon LightGBM (return probability via horizon feature), P(sub), minutes buckets; Brier 0.081 vs 0.100 baseline, ECE 0.010 |
+| Decomposed points: appearance, goals, assists, CS, DC, cards, bonus, other | §11, §57.1 | M5 | ☑ per-component xP in every forecast row; joint fixture simulation |
+| Price-change model | §57.1, §23, §66 | M5 | ☑ calibrated rise/fall classifiers vs naive trend; official predictor signal kept separate (`official_signal`); `ml/reports/price_change.md` |
+| Monte Carlo point distributions with correlation | §12, §59 | M5 | ☑ CRN joint simulation; CRPS 0.630 vs 0.726 climatology; PIT 80 % coverage 0.803 |
+| Recency weighting, Bayesian updating, hierarchical priors | §13 | M4/M5 | ☑ recency weights; team MAP/Laplace priors; Bühlmann–Straub player rates with position/price priors (κ validated out of sample) |
+| Calibration (reliability, Brier, ECE), conformal intervals, ensemble, drift | §13, §57.2, §71 | M5/M13 | ☑ reliability diagrams, Brier/ECE/PIT; P1 ensemble + temporal conformal evaluated and documented (not adopted, reasons in MODEL_CARD); PSI/residual/ECE drift + retrain triggers (dashboard in M13) |
+| Baselines compared; temporal splits; MAE/RMSE/log loss/Brier/CRPS | §57.2 | M4/M5 | ☑ 4 baselines + direct GBM + climatology + rate minutes baseline; cutoff-block bootstrap CIs |
+| Model registry, promotion gates, rollback, seeds | §71 | M5 | ☑ `fpl_storage.registry` (content-addressed, status machine, rollback) + pre-registered gates in `config/models/*.yaml`; gate history kept (points@1.0.0 FAILED → 1.1.0) |
 | Independent probabilistic fixture layer (team xG, CS prob, attack/defence indices, swings, DGW load, BGW risk, rotation pairing) | §14 | M4/M7 | ◐ team μ, CS prob, ratings with Laplace SD done; swings/rotation pairing in M7 |
-| News/injury signals → start probability adjustments | §67 | M5 | ☐ |
+| News/injury signals → start probability adjustments | §67 | M5 | ◐ live availability layer (status/chance, recovery, departed); uncalibrated by necessity (no historical news) |
 
 ### Optimisation & decisions (§15–§26, §29, §60–§65, §68–§69)
 | Item | Spec | Milestone | Status |
@@ -172,6 +175,12 @@ ADR-0010 (evidence-based explanations).
 - Live event data for players with two fixtures in a GW is not split per fixture from the
   aggregated live payload (DQ warning); the end-of-season historical import provides the split.
 
+- Points gate `interval_80_coverage` (points@1.0.0) was mis-specified for integer outcomes and
+  failed (0.938); replaced in points@1.1.0 by PIT-based central coverage (0.803) after seeing the
+  result — recorded in the config header, the report's gate history and the model card.
+- The availability layer (FPL status → start probability) is configuration, not calibrated: no
+  historical news exists. Price model information set is GW-granular (see MODEL_CARD §7).
+
 - Docker builds inside this sandbox need the proxy CA passed as a BuildKit secret (documented in
   `infra/docker/README.md`); not needed in CI.
 
@@ -181,6 +190,14 @@ ADR-0010 (evidence-based explanations).
 ## 7. Files changed (by milestone)
 
 - M0: `docs/BUILD_STATUS.md`, `docs/decisions/ADR-0001…0010`, `docs/architecture/source-inventory.md`.
+- M5: `fpl_forecasting/{minutes,rates,params,pipeline,direct,forecast_eval,price_change,
+  governance,model_config}.py`, `fpl_storage/registry.py`, `fpl_simulation/engine.py` (starts),
+  `config/models/{points,minutes,price_change}.yaml`, `ml/experiments/{forecast_eval,
+  price_change_eval,rate_shrinkage_check,feature_importance,ensemble_conformal}.py`,
+  `ml/reports/{forecast_eval,price_change,rate_shrinkage,feature_importance,ensemble_conformal}.*`
+  + figures, `docs/MODEL_CARD.md`, tests `tests/unit/forecasting/{test_rates,test_params,
+  test_minutes,test_price_change,test_governance}.py`, `tests/integration/{test_forecast_pipeline,
+  test_forecast_eval,test_model_registry}.py`.
 - M4: `fpl_features/{registry,builder,labels,version_lock}.py`,
   `fpl_forecasting/{team_strength,team_eval,baselines,metrics,walkforward}.py`,
   `config/models/team_strength.yaml`, `ml/experiments/{team_strength_tuning,baselines_eval}.py`,
@@ -244,6 +261,17 @@ ADR-0010 (evidence-based explanations).
   tracking; metrics vs closed forms (CRPS of N(0,1), calibrated ECE ≈ 0, PIT uniformity);
   harness causality (training rows strictly before cutoff). Experiments: rolling-origin team
   tuning (27 configs × 3 seasons), baseline walk-forward (114 cutoffs × horizon 5).
+
+- M5: `pytest` 217 passed — rate shrinkage recovers Poisson noise φ≈1 and CV² on synthetic
+  leagues, posterior beats raw/prior vs truth; BPS map/elasticity/globals recover known
+  parameters; minutes model calibrated out of sample, deterministic, chronological calibration
+  slice, availability layer incl. departed players; price features invariant to future
+  perturbation (Hypothesis), labels visible at cutoff, hand-computed features; end-to-end forecast
+  on real excerpt: provenance complete, deterministic, exact binomial consistency of simulated
+  starts; forecast-eval harness retrain schedule causal, bootstrap = direct metric; gates, PSI,
+  retrain triggers; registry lifecycle on PostgreSQL (promotion, rollback, tamper detection).
+  Experiments: forecast walk-forward (114 cutoffs, 397k rows, 30 min), price (76k predictions),
+  rate shrinkage OOS, feature-importance stability, ensemble/conformal.
 
 ## 9. Remaining work
 
