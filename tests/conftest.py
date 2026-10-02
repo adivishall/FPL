@@ -50,6 +50,31 @@ def run_alembic(url: str, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+@pytest.fixture
+def fresh_db(pg_url: str) -> Iterator[str]:
+    """A brand-new, fully migrated database in the test cluster (dropped afterwards)."""
+    import uuid
+
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.engine import make_url
+
+    name = f"t_{uuid.uuid4().hex[:12]}"
+    admin = create_engine(pg_url, isolation_level="AUTOCOMMIT")
+    with admin.connect() as c:
+        c.execute(text(f'CREATE DATABASE "{name}"'))
+    url = make_url(pg_url).set(database=name).render_as_string(hide_password=False)
+    res = run_alembic(url, "upgrade", "head")
+    if res.returncode != 0:
+        raise RuntimeError(f"alembic upgrade failed:\n{res.stderr}")
+    yield url
+    from fpl_storage.db import _cached_engine
+
+    _cached_engine.cache_clear()
+    with admin.connect() as c:
+        c.execute(text(f'DROP DATABASE "{name}" WITH (FORCE)'))
+    admin.dispose()
+
+
 @pytest.fixture(scope="session")
 def migrated_db(pg_url: str) -> str:
     """Database URL with all migrations applied."""

@@ -44,3 +44,9 @@ source_priority:
   fpl_api: 100
   manual: 90
   vaastav: 50
+
+point_in_time:
+  # ADR-0004 policies for historical data (stored with every ingestion job).
+  derived_deadline_offset_minutes: 90      # FPL deadline = 90 min before first kickoff of the GW
+  schedule_published_days_before_season: 60
+  dgw_fixture_announce_lag_days: 28        # DGW fixtures visible this long before kickoff

@@ -24,3 +24,6 @@ packages = ["src/fpl_ingestion"]
 [tool.uv.sources]
 fpl-domain = { workspace = true }
 fpl-storage = { workspace = true }
+
+[project.scripts]
+fpl-ingest = "fpl_ingestion.cli:main"
