@@ -143,6 +143,9 @@ class Forecast:
     team_strength: TeamStrength
     minutes: MinutesPrediction
     provenance: dict[str, Any]
+    glob: GlobalParams | None = None
+    sim_config: SimulationConfig | None = None
+    decision_gw: int = 0
 
     @property
     def run_id(self) -> str:
@@ -261,29 +264,7 @@ def forecast(
     sim = simulate(players, fixtures, glob, ruleset, cfg)
     view.assert_no_leakage()
 
-    s = sim.summary()
-    p_idx = np.searchsorted(sim.player_codes, players.player_code)
-    g_idx = np.searchsorted(sim.gameweeks, players.gameweek)
-    # Minutes-model probability of ≥ 1 start in the GW (doubles: 1 − Π(1 − p)), before the
-    # simulator imposes lineup coherence; ``prob_start`` in the summary is the coherent value.
-    no_start = np.ones((len(sim.player_codes), len(sim.gameweeks)))
-    np.multiply.at(no_start, (p_idx, g_idx), 1.0 - players.p_start)
-    start_model = 1.0 - no_start
-    rows = []
-    for pi, code in enumerate(sim.player_codes):
-        for gi, gw in enumerate(sim.gameweeks):
-            if not sim.has_fixture[pi, gi]:
-                continue
-            row = {
-                "player_code": int(code),
-                "gw": int(gw),
-                "horizon": int(gw) - cut.gw,
-                "start_probability_model": float(start_model[pi, gi]),
-            }
-            row.update({k: float(v[pi, gi]) for k, v in s.items()})
-            row.update({f"xp_{k}": float(v[pi, gi]) for k, v in sim.components.items()})
-            rows.append(row)
-    summary = pd.DataFrame(rows)
+    summary = summarize_simulation(sim, players, cut.gw)
     provenance = {
         "season": cut.season,
         "decision_gw": cut.gw,
@@ -307,4 +288,72 @@ def forecast(
         team_strength=team,
         minutes=mp,
         provenance=provenance,
+        glob=glob,
+        sim_config=cfg,
+        decision_gw=cut.gw,
+    )
+
+
+def summarize_simulation(
+    sim: SimulationResult, players: PlayerFixtureParams, decision_gw: int
+) -> pd.DataFrame:
+    """One row per player × target gameweek (§59.2 contract) from a simulation result."""
+    s = sim.summary()
+    p_idx = np.searchsorted(sim.player_codes, players.player_code)
+    g_idx = np.searchsorted(sim.gameweeks, players.gameweek)
+    # Minutes-model probability of ≥ 1 start in the GW (doubles: 1 − Π(1 − p)), before the
+    # simulator imposes lineup coherence; ``prob_start`` in the summary is the coherent value.
+    no_start = np.ones((len(sim.player_codes), len(sim.gameweeks)))
+    np.multiply.at(no_start, (p_idx, g_idx), 1.0 - players.p_start)
+    start_model = 1.0 - no_start
+    rows = []
+    for pi, code in enumerate(sim.player_codes):
+        for gi, gw in enumerate(sim.gameweeks):
+            if not sim.has_fixture[pi, gi]:
+                continue
+            row = {
+                "player_code": int(code),
+                "gw": int(gw),
+                "horizon": int(gw) - decision_gw,
+                "start_probability_model": float(start_model[pi, gi]),
+            }
+            row.update({k: float(v[pi, gi]) for k, v in s.items()})
+            row.update({f"xp_{k}": float(v[pi, gi]) for k, v in sim.components.items()})
+            rows.append(row)
+    summary = pd.DataFrame(rows)
+    return summary
+
+
+def resimulate(
+    fc: Forecast,
+    players: PlayerFixtureParams | None = None,
+    fixtures: FixtureParams | None = None,
+    label: str = "scenario",
+) -> Forecast:
+    """Re-run the joint simulation with modified parameters (scenario engine, §25, §69).
+
+    Same seed and sample count, so the scenario is *paired* with the base forecast: samples
+    differ only through the perturbed inputs.
+    """
+    if fc.glob is None or fc.sim_config is None:
+        raise ValueError("forecast lacks simulation inputs")
+    pl = players if players is not None else fc.players
+    fx = fixtures if fixtures is not None else fc.fixtures
+    ruleset = load_ruleset(fc.provenance["season"])
+    sim = simulate(pl, fx, fc.glob, ruleset, fc.sim_config)
+    prov = {**fc.provenance, "scenario": label, "base_prediction_run_id": fc.run_id}
+    prov["prediction_run_id"] = short_id(
+        "pred", {k: v for k, v in prov.items() if k != "prediction_run_id"}
+    )
+    return Forecast(
+        summary=summarize_simulation(sim, pl, fc.decision_gw),
+        simulation=sim,
+        players=pl,
+        fixtures=fx,
+        team_strength=fc.team_strength,
+        minutes=fc.minutes,
+        provenance=prov,
+        glob=fc.glob,
+        sim_config=fc.sim_config,
+        decision_gw=fc.decision_gw,
     )

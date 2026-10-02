@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import highspy
@@ -80,7 +80,9 @@ class _Model:
     def row(self, coefs: dict[int, float], lo: float = -INF, hi: float = INF) -> None:
         self.rows.append(({k: v for k, v in coefs.items() if v != 0.0}, lo, hi))
 
-    def solve(self, settings: Any) -> tuple[np.ndarray, float, str, dict[str, Any]]:
+    def solve(
+        self, settings: Any, start: dict[str, float] | None = None
+    ) -> tuple[np.ndarray, float, str, dict[str, Any]]:
         n = len(self.lb)
         data, ri, ci = [], [], []
         lo, hi = [], []
@@ -116,6 +118,21 @@ class _Model:
         h.setOptionValue("mip_rel_gap", settings.mip_rel_gap)
         h.setOptionValue("mip_feasibility_tolerance", 1e-7)
         h.passModel(lp)
+        warm = False
+        if start:
+            # MIP start by variable name; the playing squad defaults to the persistent squad
+            vec = []
+            for name in self.names:
+                if name in start:
+                    vec.append(start[name])
+                elif name.startswith("w["):
+                    vec.append(start.get("x" + name[1:], 0.0))
+                else:
+                    vec.append(0.0)
+            hs = highspy.HighsSolution()
+            hs.col_value = vec
+            hs.value_valid = True
+            warm = h.setSolution(hs) == highspy.HighsStatus.kOk
         t0 = time.perf_counter()
         h.run()
         elapsed = time.perf_counter() - t0
@@ -129,6 +146,7 @@ class _Model:
             "n_vars": n,
             "n_rows": len(self.rows),
             "n_integer": int(sum(self.integer)),
+            "warm_start": warm,
         }
         if h.getInfo().primal_solution_status != 2:  # kSolutionStatusFeasible
             return np.array([]), float("nan"), status, stats
@@ -163,6 +181,7 @@ class Solution:
     stats: dict[str, Any]
     free_transfers_end: int
     terms: dict[str, float] = field(default_factory=dict)
+    values: dict[str, float] = field(default_factory=dict, repr=False)  # by variable name
 
     @property
     def first(self) -> GameweekPlan:
@@ -187,6 +206,7 @@ def _chip_ft_next(policy: ChipFtPolicy, per: int) -> tuple[str, int]:
 def build_and_solve(
     prob: OptimizationProblem,
     extra_cuts: list[tuple[dict[tuple[str, int, int], float], float]] | None = None,
+    start: Solution | None = None,
 ) -> Solution:
     """Build the MILP for ``prob`` and solve it. ``extra_cuts`` are rows Σ coef·var ≤ rhs over
     named first-GW transfer variables, e.g. {("y", p, 0): 1, ...} — used for top-N no-good cuts.
@@ -226,7 +246,6 @@ def build_and_solve(
     cap_ft = rs.transfers.max_banked_free_transfers
     hit_cost = rs.transfers.hit_cost
     bank0 = float(st.bank)
-    big_money = float(bank0 + sale[owned].sum() + buy.max() * 15 + 10)
     big_ev = float(np.abs(ev).max() * 4 + 10)
 
     # ---------------------------------------------------------------- chips
@@ -466,16 +485,16 @@ def build_and_solve(
                 members = np.flatnonzero(pl.team == team).tolist()
                 if len(members) > rs.squad.max_per_club:
                     m.row({q[(p, t)]: 1.0 for p in members}, -INF, rs.squad.max_per_club)
-            # budget: Σ cost·q ≤ bank_{t−1} + Σ sale·x_{t−1}   (when the Free Hit is played)
+            # budget: Σ cost·q ≤ bank_{t−1} + Σ sale·x_{t−1}. No big-M is needed: when the Free
+            # Hit is not played q ≡ 0 and the right-hand side is non-negative.
             coefs = {q[(p, t)]: sale[p] for p in range(n_pl)}
-            coefs.update(dict.fromkeys(fh_js, big_money))
             if t > 0:
                 coefs[bank[t - 1]] = -1.0
                 for p in range(n_pl):
                     coefs[int(x[p, t - 1])] = coefs.get(int(x[p, t - 1]), 0.0) - sale[p]
-                m.row(coefs, -INF, big_money)
+                m.row(coefs, -INF, 0.0)
             else:
-                m.row(coefs, -INF, big_money + bank0 + float(sale[owned].sum()))
+                m.row(coefs, -INF, bank0 + float(sale[owned].sum()))
             for p in range(n_pl):
                 if int(pl.code[p]) in pref.banned and not owned[p]:
                     m.row({q[(p, t)]: 1.0}, 0.0, 0.0)
@@ -593,7 +612,7 @@ def build_and_solve(
             coefs[int({"y": y, "z": z}[kind][p, t])] = v
         m.row(coefs, -INF, rhs)
 
-    sol, objective, status, stats = m.solve(cfg.solver)
+    sol, objective, status, stats = m.solve(cfg.solver, start.values if start else None)
     if sol.size == 0:
         raise OptimizationError(f"no feasible solution ({status})")
     stats["status"] = status
@@ -688,7 +707,17 @@ def build_and_solve(
         stats=stats,
         free_transfers_end=ft_now,
         terms=terms,
+        values={n: float(v) for n, v in zip(m.names, sol, strict=True) if v != 0.0},
     )
+
+
+def solve_with_chips(prob: OptimizationProblem) -> Solution:
+    """Optimise with chip choice open, warm-started from the no-chip optimum so the incumbent is
+    never worse than not playing a chip (chip-open MILPs are much harder; ADR-0007)."""
+    if not prob.chip_options or prob.forced_chips:
+        return build_and_solve(prob)
+    base = build_and_solve(replace(prob, chip_options={}))
+    return build_and_solve(prob, start=base)
 
 
 def plan_positions(prob: OptimizationProblem) -> dict[int, Position]:

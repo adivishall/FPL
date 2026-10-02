@@ -73,6 +73,22 @@ jobs:
           name: coverage
           path: coverage.xml
 
+  optimizer-suite:
+    # Exhaustive brute-force verification of the MILP (incl. slow Free Hit what-if cases) and
+    # the independent validator on real forecasts (§36, §61, ADR-0007).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: MILP vs brute force, lineup solver, initial squad, validator
+        run: uv run pytest -q tests/unit/optimizer tests/unit/simulation/test_lineup_eval.py
+      - name: optimiser + decision engine on real forecasts
+        run: uv run pytest -q tests/integration/test_optimizer_real_data.py tests/integration/test_decision_real_data.py
+
   security:
     runs-on: ubuntu-latest
     steps:

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -154,5 +156,17 @@ def test_each_chip_respects_its_own_allowed_weeks() -> None:
     sol = build_and_solve(prob)  # negative chip values: both chips are attractive to play
     chips = {p.gameweek: p.chip_id for p in sol.plans}
     assert chips == {10: "bench_boost_1", 11: "triple_captain_1"}
+    assert validate_solution(prob, sol).valid
+    assert brute_force(prob).objective == pytest.approx(sol.objective, abs=1e-5)
+
+
+def test_warm_started_chip_choice_is_never_worse_than_no_chip() -> None:
+    from fpl_optimizer.milp import solve_with_chips
+
+    prob = tiny_league(1100, chip_options={"wildcard_1": (10, 11), "bench_boost_1": (10, 11)})
+    sol = solve_with_chips(prob)
+    assert sol.stats["warm_start"] is True
+    no_chip = build_and_solve(replace(prob, chip_options={}))
+    assert sol.objective >= no_chip.objective - 1e-9
     assert validate_solution(prob, sol).valid
     assert brute_force(prob).objective == pytest.approx(sol.objective, abs=1e-5)

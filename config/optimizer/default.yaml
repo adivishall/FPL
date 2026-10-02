@@ -28,5 +28,9 @@ decision:
   min_gain: 0.5                # E[gain] vs HOLD required to recommend a move
   min_prob_positive: 0.6       # P(gain > 0) required to recommend a move
 stability:
-  perturbations: 20
-  stable_share: 0.7
+  perturbations: 20            # epistemic re-optimisations (§29)
+  stable_share: 0.7            # share of perturbations keeping the action near-optimal → "stable"
+  relative_sd: 0.15            # SD of a player's EV level (log scale)
+  weekly_sd: 0.08              # extra per-gameweek EV noise (log scale)
+  tolerance: 0.25              # objective points: "near-optimal" margin
+  seed: 11

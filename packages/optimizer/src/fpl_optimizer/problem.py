@@ -61,6 +61,15 @@ class DecisionThresholds(_Frozen):
 class StabilitySettings(_Frozen):
     perturbations: int = 20
     stable_share: float = 0.7
+    relative_sd: float = Field(0.15, ge=0, description="epistemic SD of a player's EV level")
+    weekly_sd: float = Field(0.08, ge=0, description="extra per-gameweek EV noise")
+    tolerance: float = Field(
+        0.25,
+        ge=0,
+        description="objective points within which the "
+        "recommended action still counts as near-optimal",
+    )
+    seed: int = 11
 
 
 class OptimizerConfig(_Frozen):
