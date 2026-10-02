@@ -66,7 +66,8 @@ def _realised_transfer_gain(df: pd.DataFrame, ds_points: pd.DataFrame, k: int) -
     pts = ds_points.set_index(["season", "gw", "player_code"])["points"]
     rows = []
     for r in df.itertuples():
-        if not r.transfers_in or (r.chip or "").startswith(("wildcard", "free_hit")):
+        chip = r.chip if isinstance(r.chip, str) else ""
+        if len(r.transfers_in) == 0 or chip.startswith(("wildcard", "free_hit")):
             continue
         gws = range(r.gw, min(r.gw + k, 39))
         got = sum(pts.get((r.season, g, c), 0) for g in gws for c in r.transfers_in)
@@ -76,8 +77,8 @@ def _realised_transfer_gain(df: pd.DataFrame, ds_points: pd.DataFrame, k: int) -
                 "strategy": r.strategy,
                 "season": r.season,
                 "gw": r.gw,
-                "out": list(r.transfers_out),
-                "in": list(r.transfers_in),
+                "sold": list(r.transfers_out),
+                "bought": list(r.transfers_in),
                 "hit": r.hit_points,
                 f"gain_{k}gw": got - lost - r.hit_points,
             }
@@ -100,6 +101,11 @@ def report() -> None:
     ds = load_snapshot(sorted((ROOT / "data" / "snapshots").glob("snap_*"))[-1])
     pm = ds["player_match"]
     ds_points = pm.groupby(["season", "gw", "player_code"], as_index=False)["points"].sum()
+    reg = ds["players"]
+    names = {
+        (str(se), int(c)): str(n)
+        for se, c, n in zip(reg["season"], reg["player_code"], reg["web_name"], strict=True)
+    }
     seasons = sorted(df["season"].unique())
     df["lineup_regret"] = df["hindsight_lineup_points"] - df["raw_points"]
     summary = (
@@ -147,17 +153,42 @@ def report() -> None:
         g = grp.reset_index(drop=True)
         for i in range(len(g) - 1):
             plan = g.loc[i, "planned_next"]
-            if plan is None:
+            if plan is None or isinstance(plan, float):  # no plan recorded (NaN after Parquet)
                 continue
-            actual = [sorted(g.loc[i + 1, "transfers_out"]), sorted(g.loc[i + 1, "transfers_in"])]
+            planned = (sorted(int(c) for c in plan[0]), sorted(int(c) for c in plan[1]))
+            actual = (
+                sorted(int(c) for c in g.loc[i + 1, "transfers_out"]),
+                sorted(int(c) for c in g.loc[i + 1, "transfers_in"]),
+            )
+            ins_p, ins_a = set(planned[1]), set(actual[1])
+            overlap = len(ins_p & ins_a) / len(ins_p | ins_a) if (ins_p or ins_a) else 1.0
             churn.append(
                 {
                     "season": season,
                     "gw": int(g.loc[i + 1, "gw"]),
-                    "changed": [sorted(plan[0]), sorted(plan[1])] != actual,
+                    "planned_hold": not planned[1],
+                    "acted": bool(actual[1]),
+                    "as_planned": planned == actual,
+                    "overlap": overlap,
                 }
             )
     churn_df = pd.DataFrame(churn)
+    # round-trip churn: a player bought and sold again within 3 gameweeks (executed actions)
+    trips = []
+    for (season, strat), grp in df.sort_values("gw").groupby(["season", "strategy"]):
+        bought_at: dict[int, int] = {}
+        n = 0
+        for r in grp.itertuples():
+            chip = r.chip if isinstance(r.chip, str) else ""
+            if chip.startswith("free_hit"):
+                continue
+            for c in r.transfers_out:
+                if int(c) in bought_at and r.gw - bought_at[int(c)] <= 3:
+                    n += 1
+            for c in r.transfers_in:
+                bought_at[int(c)] = r.gw
+        trips.append({"season": season, "strategy": strat, "round_trips": n})
+    trips_df = pd.DataFrame(trips)
     calib = eng.dropna(subset=["expected_points"])
     figs = REP / "figures"
     figs.mkdir(parents=True, exist_ok=True)
@@ -181,7 +212,15 @@ def report() -> None:
         "engine_vs": comp.to_dict("records"),
         "transfers_1gw": tg1.to_dict("records"),
         "transfers_4gw": tg4.to_dict("records"),
-        "plan_churn_rate": float(churn_df["changed"].mean()) if len(churn_df) else None,
+        "plan_churn_rate": float(1 - churn_df["as_planned"].mean()) if len(churn_df) else None,
+        "planned_vs_actual_overlap": float(churn_df["overlap"].mean()) if len(churn_df) else None,
+        "round_trips": trips_df.to_dict("records"),
+        "planned_hold_kept": float((~churn_df.loc[churn_df["planned_hold"], "acted"]).mean())
+        if len(churn_df) and churn_df["planned_hold"].any()
+        else None,
+        "planned_move_executed": float(churn_df.loc[~churn_df["planned_hold"], "as_planned"].mean())
+        if len(churn_df) and (~churn_df["planned_hold"]).any()
+        else None,
         "engine_expected_vs_actual": {
             "mean_expected": float(calib["expected_points"].mean()) if len(calib) else None,
             "mean_actual": float(calib["raw_points"].mean()) if len(calib) else None,
@@ -250,20 +289,35 @@ def report() -> None:
             "|---|---|---|---|---|---|---|",
         ]
         m = e4.merge(e1[["season", "gw", "gain_1gw"]], on=["season", "gw"], how="left")
+
+        def who(season: str, codes: list[int]) -> str:
+            return ", ".join(names.get((season, int(c)), str(c)) for c in codes)
+
         for r in m.itertuples():
             lines.append(
-                f"| {r.season} | {r.gw} | {r.out} | {getattr(r, 'in')} | {r.hit} | "
-                f"{r.gain_1gw:+d} | {r.gain_4gw:+d} |"
+                f"| {r.season} | {r.gw} | {who(r.season, r.sold)} | {who(r.season, r.bought)} | "
+                f"{r.hit} | {r.gain_1gw:+d} | {r.gain_4gw:+d} |"
             )
     lines += [
         "",
         "## Diagnostics",
         "",
-        f"* Plan churn: {payload['plan_churn_rate']:.0%} of the engine's planned next-week "
-        "actions changed when the next week came (new information) — "
-        "lower is more stable."
-        if payload["plan_churn_rate"] is not None
-        else "* Plan churn: n/a",
+        (
+            f"* Plan stability: {payload['plan_churn_rate']:.0%} of next-week plans changed when "
+            f"the week came. A planned *hold* was kept {payload['planned_hold_kept']:.0%} of the "
+            f"time; a planned *move* was executed exactly as planned "
+            f"{payload['planned_move_executed']:.0%} of the time — future moves in a plan are "
+            "provisional: each week is re-optimised on new information and must clear the "
+            "paired-gain thresholds again. Mean overlap (Jaccard) of planned and executed "
+            f"incoming players: {payload['planned_vs_actual_overlap']:.0%}. Round trips (player "
+            "sold ≤ 3 GWs after purchase, executed actions): "
+            + ", ".join(f"{r['strategy']} {r['round_trips']}" for r in payload["round_trips"])
+            + "."
+            if payload["plan_churn_rate"] is not None
+            and payload["planned_hold_kept"] is not None
+            and payload["planned_move_executed"] is not None
+            else "* Plan stability: n/a"
+        ),
         f"* Engine expected vs actual squad points per GW: "
         f"{payload['engine_expected_vs_actual']['mean_expected']:.1f} vs "
         f"{payload['engine_expected_vs_actual']['mean_actual']:.1f} (corr "
