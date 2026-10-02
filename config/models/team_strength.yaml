@@ -1,0 +1,25 @@
+# Team strength model configuration (fpl_forecasting.team_strength). Versioned; stored with runs.
+# Selection protocol: rolling-origin (ml/experiments/team_strength_tuning.py, report in
+# ml/reports/team_strength_tuning.md). A season S may only use a configuration selected on
+# seasons strictly before S — this is what backtests of S use (no tuning leakage, §7).
+#
+# Evidence (walk-forward, every GW): xG-blend model vs league average +0.12 (2024-25) and
+# +0.055 (2025-26) nats/match; vs goals-only +0.046 / +0.030. Tuned configs are within ~0.004
+# nats/match of the hand-set default in both test folds (slightly below it): hyper-parameter
+# choice is second-order; model structure is what matters.
+version: "1.1.0"
+default:
+  half_life_days: 120.0
+  window_days: 500.0
+  goals_weight: 0.35
+  prior_sd: 0.35
+  promoted_attack_prior: -0.25
+  promoted_defence_prior: -0.20
+  home_advantage_prior: 0.12
+  home_advantage_sd: 0.10
+  min_matches_for_history: 5
+by_target_season:
+  # 2023-24: no completed evaluation season precedes it in the dataset → default.
+  "2024-25": {half_life_days: 60.0, goals_weight: 0.35, prior_sd: 0.6}
+  "2025-26": {half_life_days: 120.0, goals_weight: 0.35, prior_sd: 0.6}
+  "2026-27": {half_life_days: 120.0, goals_weight: 0.0, prior_sd: 0.6}

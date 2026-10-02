@@ -1,7 +1,7 @@
 # Data Dictionary
 
 Canonical data model, data contracts, point-in-time availability rules and data-quality evidence.
-Feature definitions (§56) are appended by the feature-store milestone (M4).
+Feature definitions (§56) are in §5 (generated from the feature registry).
 
 ## 1. Canonical tables (analytic shape)
 
@@ -89,3 +89,67 @@ the same id).
 Enforced by `fpl_storage.pit.PointInTimeView` and verified by a Hypothesis property test that
 randomly corrupts every value whose availability is after the cutoff and asserts all PIT outputs
 are unchanged (`tests/unit/storage/test_raw_store_and_pit.py`).
+
+## 5. Feature dictionary (§56)
+
+All features are computed by `fpl_features.builder.build_features` from a `PointInTimeView` at the
+decision cutoff; each frame records the latest source availability timestamp it used and the
+builder fails if that is after the cutoff. Recency weights decay by half-life in *team fixtures*
+(non-appearances count as zeros while the player is registered).
+
+<!-- BEGIN GENERATED FEATURE TABLE -->
+Feature version `1.0.0` — generated from `fpl_features.registry`.
+
+| Feature | Family | Definition | Source | Window | Timestamp policy | Missing | Leakage | Type/range |
+|---|---|---|---|---|---|---|---|---|
+| `n_prior_matches` | meta | Team fixtures observed for the player before cutoff (any season) | player_match (PIT: available_at ≤ cutoff) | all history | as of the latest row available at cutoff | 0 | none | int [0, None] |
+| `mins_last1` | minutes | Minutes in the most recent team fixture | player_match (PIT: available_at ≤ cutoff) | 1 match | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 130] |
+| `mins_ewm_short` | minutes | Recency-weighted mean minutes | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 3 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 130] |
+| `mins_ewm_long` | minutes | Recency-weighted mean minutes | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 130] |
+| `start_rate_short` | minutes | Recency-weighted share of team fixtures started | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 3 | as of the latest row available at cutoff | NaN where starts unpopulated | none | float [0, 1] |
+| `start_rate_long` | minutes | Recency-weighted share of team fixtures started | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 1] |
+| `app_rate_short` | availability | Recency-weighted share of team fixtures with minutes>0 | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 3 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 1] |
+| `full90_rate_long` | minutes | Recency-weighted share of fixtures with ≥89 minutes | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 1] |
+| `sub_app_rate_long` | minutes | Share of team fixtures entered as a substitute | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 1] |
+| `mins_if_start_long` | minutes | Recency-weighted mean minutes when starting | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 130] |
+| `zero_min_streak` | availability | Consecutive most recent team fixtures with 0 minutes (injury/drop proxy) | player_match (PIT: available_at ≤ cutoff) | up to 40 matches | as of the latest row available at cutoff | 0 | none | int [0, 40] |
+| `days_since_last_app` | availability | Days from last appearance (minutes>0) to cutoff | player_match (PIT: available_at ≤ cutoff) | all history | as of the latest row available at cutoff | NaN if never appeared | none | float [0, None] |
+| `xg_p90` | attacking | Recency-weighted xG per 90 minutes | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN if <90 weighted minutes | none | float [0, 3] |
+| `xa_p90` | attacking | Recency-weighted xA per 90 minutes | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 3] |
+| `goals_p90` | attacking | Recency-weighted goals per 90 | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 5] |
+| `assists_p90` | attacking | Recency-weighted assists per 90 | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 5] |
+| `threat_p90` | attacking | Recency-weighted ICT threat per 90 (shot/box proxy) | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, None] |
+| `creativity_p90` | attacking | Recency-weighted ICT creativity per 90 (chance creation) | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, None] |
+| `xg_share` | role | Player xG / team xG over fixtures played, minutes-adjusted | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 1.5] |
+| `xa_share` | role | Player xA / team xG over fixtures played, minutes-adjusted | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 1.5] |
+| `saves_p90` | defensive | Recency-weighted saves per 90 (GK) | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, None] |
+| `dc_actions_p90` | defensive | Recency-weighted defensive actions per 90 (CBI+tackles(+recoveries for MID/FWD)) | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN before 2025-26 (not recorded) | none | float [0, None] |
+| `dc_hit_rate` | defensive | Share of appearances reaching the position DC threshold | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN before 2025-26 | none | float [0, 1] |
+| `bps_p90` | defensive | Recency-weighted BPS per 90 | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float |
+| `bonus_p90` | form | Recency-weighted bonus per 90 | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, 3] |
+| `yellow_p90` | defensive | Recency-weighted yellow cards per 90 | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float [0, None] |
+| `pts_last1` | form | FPL points in the most recent team fixture | player_match (PIT: available_at ≤ cutoff) | 1 match | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float |
+| `pts_ewm_short` | form | Recency-weighted points per team fixture | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 3 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float |
+| `pts_ewm_long` | form | Recency-weighted points per team fixture | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float |
+| `pts_p90` | form | Recency-weighted points per 90 | player_match (PIT: available_at ≤ cutoff) | EWM over the player's last ≤40 team fixtures, half-life 10 | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float |
+| `ppg_season` | form | Season points per appearance up to cutoff | player_match (PIT: available_at ≤ cutoff) | season | as of the latest row available at cutoff | NaN before first appearance | none | float |
+| `price` | economics | Price (tenths) known at cutoff (ADR-0004 price policy) | price_observations / live snapshot |  | last observation before cutoff (A2) | never missing for pool players | none | int [35, 200] |
+| `price_change_season` | economics | Price at cutoff minus first price this season | price_observations |  | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | int |
+| `ownership_pctile` | economics | Percentile rank of ownership within the player pool at cutoff (scale-free: identical for historical counts and live percentages) | price_observations / live snapshot |  | as of the latest row available at cutoff | NaN at GW1 historically | none | float [0, 1] |
+| `net_transfers_last_gw` | economics | (transfers in − out) / (in + out + 1000) for the last completed GW (bounded momentum) | gw_transfers |  | available at that GW's deadline | NaN (model handles); new players flagged | none | float [-1, 1] |
+| `pos_GK` | role | Position indicator | players (season registry) |  | season start | NaN (model handles); new players flagged | none | bool |
+| `pos_DEF` | role | Position indicator | players |  | season start | NaN (model handles); new players flagged | none | bool |
+| `pos_MID` | role | Position indicator | players |  | season start | NaN (model handles); new players flagged | none | bool |
+| `pos_FWD` | role | Position indicator | players |  | season start | NaN (model handles); new players flagged | none | bool |
+| `team_xg_for_ewm` | team | Team xG for per match (recency-weighted) | team_match (PIT) | EWM half-life 8 team matches | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float |
+| `team_xg_against_ewm` | team | Team xG against per match (recency-weighted) | team_match (PIT) | EWM half-life 8 team matches | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | float |
+| `opp_xg_for_ewm` | fixture | Opponent xG for per match (recency-weighted) | team_match (PIT) | EWM half-life 8 team matches | as of the latest row available at cutoff | NaN for opponents without PL history (promoted) | none | float |
+| `opp_xg_against_ewm` | fixture | Opponent xG against per match (recency-weighted) | team_match (PIT) | EWM half-life 8 team matches | as of the latest row available at cutoff | NaN for opponents without PL history (promoted) | none | float |
+| `is_home` | fixture | Target fixture at home | fixtures schedule (PIT) |  | schedule_available_at ≤ cutoff | NaN (model handles); new players flagged | none | bool |
+| `horizon` | schedule | Gameweeks ahead of the decision GW (0 = this GW) | derived |  | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | int [0, 10] |
+| `fixtures_in_gw` | schedule | Team fixtures in the target GW (2 = double) | fixtures schedule (PIT) |  | as of the latest row available at cutoff | NaN (model handles); new players flagged | none | int [1, 3] |
+| `days_rest` | schedule | Days between the team's previous scheduled fixture and target | fixtures schedule (PIT) |  | as of the latest row available at cutoff | NaN for season opener | none | float [0, None] |
+| `status_flag` | live | FPL status mapped: a=0, d=1, i/s/u/n=2 | player_snapshots |  | captured_at ≤ cutoff | NaN when no live snapshot (all historical seasons) | none | float [0, 2] |
+| `chance_of_playing` | live | FPL chance of playing next round (0–100) | player_snapshots |  | as of the latest row available at cutoff | NaN = no flag | none | float [0, 100] |
+| `penalty_taker` | live | FPL penalties_order == 1 | player_snapshots |  | as of the latest row available at cutoff | NaN historically | none | bool |
+<!-- END GENERATED FEATURE TABLE -->

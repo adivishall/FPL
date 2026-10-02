@@ -16,7 +16,7 @@ build environment (see notes) · ✗ not done (with reason)
 | M1 | Foundation: monorepo, CI, Docker, DB migrations, domain models, config | ☑ | Clean build + tests pass | 25 tests (incl. real-Postgres migration round-trip, zero drift); ruff/mypy/import-linter clean; image builds |
 | M2 | Data: ingestion, canonical schema, quality gates, freshness | ☑ | Reproducible historical snapshot | 5 real seasons ingested (113,870 player-fixture rows); `snap_b64560a8c4f434ad984e` reproduced via memory/DB/Parquet; 84 tests |
 | M3 | Rules: scoring, transfers, chips, squad validity, state transitions | ☑ | Rule/property tests pass | official points reproduced on 113,870/113,870 real rows; 153 tests incl. 4 Hypothesis invariant suites |
-| M4 | Forecasting baselines: PIT features, team strength, baselines | ☐ | Metrics reproducible | |
+| M4 | Forecasting baselines: PIT features, team strength, baselines | ☑ | Metrics reproducible | 49 registered PIT features (leak-free property test); team model +0.055–0.12 nats/match vs league avg; 4 baselines over 114 walk-forward cutoffs (`ml/reports/`) |
 | M5 | ML forecasting: minutes, point distributions, calibration, registry | ☐ | Out-of-sample results improve or justify model choice | |
 | M6 | Optimizer: single-GW transfer/lineup, replacement, captaincy | ☐ | 100% generated squads legal on fixture suite | |
 | M7 | Multi-GW planner, chips, scenarios | ☐ | Historical scenario tests pass | |
@@ -32,7 +32,7 @@ Order note: backtesting (M10) precedes API/UI (M11–M12); see ADR-0001 #19.
 
 ## 2. Current milestone
 
-**M4 — Features + forecasting baselines** (next). M0–M3 complete.
+**M5 — ML forecasting** (in progress: simulation engine done + tested; minutes/rates/BPS estimators written, under test). M0–M4 complete.
 
 Environment: Python 3.12 (uv-managed; numpy 2.5 requires ≥3.12), Node 22, PostgreSQL 16
 binaries, Redis 7, Docker 29, 4 CPU, 15 GB RAM. Network: historical dataset + PyPI + npm + Docker
@@ -58,9 +58,9 @@ Hub reachable; FPL API, premierleague.com, Debian mirrors and GHCR blobs blocked
 | Full §54 database schema + migrations | §8, §54 | M1 | ☑ 37 tables, Alembic `0001`, drift test |
 | Domain entities (Season…AuditEvent) + manager state invariants | §53 | M1/M3 | ☑ entities; ManagerState/ChipState/FreeHitRevert with §53.2 invariants + provenance |
 | ManagerState / DecisionState objects | §8 | M1/M8 | ☐ |
-| Feature registry with declared metadata + DATA_DICTIONARY.md | §56 | M4 | ☐ |
-| Player feature families (availability, minutes, role, set pieces, attacking, defensive, team, fixture, form w/ shrinkage, trend, economics, correlation) | §9, §56.1 | M4 | ☐ |
-| Team/fixture features (recency, venue shrinkage, probabilistic fixtures, congestion, DGW/BGW, postponements) | §14, §56.2 | M4 | ☐ |
+| Feature registry with declared metadata + DATA_DICTIONARY.md | §56 | M4 | ☑ registry → generated dictionary (sync test); AST-fingerprint version lock |
+| Player feature families (availability, minutes, role, set pieces, attacking, defensive, team, fixture, form w/ shrinkage, trend, economics, correlation) | §9, §56.1 | M4 | ◐ availability/minutes/role/attacking/defensive/team/fixture/form/economics/live done; shrinkage applied in M5 rate models; correlation via joint simulation (M5) |
+| Team/fixture features (recency, venue shrinkage, probabilistic fixtures, congestion, DGW/BGW, postponements) | §14, §56.2 | M4 | ☑ recency-weighted team model with home advantage (shrunk via prior), rest days, DGW counts, lag-gated DGW visibility |
 
 ### Forecasting (§10–§14, §57–§59, §67, §71)
 | Item | Spec | Milestone | Status |
@@ -69,11 +69,11 @@ Hub reachable; FPL API, premierleague.com, Debian mirrors and GHCR blobs blocked
 | Decomposed points: appearance, goals, assists, CS, DC, cards, bonus, other | §11, §57.1 | M5 | ☐ |
 | Price-change model | §57.1, §23, §66 | M5 | ☐ |
 | Monte Carlo point distributions with correlation | §12, §59 | M5 | ☐ |
-| Recency weighting, Bayesian updating, hierarchical priors | §13 | M4/M5 | ☐ |
+| Recency weighting, Bayesian updating, hierarchical priors | §13 | M4/M5 | ◐ recency weighting + MAP/Laplace team priors done; EB player rates in M5 |
 | Calibration (reliability, Brier, ECE), conformal intervals, ensemble, drift | §13, §57.2, §71 | M5/M13 | ☐ |
-| Baselines compared; temporal splits; MAE/RMSE/log loss/Brier/CRPS | §57.2 | M4/M5 | ☐ |
+| Baselines compared; temporal splits; MAE/RMSE/log loss/Brier/CRPS | §57.2 | M4/M5 | ◐ 4 baselines, walk-forward harness, metric library done; ML comparison in M5 |
 | Model registry, promotion gates, rollback, seeds | §71 | M5 | ☐ |
-| Independent probabilistic fixture layer (team xG, CS prob, attack/defence indices, swings, DGW load, BGW risk, rotation pairing) | §14 | M4/M7 | ☐ |
+| Independent probabilistic fixture layer (team xG, CS prob, attack/defence indices, swings, DGW load, BGW risk, rotation pairing) | §14 | M4/M7 | ◐ team μ, CS prob, ratings with Laplace SD done; swings/rotation pairing in M7 |
 | News/injury signals → start probability adjustments | §67 | M5 | ☐ |
 
 ### Optimisation & decisions (§15–§26, §29, §60–§65, §68–§69)
@@ -162,6 +162,11 @@ ADR-0010 (evidence-based explanations).
 
 ## 6. Known issues / blockers
 
+- Team-strength hyper-parameter tuning does not beat the hand-set default out of sample (within
+  ~0.004 nats/match); the protocol-selected per-season configs are still used (documented).
+- MAE favours median-like predictions under heavy-tailed points; RMSE (mean-optimal), Spearman
+  and CRPS are the selection metrics (documented in `ml/reports/baselines.md`).
+
 - Historical `fixtures.csv` is the *final* schedule; blanks caused by late postponements are
   visible earlier than they were in reality (DGW extra fixtures are lag-gated). Quantified in M10.
 - Live event data for players with two fixtures in a GW is not split per fixture from the
@@ -176,6 +181,11 @@ ADR-0010 (evidence-based explanations).
 ## 7. Files changed (by milestone)
 
 - M0: `docs/BUILD_STATUS.md`, `docs/decisions/ADR-0001…0010`, `docs/architecture/source-inventory.md`.
+- M4: `fpl_features/{registry,builder,labels,version_lock}.py`,
+  `fpl_forecasting/{team_strength,team_eval,baselines,metrics,walkforward}.py`,
+  `config/models/team_strength.yaml`, `ml/experiments/{team_strength_tuning,baselines_eval}.py`,
+  `ml/reports/{team_strength_tuning,baselines}.{md,json}`, DATA_DICTIONARY §5 (generated),
+  tests `tests/unit/{features,forecasting}/*`.
 - M3: `fpl_domain/{scoring,squad,state,validation}.py`, `fpl_ingestion/manager_sync.py`,
   rulesets' scoring provenance → empirical, `docs/architecture/rules-verification.md`,
   tests `tests/unit/domain/{test_scoring,test_squad_and_lineup,test_state_machine}.py`,
@@ -225,6 +235,15 @@ ADR-0010 (evidence-based explanations).
   Hypothesis: random decision sequences preserve invariants, validator replay = direct
   application, auto-subs always legal, scoring monotone; manager-sync FT replay/FH/chips/hit-cost
   disagreement warning.
+
+- M4: `pytest` 183 passed (+ simulation tests written for M5) — feature builder: every
+  registered feature built and in range, hand-computed values, live signals only with snapshots,
+  Hypothesis future-perturbation (features identical), version-lock fingerprint, registry↔docs
+  sync; team strength: recovery of known ratings on a synthetic league (corr > 0.9, home
+  advantage ±0.1, identified SDs < 0.12), cutoff isolation, promoted prior, regime-change
+  tracking; metrics vs closed forms (CRPS of N(0,1), calibrated ECE ≈ 0, PIT uniformity);
+  harness causality (training rows strictly before cutoff). Experiments: rolling-origin team
+  tuning (27 configs × 3 seasons), baseline walk-forward (114 cutoffs × horizon 5).
 
 ## 9. Remaining work
 
