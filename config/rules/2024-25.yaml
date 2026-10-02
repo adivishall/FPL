@@ -11,9 +11,10 @@ provenance:
     lineup: secondary-source
     transfers: secondary-source
     chips: assumed
-    scoring: secondary-source
+    scoring: empirical
     timing: assumed
   notes:
+    - "Scoring verified empirically (ADR-0005): recomputed points equal official total_points for 100% of player-fixture rows of this season (docs/architecture/rules-verification.md). Goalkeeper-goal points are not exercised by any real row and remain secondary-source."
     - "Up to five free transfers can be banked (introduced 2024/25)."
     - "Assistant Manager chip existed this season only; declared unsupported (never played by any strategy)."
 

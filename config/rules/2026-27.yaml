@@ -14,9 +14,10 @@ provenance:
     lineup: secondary-source
     transfers: secondary-source
     chips: secondary-source
-    scoring: secondary-source
+    scoring: empirical
     timing: assumed
   notes:
+    - "Scoring verified empirically (ADR-0005): recomputed points equal official total_points for 100% of player-fixture rows of this season (docs/architecture/rules-verification.md). Goalkeeper-goal points are not exercised by any real row and remain secondary-source."
     - "No AFCON free-transfer top-up in 2026/27 (tournament moved to June/July 2027)."
     - "Banked free transfers are retained when Wildcard/Free Hit is played; +1 accrual in that GW is ambiguous -> chip_ft_policy=retain (ADR-0001 #12)."
     - "Final scores can be revised until a later GW lockdown; finalization_lag_hours is an assumption."

@@ -333,6 +333,13 @@ PLAYERS_RAW = DataContract(
         _c("news_added", "datetime", nullable=True),
         _c("chance_of_playing_next_round", "int", min=0, max=100, nullable=True),
         _c("selected_by_percent", "float", min=0, max=100),
+        _c(
+            "cost_change_start",
+            "int",
+            nullable=True,
+            required=False,
+            description="Price change since season start (start price = now_cost − this)",
+        ),
         _c("form", "float", nullable=True),
         _c("penalties_order", "int", nullable=True, required=False),
         _c("direct_freekicks_order", "int", nullable=True, required=False),

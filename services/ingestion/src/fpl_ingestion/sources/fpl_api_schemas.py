@@ -64,6 +64,7 @@ class ApiElement(_Api):
     chance_of_playing_this_round: int | None = Field(None, ge=0, le=100)
     selected_by_percent: float = Field(ge=0.0, le=100.0)
     form: float | None = None
+    cost_change_start: int | None = None
     transfers_in_event: int | None = None
     transfers_out_event: int | None = None
     penalties_order: int | None = None
@@ -145,6 +146,7 @@ class EventLive(_Api):
 class ApiEntry(_Api):
     id: int
     name: str
+    started_event: int = 1
     current_event: int | None = None
     summary_overall_points: int | None = None
     summary_overall_rank: int | None = None

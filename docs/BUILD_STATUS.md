@@ -15,7 +15,7 @@ build environment (see notes) · ✗ not done (with reason)
 | M0 | Discovery: repo inspection, ADRs, source inventory, ruleset schema | ☑ | No coding ambiguity remains | `docs/decisions/`, `docs/architecture/source-inventory.md` |
 | M1 | Foundation: monorepo, CI, Docker, DB migrations, domain models, config | ☑ | Clean build + tests pass | 25 tests (incl. real-Postgres migration round-trip, zero drift); ruff/mypy/import-linter clean; image builds |
 | M2 | Data: ingestion, canonical schema, quality gates, freshness | ☑ | Reproducible historical snapshot | 5 real seasons ingested (113,870 player-fixture rows); `snap_b64560a8c4f434ad984e` reproduced via memory/DB/Parquet; 84 tests |
-| M3 | Rules: scoring, transfers, chips, squad validity, state transitions | ☐ | Rule/property tests pass | |
+| M3 | Rules: scoring, transfers, chips, squad validity, state transitions | ☑ | Rule/property tests pass | official points reproduced on 113,870/113,870 real rows; 153 tests incl. 4 Hypothesis invariant suites |
 | M4 | Forecasting baselines: PIT features, team strength, baselines | ☐ | Metrics reproducible | |
 | M5 | ML forecasting: minutes, point distributions, calibration, registry | ☐ | Out-of-sample results improve or justify model choice | |
 | M6 | Optimizer: single-GW transfer/lineup, replacement, captaincy | ☐ | 100% generated squads legal on fixture suite | |
@@ -32,7 +32,7 @@ Order note: backtesting (M10) precedes API/UI (M11–M12); see ADR-0001 #19.
 
 ## 2. Current milestone
 
-**M3 — Rules engine** (next). M0–M2 complete.
+**M4 — Features + forecasting baselines** (next). M0–M3 complete.
 
 Environment: Python 3.12 (uv-managed; numpy 2.5 requires ≥3.12), Node 22, PostgreSQL 16
 binaries, Redis 7, Docker 29, 4 CPU, 15 GB RAM. Network: historical dataset + PyPI + npm + Docker
@@ -48,7 +48,7 @@ Hub reachable; FPL API, premierleague.com, Debian mirrors and GHCR blobs blocked
 | Scheduled, cached bootstrap ingestion (no per-page-load fetch) | §6.1, §33 | M2/M11 | ◐ live client + `ingest_live` done; scheduling in M11 |
 | GW-specific state capture (points, minutes, ownership, transfers, prices, availability) | §6.1 | M2 | ☑ historical; ⛔ live capture blocked in env (contract-tested) |
 | Fixture/team ingestion with canonical IDs across seasons | §6.1, §6 table | M2 | ☑ stable `code` keys |
-| Manager state ingestion (squad, bank, FT, chips, picks, transfers) | §6.1 | M2/M3 | ◐ API client + schemas done; reconstruction needs M3 domain state; ⛔ live API blocked |
+| Manager state ingestion (squad, bank, FT, chips, picks, transfers) | §6.1 | M2/M3 | ☑ reconstruction (FT replay cross-checked vs recorded hit costs, FH reversion, purchase prices, chips) tested on synthetic payloads; ⛔ live API blocked in env |
 | Raw payloads stored unchanged (content-addressed) | §6.1, §55.1 | M2 | ☑ |
 | External metrics with source/timestamp/confidence; source-priority layer | §6.2 | M2 | ☑ `underlying_stats` (source, priority, confidence); priority arbitration + conflict events; shots/box touches unavailable from any reachable source (interface only) |
 | Extract→validate→normalize→feature→serve→audit pipeline with failure handling | §6 table | M2 | ☑ extract→audit; feature/serve in M4/M11 |
@@ -56,7 +56,7 @@ Hub reachable; FPL API, premierleague.com, Debian mirrors and GHCR blobs blocked
 | DQ gates: freshness, uniqueness, referential integrity, ranges, temporal ordering, completeness, drift, conflict | §55.2 | M2/M13 | ◐ all but drift (M13) |
 | PIT correctness for season aggregates, fixtures, injuries, price, ownership, tuning | §7 | M2/M4 | ◐ PIT view + property test done; feature/tuning side in M4 |
 | Full §54 database schema + migrations | §8, §54 | M1 | ☑ 37 tables, Alembic `0001`, drift test |
-| Domain entities (Season…AuditEvent) + manager state invariants | §53 | M1/M3 | ☐ |
+| Domain entities (Season…AuditEvent) + manager state invariants | §53 | M1/M3 | ☑ entities; ManagerState/ChipState/FreeHitRevert with §53.2 invariants + provenance |
 | ManagerState / DecisionState objects | §8 | M1/M8 | ☐ |
 | Feature registry with declared metadata + DATA_DICTIONARY.md | §56 | M4 | ☐ |
 | Player feature families (availability, minutes, role, set pieces, attacking, defensive, team, fixture, form w/ shrinkage, trend, economics, correlation) | §9, §56.1 | M4 | ☐ |
@@ -176,6 +176,11 @@ ADR-0010 (evidence-based explanations).
 ## 7. Files changed (by milestone)
 
 - M0: `docs/BUILD_STATUS.md`, `docs/decisions/ADR-0001…0010`, `docs/architecture/source-inventory.md`.
+- M3: `fpl_domain/{scoring,squad,state,validation}.py`, `fpl_ingestion/manager_sync.py`,
+  rulesets' scoring provenance → empirical, `docs/architecture/rules-verification.md`,
+  tests `tests/unit/domain/{test_scoring,test_squad_and_lineup,test_state_machine}.py`,
+  `tests/property/test_state_invariants.py`, `tests/unit/ingestion/test_manager_sync.py`,
+  `tests/integration/test_full_scoring_reproduction.py` (slow), helpers `tests/domain_util.py`.
 - M2: `fpl_storage/{raw_store,repositories,dataset,pit}.py`, `fpl_domain/freshness.py`,
   `fpl_ingestion/{http,contracts,quality,canonical,load,pipeline,live,cli,logs}.py`,
   `fpl_ingestion/sources/{historical,fpl_api,fpl_api_schemas}.py`, `config/sources.yaml`
@@ -209,6 +214,17 @@ ADR-0010 (evidence-based explanations).
   outage → failed job, upstream correction → 1 update + revision, DB CHECK blocks future feature
   snapshots, source-priority conflict arbitration. Real-data run: all 5 seasons via
   `fpl-ingest historical --all` (pinned commit) + `export-snapshot`.
+
+- M3: `pytest` 153 passed — every scoring rule (appearance, goals by position & season, CS,
+  GC, saves, pens, cards incl. bench bookings, OG, DC thresholds by position, bonus tie rules +
+  Hypothesis properties, vectorised = scalar on 500 random events), official-points reproduction
+  on committed excerpts (CI) and on all 113,870 real rows (slow), selling price table, squad
+  violations, 9 formation cases, auto-subs (GK-only, bench order, formation-preserving), captain/
+  vice/TC/BB, FT banking/rollover/hits, GW1 unlimited, WC/FH retention, pre-2024 reset, AFCON
+  top-up, 2022-23 unlimited GW17, chip windows/expiry/re-use, FH exact reversion, plan validator;
+  Hypothesis: random decision sequences preserve invariants, validator replay = direct
+  application, auto-subs always legal, scoring monotone; manager-sync FT replay/FH/chips/hit-cost
+  disagreement warning.
 
 ## 9. Remaining work
 

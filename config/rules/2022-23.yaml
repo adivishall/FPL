@@ -10,9 +10,10 @@ provenance:
     lineup: assumed
     transfers: assumed
     chips: assumed
-    scoring: assumed
+    scoring: empirical
     timing: assumed
   notes:
+    - "Scoring verified empirically (ADR-0005): recomputed points equal official total_points for 100% of player-fixture rows of this season (docs/architecture/rules-verification.md). Goalkeeper-goal points are not exercised by any real row and remain secondary-source."
     - "World Cup break: unlimited free transfers for GW17; first Wildcard window ends at GW16 (assumed)."
 
 squad:

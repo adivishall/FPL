@@ -74,6 +74,7 @@ ignore = [
   "RUF003",
   "PT018",   # compound assertions are clear in tests
   "N818",    # domain exceptions are named for the concept (RuleViolation)
+  "PLR0917", # numerical/domain APIs take several positional arrays by design
 ]
 
 [tool.ruff.lint.per-file-ignores]

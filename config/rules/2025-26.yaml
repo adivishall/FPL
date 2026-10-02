@@ -13,9 +13,10 @@ provenance:
     lineup: secondary-source
     transfers: secondary-source
     chips: secondary-source
-    scoring: secondary-source
+    scoring: empirical
     timing: assumed
   notes:
+    - "Scoring verified empirically (ADR-0005): recomputed points equal official total_points for 100% of player-fixture rows of this season (docs/architecture/rules-verification.md). Goalkeeper-goal points are not exercised by any real row and remain secondary-source."
     - "Defensive contribution points introduced this season."
     - "Two sets of chips; first set must be played by the GW19 deadline."
     - "AFCON top-up: free transfers set to five for GW16."

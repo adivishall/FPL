@@ -83,6 +83,9 @@ def main() -> None:
                 else int(r["chance_of_playing_next_round"]),
                 "selected_by_percent": float(r["selected_by_percent"]),
                 "form": _v(r.get("form")),
+                "cost_change_start": None
+                if pd.isna(r.get("cost_change_start"))
+                else int(r["cost_change_start"]),
                 "penalties_order": None
                 if pd.isna(r.get("penalties_order"))
                 else int(r["penalties_order"]),
