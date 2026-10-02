@@ -1,0 +1,27 @@
+[project]
+name = "fpl-decision"
+version = "0.1.0"
+description = "Decision engine: replacement, hold-vs-transfer, captaincy, chips, scenarios, explanations"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = [
+  "fpl-domain",
+  "fpl-optimizer",
+  "fpl-simulation",
+  "fpl-forecasting",
+  "numpy>=2.5",
+  "pandas>=3.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fpl_decision"]
+
+[tool.uv.sources]
+fpl-domain = { workspace = true }
+fpl-optimizer = { workspace = true }
+fpl-simulation = { workspace = true }
+fpl-forecasting = { workspace = true }

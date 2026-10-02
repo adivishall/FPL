@@ -8,3 +8,24 @@ __pycache__/
 venv/
 dist/
 build/
+# --- project
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+coverage.xml
+htmlcov/
+requirements-audit.txt
+data/raw/
+data/snapshots/
+data/feature-store/
+data/cache/
+ml/models/**/*.joblib
+ml/models/**/*.npz
+ml/artifacts/
+apps/web/.next/
+apps/web/out/
+apps/web/test-results/
+apps/web/playwright-report/
+*.log

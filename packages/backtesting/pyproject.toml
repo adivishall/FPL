@@ -1,0 +1,34 @@
+[project]
+name = "fpl-backtest"
+version = "0.1.0"
+description = "Walk-forward backtesting, benchmarks and leakage audit"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = [
+  "fpl-domain",
+  "fpl-storage",
+  "fpl-features",
+  "fpl-forecasting",
+  "fpl-simulation",
+  "fpl-optimizer",
+  "fpl-decision",
+  "numpy>=2.5",
+  "pandas>=3.0",
+  "matplotlib>=3.11",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fpl_backtest"]
+
+[tool.uv.sources]
+fpl-domain = { workspace = true }
+fpl-storage = { workspace = true }
+fpl-features = { workspace = true }
+fpl-forecasting = { workspace = true }
+fpl-simulation = { workspace = true }
+fpl-optimizer = { workspace = true }
+fpl-decision = { workspace = true }

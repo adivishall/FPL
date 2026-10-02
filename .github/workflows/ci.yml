@@ -1,0 +1,106 @@
+# CI contract (§78): lint + format + types + layering, unit/integration/property tests with real
+# PostgreSQL + Redis, optimizer validity suite, backtest smoke, migration validation, container
+# builds, dependency + secret scanning. Deployment (deploy.yml) runs only from a green main.
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: ruff lint
+        run: uv run ruff check .
+      - name: ruff format
+        run: uv run ruff format --check .
+      - name: mypy
+        run: uv run mypy packages services apps/api/src apps/worker/src
+      - name: architecture layering (import-linter)
+        run: uv run lint-imports
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fpl
+          POSTGRES_PASSWORD: fpl
+          POSTGRES_DB: fpl_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fpl" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      FPL_TEST_DATABASE_URL: postgresql+psycopg://fpl:fpl@localhost:5432/fpl_test
+      FPL_TEST_REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: migration validation (upgrade → downgrade → upgrade, no drift)
+        run: uv run pytest tests/integration/test_migrations.py -q
+      - name: unit + property + integration + data-quality tests
+        run: uv run pytest -q -m "not slow and not network" --cov --cov-report=xml --cov-report=term
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: dependency audit (python)
+        run: |
+          uv export --frozen --no-hashes --no-emit-workspace --no-dev > requirements-audit.txt
+          uvx pip-audit -r requirements-audit.txt --progress-spinner off
+      - name: secret scanning (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  containers:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: build api/worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/python.Dockerfile
+          push: false
+          tags: fpl-engine:ci

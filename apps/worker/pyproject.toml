@@ -1,0 +1,42 @@
+[project]
+name = "fpl-worker"
+version = "0.1.0"
+description = "Background worker and scheduler"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = [
+  "fpl-domain",
+  "fpl-storage",
+  "fpl-ingestion",
+  "fpl-features",
+  "fpl-forecasting",
+  "fpl-simulation",
+  "fpl-optimizer",
+  "fpl-decision",
+  "fpl-backtest",
+  "fpl-notifications",
+  "fpl-api",
+  "redis>=8.1",
+  "rq>=2.12",
+  "structlog>=26.1",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fpl_worker"]
+
+[tool.uv.sources]
+fpl-domain = { workspace = true }
+fpl-storage = { workspace = true }
+fpl-ingestion = { workspace = true }
+fpl-features = { workspace = true }
+fpl-forecasting = { workspace = true }
+fpl-simulation = { workspace = true }
+fpl-optimizer = { workspace = true }
+fpl-decision = { workspace = true }
+fpl-backtest = { workspace = true }
+fpl-notifications = { workspace = true }
+fpl-api = { workspace = true }

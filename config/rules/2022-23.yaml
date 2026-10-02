@@ -1,0 +1,88 @@
+# FPL rules for the 2022/23 season (ADR-0005).
+schema_version: 1
+ruleset_version: "2022-23.1"
+season: "2022-23"
+num_gameweeks: 38
+provenance:
+  sources: []
+  verification:
+    squad: assumed
+    lineup: assumed
+    transfers: assumed
+    chips: assumed
+    scoring: assumed
+    timing: assumed
+  notes:
+    - "World Cup break: unlimited free transfers for GW17; first Wildcard window ends at GW16 (assumed)."
+
+squad:
+  size: 15
+  initial_budget: 1000
+  positions: {GK: 2, DEF: 5, MID: 5, FWD: 3}
+  max_per_club: 3
+lineup:
+  starters: 11
+  min_per_position: {GK: 1, DEF: 3, MID: 2, FWD: 1}
+  max_per_position: {GK: 1, DEF: 5, MID: 5, FWD: 3}
+  bench_goalkeepers: 1
+  bench_outfield: 3
+pricing:
+  selling_price_rule: half_profit_floor
+  price_step: 1
+  min_price: 35
+  max_price: 200
+captaincy:
+  captain_multiplier: 2
+  vice_promotes_if_captain_did_not_play: true
+
+transfers:
+  free_transfers_per_gameweek: 1
+  max_banked_free_transfers: 2
+  hit_cost: 4
+  first_gameweek_unlimited: true
+  initial_free_transfers_after_first_gameweek: 1
+  chip_ft_policy: reset
+  top_ups: [{gameweek: 17, unlimited: true, reason: "Post-World-Cup unlimited transfers"}]
+
+chips:
+  one_chip_per_gameweek: true
+  triple_captain_multiplier: 3
+  free_hit_reverts: true
+  catalogue:
+    - {id: wildcard_1, type: wildcard, first_gameweek: 2, last_gameweek: 16}
+    - {id: wildcard_2, type: wildcard, first_gameweek: 17, last_gameweek: 38}
+    - {id: free_hit_1, type: free_hit, first_gameweek: 2, last_gameweek: 38}
+    - {id: bench_boost_1, type: bench_boost, first_gameweek: 1, last_gameweek: 38}
+    - {id: triple_captain_1, type: triple_captain, first_gameweek: 1, last_gameweek: 38}
+
+scoring:
+  appearance:
+    full_minutes_threshold: 60
+    points_below_threshold: 1
+    points_at_or_above_threshold: 2
+  goal: {GK: 6, DEF: 6, MID: 5, FWD: 4}
+  assist: 3
+  clean_sheet:
+    min_minutes: 60
+    points: {GK: 4, DEF: 4, MID: 1, FWD: 0}
+  goals_conceded:
+    per_goals: 2
+    points: {GK: -1, DEF: -1, MID: 0, FWD: 0}
+  saves:
+    per_saves: 3
+    points: 1
+  penalty_save: 5
+  penalty_miss: -2
+  yellow_card: -1
+  red_card: -3
+  own_goal: -2
+  defensive_contribution:
+    enabled: false
+  bonus:
+    awards: [3, 2, 1]
+    tie_rule: fpl_standard
+
+timing:
+  decision_buffer_minutes: 90
+  provisional_lag_minutes: 150
+  finalization_lag_hours: 24

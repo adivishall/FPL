@@ -12,8 +12,8 @@ build environment (see notes) · ✗ not done (with reason)
 
 | # | Milestone (§87 / §91) | Status | Gate | Evidence |
 |---|------------------------|--------|------|----------|
-| M0 | Discovery: repo inspection, ADRs, source inventory, ruleset schema | ◐ | No coding ambiguity remains | `docs/decisions/`, `docs/architecture/source-inventory.md` |
-| M1 | Foundation: monorepo, CI, Docker, DB migrations, domain models, config | ☐ | Clean build + tests pass | |
+| M0 | Discovery: repo inspection, ADRs, source inventory, ruleset schema | ☑ | No coding ambiguity remains | `docs/decisions/`, `docs/architecture/source-inventory.md` |
+| M1 | Foundation: monorepo, CI, Docker, DB migrations, domain models, config | ☑ | Clean build + tests pass | 25 tests (incl. real-Postgres migration round-trip, zero drift); ruff/mypy/import-linter clean; image builds |
 | M2 | Data: ingestion, canonical schema, quality gates, freshness | ☐ | Reproducible historical snapshot | |
 | M3 | Rules: scoring, transfers, chips, squad validity, state transitions | ☐ | Rule/property tests pass | |
 | M4 | Forecasting baselines: PIT features, team strength, baselines | ☐ | Metrics reproducible | |
@@ -32,9 +32,11 @@ Order note: backtesting (M10) precedes API/UI (M11–M12); see ADR-0001 #19.
 
 ## 2. Current milestone
 
-**M0 — Discovery.** Repository inspected (empty apart from stub README/.gitignore). Environment:
-Python 3.11, Node 22, uv, PostgreSQL 16 binaries, Redis 7, Docker 29 (daemon startable), 4 CPU,
-15 GB RAM. Network: historical dataset reachable; FPL API and premierleague.com blocked.
+**M2 — Data** (next). M0 and M1 complete.
+
+Environment: Python 3.12 (uv-managed; numpy 2.5 requires ≥3.12), Node 22, PostgreSQL 16
+binaries, Redis 7, Docker 29, 4 CPU, 15 GB RAM. Network: historical dataset + PyPI + npm + Docker
+Hub reachable; FPL API, premierleague.com, Debian mirrors and GHCR blobs blocked.
 
 ---
 
@@ -53,7 +55,7 @@ Python 3.11, Node 22, uv, PostgreSQL 16 binaries, Redis 7, Docker 29 (daemon sta
 | Idempotent ingestion; checksum/source metadata | §55 | M2 | ☐ |
 | DQ gates: freshness, uniqueness, referential integrity, ranges, temporal ordering, completeness, drift, conflict | §55.2 | M2/M13 | ☐ |
 | PIT correctness for season aggregates, fixtures, injuries, price, ownership, tuning | §7 | M2/M4 | ☐ |
-| Full §54 database schema + migrations | §8, §54 | M1 | ☐ |
+| Full §54 database schema + migrations | §8, §54 | M1 | ☑ 37 tables, Alembic `0001`, drift test |
 | Domain entities (Season…AuditEvent) + manager state invariants | §53 | M1/M3 | ☐ |
 | ManagerState / DecisionState objects | §8 | M1/M8 | ☐ |
 | Feature registry with declared metadata + DATA_DICTIONARY.md | §56 | M4 | ☐ |
@@ -121,7 +123,7 @@ Python 3.11, Node 22, uv, PostgreSQL 16 binaries, Redis 7, Docker 29 (daemon sta
 | CI/CD contract (lint, types, tests, optimizer suite, backtest smoke, builds, dep+secret scan, migration validation, deploy from green main, changelog) | §78 | M1/M13 | ☐ |
 | Performance targets measured | §79 | M13 | ☐ |
 | Degraded modes (news, price predictor, model failure, optimizer timeout, source outage, conflicts, missing stats) | §82 | M2–M13 | ☐ |
-| Versioned config tree (rules/models/optimizer/backtest) | §83 | M1 | ☐ |
+| Versioned config tree (rules/models/optimizer/backtest) | §83 | M1 | ◐ loader + rules + sources done; model/optimizer/backtest configs land with their milestones |
 | LLM layer optional, never owns truth | §81 | M9 | ☐ (decision: deterministic renderer, ADR-0010) |
 
 ### Documentation & portfolio (§41, §45, §89, §92)
@@ -160,17 +162,31 @@ ADR-0010 (evidence-based explanations).
 
 ## 6. Known issues / blockers
 
+- Docker builds inside this sandbox need the proxy CA passed as a BuildKit secret (documented in
+  `infra/docker/README.md`); not needed in CI.
+
 - `fantasy.premierleague.com` and `premierleague.com` are denied by the build environment's egress
   policy. Live sync and live-rule verification cannot be exercised here.
 
 ## 7. Files changed (by milestone)
 
 - M0: `docs/BUILD_STATUS.md`, `docs/decisions/ADR-0001…0010`, `docs/architecture/source-inventory.md`.
+- M1: root `pyproject.toml` (uv workspace, ruff/mypy/pytest/import-linter config), `uv.lock`,
+  12 package skeletons (`packages/*`, `services/*`, `apps/api`, `apps/worker`),
+  `fpl_domain` (enums, entities, hashing, versioned config, rules model/loader/schema export),
+  `config/rules/{2022-23..2026-27,schema}.yaml`, `config/sources.yaml`, `fpl_storage`
+  (models, db, ephemeral Postgres helper), `alembic.ini`, `db/migrations/*`,
+  `.github/workflows/ci.yml`, `infra/docker/python.Dockerfile`, `docker-compose.yml`, `Makefile`,
+  `.env.example`, `LICENSE`, tests under `tests/unit/domain`, `tests/integration`.
 
 ## 8. Tests performed (by milestone)
 
 - M0: environment probes (runtimes, DB/Redis binaries, Docker daemon, network reachability of
   each data source) — results recorded in §2 and the source inventory.
+- M1: `pytest` 25 passed (ruleset contract tests ×5 seasons, schema drift, invalid rulesets
+  rejected, hashing property test, config versioning, migration upgrade/downgrade/no-drift on a
+  real PostgreSQL 16 cluster); `ruff check`, `ruff format --check`, `mypy` (strict-ish, 24 files),
+  `lint-imports` (4 contracts kept); `docker build` of the API/worker image + import smoke test.
 
 ## 9. Remaining work
 

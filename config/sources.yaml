@@ -1,0 +1,46 @@
+# Data source configuration (ADR-0003). Versioned; stored with every ingestion job.
+version: "1.0.0"
+
+historical_repo:
+  name: vaastav
+  base_url: "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League"
+  # Immutable revision: changing it is an explicit, reviewable data-version change.
+  commit: "9779cdbc0c07f6c900c2d0c181ddf6bb9c800f88"
+  commit_published_at: "2026-08-28T09:47:53Z"
+  licence: "MIT (code); data property of fantasy.premierleague.com / understat.com"
+  seasons: ["2022-23", "2023-24", "2024-25", "2025-26", "2026-27"]
+  files:
+    merged_gw: "data/{season}/gws/merged_gw.csv"
+    fixtures: "data/{season}/fixtures.csv"
+    teams: "data/{season}/teams.csv"
+    players_raw: "data/{season}/players_raw.csv"
+  # The players_raw.csv of these seasons is a genuine point-in-time bootstrap capture that
+  # may be used as a live-like snapshot (published before the next deadline). Earlier
+  # seasons' players_raw are end-of-season states and are only used for identity/positions.
+  point_in_time_snapshots:
+    "2026-27":
+      captured_at: "2026-08-28T09:47:53Z"   # upper bound = commit publication time
+      valid_for_gameweek: 2
+
+fpl_api:
+  base_url: "https://fantasy.premierleague.com/api"
+  user_agent: "fpl-decision-engine/0.1 (+https://github.com/adivishall/fpl)"
+  timeout_seconds: 20
+  max_retries: 5
+  backoff_initial_seconds: 1.0
+  backoff_max_seconds: 30.0
+  min_seconds_between_requests: 1.0
+  allowed_hosts: ["fantasy.premierleague.com"]
+
+freshness_sla:
+  # Maximum age before data is considered stale / expired (§55.2 Freshness, §82).
+  bootstrap: {stale_after_hours: 12, expired_after_hours: 72}
+  fixtures: {stale_after_hours: 24, expired_after_hours: 168}
+  manager_state: {stale_after_hours: 24, expired_after_hours: 168}
+  predictions: {stale_after_hours: 24, expired_after_hours: 96}
+
+source_priority:
+  # Higher wins for serving; disagreements are recorded as conflicts, never silently merged.
+  fpl_api: 100
+  manual: 90
+  vaastav: 50

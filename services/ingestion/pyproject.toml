@@ -1,0 +1,26 @@
+[project]
+name = "fpl-ingestion"
+version = "0.1.0"
+description = "Source clients, raw capture, validation, canonicalisation and data-quality gates"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = [
+  "fpl-domain",
+  "fpl-storage",
+  "httpx>=0.28",
+  "tenacity>=9.1",
+  "pandas>=3.0",
+  "numpy>=2.5",
+  "structlog>=26.1",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fpl_ingestion"]
+
+[tool.uv.sources]
+fpl-domain = { workspace = true }
+fpl-storage = { workspace = true }

@@ -1,0 +1,44 @@
+[project]
+name = "fpl-api"
+version = "0.1.0"
+description = "FastAPI HTTP API"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = [
+  "fpl-domain",
+  "fpl-storage",
+  "fpl-ingestion",
+  "fpl-features",
+  "fpl-forecasting",
+  "fpl-simulation",
+  "fpl-optimizer",
+  "fpl-decision",
+  "fpl-backtest",
+  "fpl-notifications",
+  "fastapi>=0.142",
+  "uvicorn[standard]>=0.54",
+  "redis>=8.1",
+  "rq>=2.12",
+  "prometheus-client>=0.26",
+  "structlog>=26.1",
+  "pydantic-settings>=2.14",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fpl_api"]
+
+[tool.uv.sources]
+fpl-domain = { workspace = true }
+fpl-storage = { workspace = true }
+fpl-ingestion = { workspace = true }
+fpl-features = { workspace = true }
+fpl-forecasting = { workspace = true }
+fpl-simulation = { workspace = true }
+fpl-optimizer = { workspace = true }
+fpl-decision = { workspace = true }
+fpl-backtest = { workspace = true }
+fpl-notifications = { workspace = true }

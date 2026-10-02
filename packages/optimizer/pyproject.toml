@@ -1,0 +1,22 @@
+[project]
+name = "fpl-optimizer"
+version = "0.1.0"
+description = "MILP squad/transfer/lineup optimisation with HiGHS"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = [
+  "fpl-domain",
+  "highspy>=1.15",
+  "numpy>=2.5",
+  "scipy>=1.18",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fpl_optimizer"]
+
+[tool.uv.sources]
+fpl-domain = { workspace = true }

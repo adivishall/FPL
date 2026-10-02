@@ -1,0 +1,615 @@
+# GENERATED from fpl_domain.rules.model.Ruleset — do not edit by hand.
+# Regenerate with: uv run python -m fpl_domain.rules.schema
+$defs:
+  AppearanceScoring:
+    additionalProperties: false
+    properties:
+      full_minutes_threshold:
+        default: 60
+        minimum: 1
+        title: Full Minutes Threshold
+        type: integer
+      points_at_or_above_threshold:
+        default: 2
+        title: Points At Or Above Threshold
+        type: integer
+      points_below_threshold:
+        default: 1
+        title: Points Below Threshold
+        type: integer
+    title: AppearanceScoring
+    type: object
+  BonusScoring:
+    additionalProperties: false
+    properties:
+      awards:
+        default:
+        - 3
+        - 2
+        - 1
+        items:
+          type: integer
+        title: Awards
+        type: array
+      tie_rule:
+        $ref: '#/$defs/BonusTieRule'
+        default: fpl_standard
+    title: BonusScoring
+    type: object
+  BonusTieRule:
+    enum:
+    - fpl_standard
+    title: BonusTieRule
+    type: string
+  CaptaincyRules:
+    additionalProperties: false
+    properties:
+      captain_multiplier:
+        default: 2
+        minimum: 1
+        title: Captain Multiplier
+        type: integer
+      vice_promotes_if_captain_did_not_play:
+        default: true
+        title: Vice Promotes If Captain Did Not Play
+        type: boolean
+    title: CaptaincyRules
+    type: object
+  ChipDefinition:
+    additionalProperties: false
+    properties:
+      first_gameweek:
+        minimum: 1
+        title: First Gameweek
+        type: integer
+      id:
+        pattern: ^[a-z_]+_[0-9]+$
+        title: Id
+        type: string
+      last_gameweek:
+        minimum: 1
+        title: Last Gameweek
+        type: integer
+      note:
+        anyOf:
+        - type: string
+        - type: 'null'
+        default: null
+        title: Note
+      supported:
+        default: true
+        title: Supported
+        type: boolean
+      type:
+        $ref: '#/$defs/ChipType'
+    required:
+    - id
+    - type
+    - first_gameweek
+    - last_gameweek
+    title: ChipDefinition
+    type: object
+  ChipFtPolicy:
+    description: What happens to banked free transfers in a gameweek where WC/FH is played.
+    enum:
+    - retain
+    - retain_and_accrue
+    - reset
+    title: ChipFtPolicy
+    type: string
+  ChipRules:
+    additionalProperties: false
+    properties:
+      catalogue:
+        items:
+          $ref: '#/$defs/ChipDefinition'
+        title: Catalogue
+        type: array
+      free_hit_reverts:
+        default: true
+        title: Free Hit Reverts
+        type: boolean
+      one_chip_per_gameweek:
+        default: true
+        title: One Chip Per Gameweek
+        type: boolean
+      triple_captain_multiplier:
+        default: 3
+        minimum: 1
+        title: Triple Captain Multiplier
+        type: integer
+    required:
+    - catalogue
+    title: ChipRules
+    type: object
+  ChipType:
+    enum:
+    - wildcard
+    - free_hit
+    - bench_boost
+    - triple_captain
+    - assistant_manager
+    title: ChipType
+    type: string
+  CleanSheetScoring:
+    additionalProperties: false
+    properties:
+      min_minutes:
+        default: 60
+        minimum: 1
+        title: Min Minutes
+        type: integer
+      points:
+        $ref: '#/$defs/PerPosition'
+    required:
+    - points
+    title: CleanSheetScoring
+    type: object
+  DefensiveContributionRule:
+    additionalProperties: false
+    properties:
+      actions:
+        items:
+          enum:
+          - clearances_blocks_interceptions
+          - tackles
+          - recoveries
+          type: string
+        title: Actions
+        type: array
+      points:
+        title: Points
+        type: integer
+      threshold:
+        minimum: 1
+        title: Threshold
+        type: integer
+    required:
+    - threshold
+    - points
+    - actions
+    title: DefensiveContributionRule
+    type: object
+  DefensiveContributionScoring:
+    additionalProperties: false
+    properties:
+      by_position:
+        additionalProperties:
+          $ref: '#/$defs/DefensiveContributionRule'
+        propertyNames:
+          $ref: '#/$defs/Position'
+        title: By Position
+        type: object
+      enabled:
+        title: Enabled
+        type: boolean
+    required:
+    - enabled
+    title: DefensiveContributionScoring
+    type: object
+  GameweekTiming:
+    additionalProperties: false
+    properties:
+      decision_buffer_minutes:
+        default: 90
+        description: Decision cutoff = deadline minus this buffer (ADR-0004)
+        minimum: 0
+        title: Decision Buffer Minutes
+        type: integer
+      finalization_lag_hours:
+        default: 72
+        description: "Last kickoff of a GW \u2192 scores locked/finalised (late lockdown, \xA746)"
+        minimum: 0
+        title: Finalization Lag Hours
+        type: integer
+      provisional_lag_minutes:
+        default: 150
+        description: "Kickoff \u2192 provisional stats (incl. bonus) availability"
+        minimum: 0
+        title: Provisional Lag Minutes
+        type: integer
+    title: GameweekTiming
+    type: object
+  GoalsConcededScoring:
+    additionalProperties: false
+    properties:
+      per_goals:
+        default: 2
+        minimum: 1
+        title: Per Goals
+        type: integer
+      points:
+        $ref: '#/$defs/PerPosition'
+    required:
+    - points
+    title: GoalsConcededScoring
+    type: object
+  LineupRules:
+    additionalProperties: false
+    properties:
+      bench_goalkeepers:
+        default: 1
+        minimum: 0
+        title: Bench Goalkeepers
+        type: integer
+      bench_outfield:
+        default: 3
+        minimum: 0
+        title: Bench Outfield
+        type: integer
+      max_per_position:
+        $ref: '#/$defs/PositionCounts'
+      min_per_position:
+        $ref: '#/$defs/PositionCounts'
+      starters:
+        minimum: 1
+        title: Starters
+        type: integer
+    required:
+    - starters
+    - min_per_position
+    - max_per_position
+    title: LineupRules
+    type: object
+  PerPosition:
+    additionalProperties: false
+    properties:
+      DEF:
+        title: Def
+        type: integer
+      FWD:
+        title: Fwd
+        type: integer
+      GK:
+        title: Gk
+        type: integer
+      MID:
+        title: Mid
+        type: integer
+    required:
+    - GK
+    - DEF
+    - MID
+    - FWD
+    title: PerPosition
+    type: object
+  Position:
+    description: FPL playing position. Values match the canonical short codes used in storage.
+    enum:
+    - GK
+    - DEF
+    - MID
+    - FWD
+    title: Position
+    type: string
+  PositionCounts:
+    additionalProperties: false
+    properties:
+      DEF:
+        minimum: 0
+        title: Def
+        type: integer
+      FWD:
+        minimum: 0
+        title: Fwd
+        type: integer
+      GK:
+        minimum: 0
+        title: Gk
+        type: integer
+      MID:
+        minimum: 0
+        title: Mid
+        type: integer
+    required:
+    - GK
+    - DEF
+    - MID
+    - FWD
+    title: PositionCounts
+    type: object
+  PricingRules:
+    additionalProperties: false
+    properties:
+      max_price:
+        default: 200
+        minimum: 1
+        title: Max Price
+        type: integer
+      min_price:
+        default: 35
+        minimum: 1
+        title: Min Price
+        type: integer
+      price_step:
+        default: 1
+        description: Price change granularity in tenths
+        minimum: 1
+        title: Price Step
+        type: integer
+      selling_price_rule:
+        $ref: '#/$defs/SellingPriceRule'
+    required:
+    - selling_price_rule
+    title: PricingRules
+    type: object
+  Provenance:
+    additionalProperties: false
+    properties:
+      notes:
+        default: []
+        items:
+          type: string
+        title: Notes
+        type: array
+      sources:
+        default: []
+        items:
+          $ref: '#/$defs/SourceRef'
+        title: Sources
+        type: array
+      verification:
+        additionalProperties:
+          $ref: '#/$defs/VerificationMethod'
+        description: "Verification method per ruleset section (squad, transfers, chips, scoring\u2026)"
+        title: Verification
+        type: object
+    title: Provenance
+    type: object
+  SavesScoring:
+    additionalProperties: false
+    properties:
+      per_saves:
+        default: 3
+        minimum: 1
+        title: Per Saves
+        type: integer
+      points:
+        default: 1
+        title: Points
+        type: integer
+    title: SavesScoring
+    type: object
+  ScoringRules:
+    additionalProperties: false
+    properties:
+      appearance:
+        $ref: '#/$defs/AppearanceScoring'
+      assist:
+        title: Assist
+        type: integer
+      bonus:
+        $ref: '#/$defs/BonusScoring'
+      clean_sheet:
+        $ref: '#/$defs/CleanSheetScoring'
+      defensive_contribution:
+        $ref: '#/$defs/DefensiveContributionScoring'
+      goal:
+        $ref: '#/$defs/PerPosition'
+      goals_conceded:
+        $ref: '#/$defs/GoalsConcededScoring'
+      own_goal:
+        title: Own Goal
+        type: integer
+      penalty_miss:
+        title: Penalty Miss
+        type: integer
+      penalty_save:
+        title: Penalty Save
+        type: integer
+      red_card:
+        title: Red Card
+        type: integer
+      saves:
+        $ref: '#/$defs/SavesScoring'
+      yellow_card:
+        title: Yellow Card
+        type: integer
+    required:
+    - appearance
+    - goal
+    - assist
+    - clean_sheet
+    - goals_conceded
+    - saves
+    - penalty_save
+    - penalty_miss
+    - yellow_card
+    - red_card
+    - own_goal
+    - defensive_contribution
+    - bonus
+    title: ScoringRules
+    type: object
+  SellingPriceRule:
+    enum:
+    - half_profit_floor
+    title: SellingPriceRule
+    type: string
+  SourceRef:
+    additionalProperties: false
+    properties:
+      accessed:
+        format: date
+        title: Accessed
+        type: string
+      note:
+        anyOf:
+        - type: string
+        - type: 'null'
+        default: null
+        title: Note
+      title:
+        title: Title
+        type: string
+      url:
+        title: Url
+        type: string
+    required:
+    - title
+    - url
+    - accessed
+    title: SourceRef
+    type: object
+  SquadRules:
+    additionalProperties: false
+    properties:
+      initial_budget:
+        description: "Budget in tenths of \xA3m (1000 = \xA3100.0m)"
+        minimum: 1
+        title: Initial Budget
+        type: integer
+      max_per_club:
+        minimum: 1
+        title: Max Per Club
+        type: integer
+      positions:
+        $ref: '#/$defs/PositionCounts'
+      size:
+        minimum: 1
+        title: Size
+        type: integer
+    required:
+    - size
+    - initial_budget
+    - positions
+    - max_per_club
+    title: SquadRules
+    type: object
+  TransferRules:
+    additionalProperties: false
+    properties:
+      chip_ft_policy:
+        $ref: '#/$defs/ChipFtPolicy'
+      first_gameweek_unlimited:
+        default: true
+        title: First Gameweek Unlimited
+        type: boolean
+      free_transfers_per_gameweek:
+        minimum: 1
+        title: Free Transfers Per Gameweek
+        type: integer
+      hit_cost:
+        description: Points deducted per transfer beyond the allowance
+        minimum: 0
+        title: Hit Cost
+        type: integer
+      initial_free_transfers_after_first_gameweek:
+        default: 1
+        minimum: 1
+        title: Initial Free Transfers After First Gameweek
+        type: integer
+      max_banked_free_transfers:
+        minimum: 1
+        title: Max Banked Free Transfers
+        type: integer
+      top_ups:
+        default: []
+        items:
+          $ref: '#/$defs/TransferTopUp'
+        title: Top Ups
+        type: array
+    required:
+    - free_transfers_per_gameweek
+    - max_banked_free_transfers
+    - hit_cost
+    - chip_ft_policy
+    title: TransferRules
+    type: object
+  TransferTopUp:
+    additionalProperties: false
+    description: A scheduled change to free transfers (e.g. AFCON top-up, post-World-Cup unlimited).
+    properties:
+      gameweek:
+        minimum: 1
+        title: Gameweek
+        type: integer
+      reason:
+        title: Reason
+        type: string
+      set_free_transfers_to:
+        anyOf:
+        - minimum: 0
+          type: integer
+        - type: 'null'
+        default: null
+        title: Set Free Transfers To
+      unlimited:
+        default: false
+        title: Unlimited
+        type: boolean
+    required:
+    - gameweek
+    - reason
+    title: TransferTopUp
+    type: object
+  VerificationMethod:
+    enum:
+    - official
+    - secondary-source
+    - empirical
+    - assumed
+    title: VerificationMethod
+    type: string
+additionalProperties: false
+description: All rules for one season. Hash and version are stored with every run.
+properties:
+  bps_notes:
+    default: []
+    items:
+      type: string
+    title: Bps Notes
+    type: array
+  captaincy:
+    $ref: '#/$defs/CaptaincyRules'
+  chips:
+    $ref: '#/$defs/ChipRules'
+  lineup:
+    $ref: '#/$defs/LineupRules'
+  num_gameweeks:
+    default: 38
+    minimum: 1
+    title: Num Gameweeks
+    type: integer
+  pricing:
+    $ref: '#/$defs/PricingRules'
+  provenance:
+    $ref: '#/$defs/Provenance'
+  ruleset_version:
+    pattern: ^\d{4}-\d{2}\.\d+$
+    title: Ruleset Version
+    type: string
+  schema_version:
+    const: 1
+    default: 1
+    title: Schema Version
+    type: integer
+  scoring:
+    $ref: '#/$defs/ScoringRules'
+  season:
+    pattern: ^\d{4}-\d{2}$
+    title: Season
+    type: string
+  squad:
+    $ref: '#/$defs/SquadRules'
+  timing:
+    $ref: '#/$defs/GameweekTiming'
+    default:
+      decision_buffer_minutes: 90
+      finalization_lag_hours: 72
+      provisional_lag_minutes: 150
+  transfers:
+    $ref: '#/$defs/TransferRules'
+required:
+- ruleset_version
+- season
+- provenance
+- squad
+- lineup
+- transfers
+- pricing
+- captaincy
+- chips
+- scoring
+title: Ruleset
+type: object

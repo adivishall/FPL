@@ -1,0 +1,175 @@
+[project]
+name = "fpl-decision-engine"
+version = "0.1.0"
+description = "Uncertainty-aware Fantasy Premier League decision engine (workspace root)"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = [
+  "fpl-domain",
+  "fpl-storage",
+  "fpl-ingestion",
+  "fpl-features",
+  "fpl-forecasting",
+  "fpl-simulation",
+  "fpl-optimizer",
+  "fpl-decision",
+  "fpl-backtest",
+  "fpl-notifications",
+  "fpl-api",
+  "fpl-worker",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*", "services/*", "apps/api", "apps/worker"]
+
+[tool.uv.sources]
+fpl-domain = { workspace = true }
+fpl-storage = { workspace = true }
+fpl-ingestion = { workspace = true }
+fpl-features = { workspace = true }
+fpl-forecasting = { workspace = true }
+fpl-simulation = { workspace = true }
+fpl-optimizer = { workspace = true }
+fpl-decision = { workspace = true }
+fpl-backtest = { workspace = true }
+fpl-notifications = { workspace = true }
+fpl-api = { workspace = true }
+fpl-worker = { workspace = true }
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1",
+  "pytest-cov>=7.1",
+  "pytest-timeout>=2.4",
+  "hypothesis>=6.168",
+  "ruff>=0.16",
+  "mypy>=2.4",
+  "import-linter>=2.15",
+  "fakeredis>=2.39",
+  "respx>=0.23",
+  "types-PyYAML>=6.0",
+  "pip-audit>=2.9",
+]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["apps/web", "db/migrations/versions", "data", "ml/models"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF", "PL", "PT", "C4", "TID", "S"]
+ignore = [
+  "PLR0913", # many arguments are natural for numerical/config code
+  "PLR2004", # magic values in comparisons: domain constants come from config; tests compare literals
+  "PLR0912",
+  "PLR0915",
+  "PLR0911",
+  "S101",    # assert is used for internal invariants
+  "RUF001",
+  "RUF002",
+  "RUF003",
+  "PT018",   # compound assertions are clear in tests
+  "N818",    # domain exceptions are named for the concept (RuleViolation)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "PLR", "N802", "N806", "PLC0415"]
+"**/migrations/**" = ["N", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "fpl_domain", "fpl_storage", "fpl_ingestion", "fpl_features", "fpl_forecasting",
+  "fpl_simulation", "fpl_optimizer", "fpl_decision", "fpl_backtest", "fpl_notifications",
+  "fpl_api", "fpl_worker",
+]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+strict_equality = true
+plugins = ["pydantic.mypy"]
+mypy_path = [
+  "packages/domain/src", "packages/storage/src", "services/ingestion/src",
+  "services/feature-store/src", "packages/forecasting/src", "packages/simulation/src",
+  "packages/optimizer/src", "packages/decision/src", "packages/backtesting/src",
+  "services/notifications/src", "apps/api/src", "apps/worker/src",
+]
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = [
+  "highspy.*", "lightgbm.*", "sklearn.*", "scipy.*", "joblib.*", "rq.*", "fakeredis.*",
+  "matplotlib.*", "pyarrow.*", "respx.*", "pandas.*",
+]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+  "integration: needs PostgreSQL/Redis (auto-provisioned locally when binaries exist)",
+  "slow: long-running (data download, model training, multi-GW optimisation)",
+  "network: requires outbound network access to a public data source",
+  "e2e: end-to-end flows",
+]
+filterwarnings = ["error::DeprecationWarning:fpl_.*"]
+
+[tool.coverage.run]
+source = ["packages", "services", "apps/api/src", "apps/worker/src"]
+branch = true
+
+# ---------------------------------------------------------------- import-linter (ADR-0002)
+[tool.importlinter]
+root_packages = [
+  "fpl_domain", "fpl_storage", "fpl_ingestion", "fpl_features", "fpl_forecasting",
+  "fpl_simulation", "fpl_optimizer", "fpl_decision", "fpl_backtest", "fpl_notifications",
+  "fpl_api", "fpl_worker",
+]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Domain is pure: no first-party or infrastructure imports"
+type = "forbidden"
+source_modules = ["fpl_domain"]
+forbidden_modules = [
+  "fpl_storage", "fpl_ingestion", "fpl_features", "fpl_forecasting", "fpl_simulation",
+  "fpl_optimizer", "fpl_decision", "fpl_backtest", "fpl_notifications", "fpl_api", "fpl_worker",
+  "sqlalchemy", "fastapi", "redis", "httpx", "rq",
+]
+
+[[tool.importlinter.contracts]]
+name = "Optimizer and simulation are pure computation (domain only)"
+type = "forbidden"
+source_modules = ["fpl_optimizer", "fpl_simulation"]
+forbidden_modules = [
+  "fpl_storage", "fpl_ingestion", "fpl_features", "fpl_forecasting", "fpl_decision",
+  "fpl_backtest", "fpl_notifications", "fpl_api", "fpl_worker", "sqlalchemy", "fastapi",
+  "redis", "httpx",
+]
+
+[[tool.importlinter.contracts]]
+name = "Libraries never import applications"
+type = "forbidden"
+source_modules = [
+  "fpl_domain", "fpl_storage", "fpl_ingestion", "fpl_features", "fpl_forecasting",
+  "fpl_simulation", "fpl_optimizer", "fpl_decision", "fpl_backtest", "fpl_notifications",
+]
+forbidden_modules = ["fpl_api", "fpl_worker"]
+
+[[tool.importlinter.contracts]]
+name = "Forecasting/decision layers do not touch HTTP or queues"
+type = "forbidden"
+source_modules = ["fpl_features", "fpl_forecasting", "fpl_decision", "fpl_backtest"]
+forbidden_modules = ["fastapi", "redis", "rq", "httpx", "fpl_ingestion"]

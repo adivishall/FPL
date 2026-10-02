@@ -1,0 +1,107 @@
+# FPL rules for the 2026/27 season (ADR-0005). Validated against schema.yaml.
+schema_version: 1
+ruleset_version: "2026-27.1"
+season: "2026-27"
+num_gameweeks: 38
+provenance:
+  sources:
+    - {title: "Spec §46/§51.1 — Current 2026/27 FPL rule dependencies", url: "spec://FPL_Decision_Engine_Complete_Claude_Build_Spec#51.1", accessed: 2026-10-02}
+    - {title: "FPL 2026/27: 5 rule changes + new features announced (Fantasy Football Scout)", url: "https://www.fantasyfootballscout.co.uk/2026/07/20/fpl-2026-27-5-rule-changes-new-features-announced", accessed: 2026-10-02, note: "via search summary; page blocked by build-environment egress"}
+    - {title: "What's new in 2026/27 Fantasy: Changes to Bonus Points System (premierleague.com)", url: "https://www.premierleague.com/en/news/4679946/whats-new-in-202627-fantasy-changes-to-bonus-points-system", accessed: 2026-10-02, note: "via search summary; page blocked by build-environment egress"}
+    - {title: "FPL 2026/27 Changes: Live Ranks, Bonus Points & Chips (Fantasy Football Fix)", url: "https://www.fantasyfootballfix.com/blog-index/fpl-2026-27-new-rules/", accessed: 2026-10-02, note: "via search summary"}
+  verification:
+    squad: secondary-source
+    lineup: secondary-source
+    transfers: secondary-source
+    chips: secondary-source
+    scoring: secondary-source
+    timing: assumed
+  notes:
+    - "No AFCON free-transfer top-up in 2026/27 (tournament moved to June/July 2027)."
+    - "Banked free transfers are retained when Wildcard/Free Hit is played; +1 accrual in that GW is ambiguous -> chip_ft_policy=retain (ADR-0001 #12)."
+    - "Final scores can be revised until a later GW lockdown; finalization_lag_hours is an assumption."
+
+squad:
+  size: 15
+  initial_budget: 1000
+  positions: {GK: 2, DEF: 5, MID: 5, FWD: 3}
+  max_per_club: 3
+lineup:
+  starters: 11
+  min_per_position: {GK: 1, DEF: 3, MID: 2, FWD: 1}
+  max_per_position: {GK: 1, DEF: 5, MID: 5, FWD: 3}
+  bench_goalkeepers: 1
+  bench_outfield: 3
+pricing:
+  selling_price_rule: half_profit_floor
+  price_step: 1
+  min_price: 35
+  max_price: 200
+captaincy:
+  captain_multiplier: 2
+  vice_promotes_if_captain_did_not_play: true
+
+transfers:
+  free_transfers_per_gameweek: 1
+  max_banked_free_transfers: 5
+  hit_cost: 4
+  first_gameweek_unlimited: true
+  initial_free_transfers_after_first_gameweek: 1
+  chip_ft_policy: retain
+  top_ups: []
+
+chips:
+  one_chip_per_gameweek: true
+  triple_captain_multiplier: 3
+  free_hit_reverts: true
+  catalogue:
+    - {id: wildcard_1, type: wildcard, first_gameweek: 2, last_gameweek: 19}
+    - {id: free_hit_1, type: free_hit, first_gameweek: 2, last_gameweek: 19}
+    - {id: bench_boost_1, type: bench_boost, first_gameweek: 1, last_gameweek: 19}
+    - {id: triple_captain_1, type: triple_captain, first_gameweek: 1, last_gameweek: 19}
+    - {id: wildcard_2, type: wildcard, first_gameweek: 20, last_gameweek: 38}
+    - {id: free_hit_2, type: free_hit, first_gameweek: 20, last_gameweek: 38}
+    - {id: bench_boost_2, type: bench_boost, first_gameweek: 20, last_gameweek: 38}
+    - {id: triple_captain_2, type: triple_captain, first_gameweek: 20, last_gameweek: 38}
+
+scoring:
+  appearance:
+    full_minutes_threshold: 60
+    points_below_threshold: 1
+    points_at_or_above_threshold: 2
+  goal: {GK: 10, DEF: 6, MID: 5, FWD: 4}
+  assist: 3
+  clean_sheet:
+    min_minutes: 60
+    points: {GK: 4, DEF: 4, MID: 1, FWD: 0}
+  goals_conceded:
+    per_goals: 2
+    points: {GK: -1, DEF: -1, MID: 0, FWD: 0}
+  saves:
+    per_saves: 3
+    points: 1
+  penalty_save: 5
+  penalty_miss: -2
+  yellow_card: -1
+  red_card: -3
+  own_goal: -2
+  defensive_contribution:
+    enabled: true
+    by_position:
+      DEF: {threshold: 10, points: 2, actions: [clearances_blocks_interceptions, tackles]}
+      MID: {threshold: 12, points: 2, actions: [clearances_blocks_interceptions, tackles, recoveries]}
+      FWD: {threshold: 12, points: 2, actions: [clearances_blocks_interceptions, tackles, recoveries]}
+  bonus:
+    awards: [3, 2, 1]
+    tie_rule: fpl_standard
+
+timing:
+  decision_buffer_minutes: 90
+  provisional_lag_minutes: 150
+  finalization_lag_hours: 72
+
+bps_notes:
+  - "2026/27: one BPS per three clearances/blocks/interceptions (previously per two)."
+  - "2026/27: deduction for being tackled removed."
+  - "2026/27: goalkeeper saves 2 BPS each, +1 if inside the box, +1 if from a big chance; outside-box save metric removed."
+  - "Bonus is modelled empirically (event -> BPS mapping learned per season), so these changes enter via data (ADR-0001 #13)."

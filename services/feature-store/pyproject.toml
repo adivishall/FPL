@@ -1,0 +1,23 @@
+[project]
+name = "fpl-features"
+version = "0.1.0"
+description = "Point-in-time feature registry and builder"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = [
+  "fpl-domain",
+  "fpl-storage",
+  "pandas>=3.0",
+  "numpy>=2.5",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fpl_features"]
+
+[tool.uv.sources]
+fpl-domain = { workspace = true }
+fpl-storage = { workspace = true }
