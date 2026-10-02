@@ -1,0 +1,82 @@
+# Operational alerts (§76.1). Thresholds mirror the SLAs in config/sources.yaml and the API's
+# documented limits; every rule names the runbook section to follow (docs/DEPLOYMENT.md).
+groups:
+  - name: fpl-api
+    rules:
+      - alert: ApiHighErrorRate
+        expr: |
+          sum(rate(fpl_http_requests_total{status=~"5.."}[10m]))
+            / clamp_min(sum(rate(fpl_http_requests_total[10m])), 1e-9) > 0.05
+        for: 10m
+        labels: {severity: page}
+        annotations:
+          summary: "API 5xx ratio above 5% for 10 minutes"
+          runbook: "docs/DEPLOYMENT.md#api-errors"
+      - alert: ApiLatencyP95High
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(fpl_http_request_seconds_bucket{route!~".*(optimize|recommendations/generate|backtests).*"}[10m]))) > 2
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: "p95 latency of interactive routes above 2s"
+          runbook: "docs/DEPLOYMENT.md#latency"
+      - alert: DataStale
+        expr: max(fpl_data_freshness_hours{source="bootstrap"}) > 12
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Newest source datum older than the 12h freshness SLA (degraded mode)"
+          runbook: "docs/DEPLOYMENT.md#stale-data"
+      - alert: DataExpired
+        expr: max(fpl_data_freshness_hours{source="bootstrap"}) > 72
+        for: 30m
+        labels: {severity: page}
+        annotations:
+          summary: "Source data past the 72h expiry: recommendations are flagged expired"
+          runbook: "docs/DEPLOYMENT.md#stale-data"
+      - alert: JobQueueBacklog
+        expr: fpl_jobs{status="queued"} > 20
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than 20 queued jobs for 15 minutes (worker down or saturated)"
+          runbook: "docs/DEPLOYMENT.md#queue-backlog"
+      - alert: JobFailures
+        expr: increase(fpl_job_failures_total[1h]) > 3
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than 3 failed jobs in an hour"
+          runbook: "docs/DEPLOYMENT.md#job-failures"
+      - alert: ForecastFailures
+        expr: increase(fpl_forecast_failures_total[1h]) > 0
+        labels: {severity: page}
+        annotations:
+          summary: "Forecast generation failed — recommendations cannot refresh"
+          runbook: "docs/DEPLOYMENT.md#forecast-failures"
+      - alert: InvalidOptimiserPlans
+        expr: increase(fpl_optimization_status_total{status="invalid"}[1h]) > 0
+        labels: {severity: page}
+        annotations:
+          summary: "A recommended plan failed independent validation"
+          runbook: "docs/DEPLOYMENT.md#invalid-plans"
+      - alert: RecommendationFailures
+        expr: increase(fpl_recommendations_total{outcome="failure"}[1h]) > 2
+        labels: {severity: ticket}
+        annotations:
+          summary: "Recommendation generation failing"
+          runbook: "docs/DEPLOYMENT.md#job-failures"
+      - alert: ForecastCalibrationDrift
+        expr: |
+          fpl_model_metric{model="forecast_eval",metric="pit_coverage_80_all_h0"} < 0.77
+            or fpl_model_metric{model="forecast_eval",metric="pit_coverage_80_all_h0"} > 0.83
+            or fpl_model_metric{model="forecast_eval",metric="ece_6_all_h0"} > 0.02
+        labels: {severity: ticket}
+        annotations:
+          summary: "Published forecast calibration outside the promotion-gate band"
+          runbook: "docs/DEPLOYMENT.md#model-drift"
+      - alert: SecurityEventsSpike
+        expr: sum(increase(fpl_security_events_total[10m])) > 100
+        labels: {severity: ticket}
+        annotations:
+          summary: "Burst of rejected requests (auth / rate limit / size / webhook)"
+          runbook: "docs/DEPLOYMENT.md#security-events"

@@ -19,9 +19,12 @@ handler (ADR-0001 #3).
   `succeeded`/`failed`; `result_ref` points at the stored result (recommendation id, backtest id,
   forecast key). Identical queued/finished requests are de-duplicated.
 * **Security** (§35, §75): optional API keys (`X-API-Key`, stored as SHA-256 only) for all
-  non-GET routes; token-bucket rate limits per client (stricter for optimisation/simulation
-  routes), applied before authentication; body-size limit; CORS allow-list; request ids
-  (`x-request-id`). No FPL account credentials are ever accepted — sync uses the public entry id.
+  non-GET routes and for reads of manager-linked personal data (`/managers/*`); token-bucket
+  rate limits per client (stricter for optimisation/simulation routes), applied before
+  authentication; body-size limit; CORS allow-list; request ids (`x-request-id`). Rejections are
+  logged as `security_event` (no key material) and counted in `fpl_security_events_total`. No
+  FPL account credentials are ever accepted — sync uses the public entry id. The web UI calls
+  the API through its server-side proxy (`/backend/*`), so the key never reaches a browser.
 
 ## Endpoints
 
@@ -51,9 +54,15 @@ handler (ADR-0001 #3).
 | `GET /backtests`, `GET /backtests/{id}` | Published report summary + stored runs; run detail | |
 | `GET /reports`, `GET /reports/{name}`, `GET /reports/figures/{file}` | Published experiment reports (allow-listed) | |
 | `GET /models` | Promotion-gate status and the serving forecast's provenance | |
-| `GET /settings`, `POST /settings` | Manager preferences (horizon, profile, …) | |
+| `GET /settings`, `POST /settings` | Manager preferences (horizon, profile, alert threshold, time zone, webhook) | webhook URL must pass the SSRF policy (`422` otherwise) |
+| `GET /recommendations/{id}/trace` | Traceability chain (§76.2): recommendation → optimisation run → prediction set → feature snapshot → data snapshot → source revision, with integrity checks | `complete` = every check passed |
+| `POST /notifications/evaluate` | Run the §74 alert rules for a manager (job) | `202`; one job per manager per minute |
+| `GET /notifications?manager_key=` | Alerts (newest first; `unread_only`) with evidence and config reference | |
+| `POST /notifications/read?manager_key=` | Mark alerts read | |
+| `GET /managers/{key}/export` | Every manager-linked row (§75) | API key required when keys are on |
+| `DELETE /managers/{key}` | Erase manager-linked rows; audit entry stores only a key hash | |
 | `GET /jobs/{id}` | Job status | |
-| `GET /metrics` (no prefix) | Prometheus metrics | |
+| `GET /metrics` (no prefix) | Prometheus metrics (§76.1; see docs/DEPLOYMENT.md) | |
 
 ## Recommendation contract (§72.1)
 
@@ -77,3 +86,21 @@ handler (ADR-0001 #3).
 
 `confidence` is the paired probability that the chosen plan beats holding (for HOLD: the
 probability that no considered move beats holding) — never a fabricated "certainty score".
+
+## Alerts (§74)
+
+Rules live in `fpl_notifications.rules`, thresholds in `config/notifications/default.yaml`
+(versioned; the reference is stored on every alert). A recommendation stores a *watch* block —
+the inputs it was built on — and evaluation recomputes them at the current cutoff:
+
+| Kind | Fires when | Materiality |
+|---|---|---|
+| `deadline` | inside a reminder window (24 h, 2 h) before the official deadline, shown in the manager's time zone | always (one per window) |
+| `squad_change` | owned player's availability drops ≥ 25 pts, P(start) moves ≥ 0.25, or a regular starter is benched while fit | expected points at stake ≥ 1.0 |
+| `price_risk` | exact P(planned transfers unaffordable after price moves) from the calibrated price model | probability ≥ 0.30 |
+| `fixture_change` | fixtures added/removed for the planned squad's teams inside the horizon | Δfixtures × xP per match ≥ 1.5 |
+| `invalidation` | re-solved on fresh forecasts, a different plan beats the saved one by ≥ the manager's threshold, or the saved move's P(beats hold) < 0.5 | regret in points |
+| `post_gameweek` | the gameweek after a recommendation finished: forecast vs actual, misses explained (minutes, hauls, blanks) | one report per GW |
+
+De-duplication: each alert's key names the underlying *state* (e.g. `avail:<season>:<gw>:<player>:<status>:<chance>`),
+and the store's unique constraint makes re-evaluation of unchanged inputs a no-op.

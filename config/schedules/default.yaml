@@ -1,0 +1,15 @@
+# Scheduler (fpl-worker schedule; §74, §80). Every task submits an idempotent job: the request
+# carries a time bucket (floor(now / every)), so restarts and multiple schedulers never duplicate
+# work — the job backend de-duplicates identical requests.
+version: "1.0.0"
+tick_seconds: 60
+tasks:
+  live_refresh:          # capture live FPL state, then export a new canonical snapshot
+    every_minutes: 60
+    enabled: true
+  forecast_precompute:   # the API serves precomputed forecasts in production (ADR-0009)
+    every_minutes: 15
+    enabled: true
+  alerts:                # §74 rules for every manager with a stored squad
+    every_minutes: 30
+    enabled: true

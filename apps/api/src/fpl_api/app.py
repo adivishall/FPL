@@ -19,22 +19,19 @@ import numpy as np
 import pandas as pd
 import structlog
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request, Response
+from fastapi import Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from prometheus_client import (
-    CONTENT_TYPE_LATEST,
-    CollectorRegistry,
-    Counter,
-    Histogram,
-    generate_latest,
-)
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import select, text
 
 from fpl_api import schemas as s
-from fpl_api.container import AppServices, build_recommendation
+from fpl_api.container import AppServices, build_recommendation, optimization_problem
 from fpl_api.jobs import JobBackend
-from fpl_api.security import Guard
-from fpl_api.services import REPO_ROOT, ForecastUnavailable, sources_config
+from fpl_api.lineage import trace
+from fpl_api.privacy import audit, delete_manager, export_manager
+from fpl_api.security import Guard, hash_key
+from fpl_api.services import ForecastUnavailable, sources_config
 from fpl_api.settings import Settings
 from fpl_decision.captaincy import analyse_captaincy
 from fpl_decision.chips import plan_chips
@@ -45,11 +42,14 @@ from fpl_domain.enums import ChipType, Position
 from fpl_domain.errors import RuleViolation
 from fpl_domain.squad import SquadPick, squad_violations
 from fpl_domain.state import ChipStatus, ManagerState, initial_chips
+from fpl_forecasting.model_config import price_spec
+from fpl_forecasting.price_change import official_signal
 from fpl_ingestion.manager_sync import reconstruct_state
 from fpl_ingestion.sources.fpl_api import FplApiClient
+from fpl_notifications.rules import load_notification_config
+from fpl_notifications.store import UnsafeUrl, validate_webhook_url
 from fpl_optimizer.lineup import best_lineup
 from fpl_optimizer.milp import OptimizationError, build_and_solve
-from fpl_optimizer.pool import candidate_pool
 from fpl_optimizer.problem import OptimizationProblem, Preferences, load_optimizer_config
 from fpl_storage import models as m
 from fpl_storage.db import session_scope
@@ -67,6 +67,13 @@ REPORTS = (
     "team_strength_tuning",
 )
 API = "/api/v1"
+SECURITY_STATUS = {
+    401: "auth_missing",
+    403: "auth_invalid",
+    413: "body_too_large",
+    429: "rate_limited",
+}
+KEY_PATTERN = r"^[A-Za-z0-9_\-]+$"
 
 
 def create_app(settings: Settings | None = None, services: AppServices | None = None) -> FastAPI:
@@ -74,13 +81,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     svc = services or AppServices.build(settings)
     jobs = JobBackend(svc)
     guard = Guard(settings)
-    registry = CollectorRegistry()
-    req_count = Counter(
-        "fpl_http_requests_total", "HTTP requests", ["method", "route", "status"], registry=registry
-    )
-    req_latency = Histogram(
-        "fpl_http_request_seconds", "HTTP latency", ["route"], registry=registry
-    )
+    metrics = svc.metrics
 
     app = FastAPI(
         title="FPL Decision Engine API",
@@ -91,7 +92,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -109,11 +110,22 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             response = JSONResponse(
                 {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers
             )
+            kind = SECURITY_STATUS.get(exc.status_code)
+            if kind:  # §75: log security-relevant events without secrets (no key material)
+                metrics.security_events.labels(kind).inc()
+                log.warning(
+                    "security_event",
+                    kind=kind,
+                    method=request.method,
+                    path=request.url.path,
+                    client=guard.client_id(request)[:20],
+                    request_id=rid,
+                )
         route = request.scope.get("route")
-        path = getattr(route, "path", request.url.path)
+        path = getattr(route, "path", None) or "unmatched"  # bounded label cardinality
         dt = time.perf_counter() - t0
-        req_count.labels(request.method, path, str(response.status_code)).inc()
-        req_latency.labels(path).observe(dt)
+        metrics.http_requests.labels(request.method, path, str(response.status_code)).inc()
+        metrics.http_latency.labels(path).observe(dt)
         response.headers["x-request-id"] = rid
         log.info(
             "request",
@@ -301,8 +313,27 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         prices = prices[prices["player_code"] == code].sort_values("observed_at")
         snap = view.latest_snapshot(ctx.season)
         live = snap[snap["player_code"] == code]
+        # engine probabilities and the official predictor side by side, never merged (ADR-0001 #20)
+        price_risk: dict[str, Any] = {"engine": None, "official": None}
+        probs = svc.price_probs(ctx)
+        if probs is not None and code in set(probs["player_code"]):
+            row = probs[probs["player_code"] == code].iloc[0]
+            price_risk["engine"] = {
+                "p_rise": float(row["p_rise"]),
+                "p_fall": float(row["p_fall"]),
+                "model": price_spec()[1].ref,
+            }
+        off = official_signal(view, ctx.season)
+        off = off[off["player_code"] == code]
+        if len(off):
+            price_risk["official"] = {
+                "price_change_percent": float(off["official_price_change_percent"].iloc[0]),
+                "captured_at": _jsonable(off["official_captured_at"].iloc[0]),
+                "source": "fantasy.premierleague.com bootstrap (official predictor)",
+            }
         return {
             "player": _records(reg)[0],
+            "price_risk": price_risk,
             "recent_matches": _records(
                 hist[
                     [
@@ -456,8 +487,6 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         ctx = svc.context()
         h = svc.horizon(horizon)
         fc = svc.forecast_for(ctx, h)
-        table = svc.table(ctx, fc, h, st)
-        cfg = load_optimizer_config(profile)
         pref = (
             Preferences(
                 locked=frozenset(prefs.locked),
@@ -467,16 +496,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             if prefs
             else Preferences()
         )
-        pool = candidate_pool(table, st.codes, cfg.pool, discount=cfg.objective.discount)
-        prob = OptimizationProblem(
-            state=st,
-            ruleset=svc.data.ruleset(ctx.season),
-            players=pool,
-            gameweeks=tuple(range(ctx.gameweek, ctx.gameweek + table.horizon)),
-            config=cfg,
-            preferences=pref,
-        )
-        return ctx, fc, prob
+        return ctx, fc, optimization_problem(svc, ctx, fc, st, h, profile, pref)
 
     @r.post("/optimize")
     @r.post("/optimize/transfer")
@@ -802,7 +822,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     @r.get("/backtests")
     def list_backtests() -> dict[str, Any]:
         published = None
-        rep = REPO_ROOT / "ml" / "reports" / "backtest.json"
+        rep = settings.reports_path / "backtest.json"
         if rep.exists():
             data = json.loads(rep.read_text())
             published = {
@@ -849,14 +869,14 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     # ------------------------------------------------------------------ reports, models, settings
     @r.get("/reports")
     def list_reports() -> dict[str, Any]:
-        rep = REPO_ROOT / "ml" / "reports"
+        rep = settings.reports_path
         return {"reports": sorted(n for n in REPORTS if (rep / f"{n}.md").exists())}
 
     @r.get("/reports/{name}")
     def get_report(name: str) -> dict[str, Any]:
         if name not in REPORTS:  # allow-list: no path traversal into the filesystem
             raise HTTPException(404, f"unknown report {name}")
-        rep = REPO_ROOT / "ml" / "reports"
+        rep = settings.reports_path
         md = rep / f"{name}.md"
         js = rep / f"{name}.json"
         if not md.exists():
@@ -869,7 +889,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
 
     @r.get("/reports/figures/{name}")
     def get_figure(name: str) -> Response:
-        figs = REPO_ROOT / "ml" / "reports" / "figures"
+        figs = settings.reports_path / "figures"
         allowed = {p.name for p in figs.glob("*.svg")} if figs.exists() else set()
         if name not in allowed:
             raise HTTPException(404, f"unknown figure {name}")
@@ -877,7 +897,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
 
     @r.get("/models")
     def models_status() -> dict[str, Any]:
-        rep = REPO_ROOT / "ml" / "reports"
+        rep = settings.reports_path
         out: dict[str, Any] = {}
         for name in ("forecast_eval", "price_change"):
             path = rep / f"{name}.json"
@@ -913,6 +933,14 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     ) -> dict[str, Any]:
         need_db()
         assert svc.engine is not None
+        if body.webhook_url:
+            hosts = [*load_notification_config().delivery.webhook_allowed_hosts]
+            try:
+                validate_webhook_url(body.webhook_url, [*hosts, *settings.webhook_allowed_hosts])
+            except UnsafeUrl as exc:
+                metrics.security_events.labels("webhook_rejected").inc()
+                log.warning("security_event", kind="webhook_rejected", reason=str(exc))
+                raise HTTPException(422, f"webhook_url rejected: {exc}") from exc
         with session_scope(svc.engine) as ses:
             row = ses.get(m.ManagerSettingsRow, manager_key)
             if row is None:
@@ -922,6 +950,65 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             else:
                 row.settings_json = body.model_dump()
         return {"manager_key": manager_key, "settings": body.model_dump()}
+
+    # ------------------------------------------------------------------ notifications (§74)
+    @r.post("/notifications/evaluate")
+    def evaluate_notifications(body: s.AlertsIn) -> JSONResponse:
+        need_db()
+        job = jobs.submit("alerts", {"manager_key": body.manager_key, "at": _minute()})
+        return JSONResponse({"job_id": job, "job": jobs.get(job)}, status_code=202)
+
+    @r.get("/notifications")
+    def list_notifications(
+        manager_key: str = Query(..., max_length=64, pattern=KEY_PATTERN),
+        unread_only: bool = False,
+        limit: int = Query(50, ge=1, le=200),
+    ) -> dict[str, Any]:
+        need_db()
+        assert svc.notifications is not None
+        return {
+            "notifications": svc.notifications.fetch(manager_key, unread_only, limit),
+            "freshness": fresh(),
+        }
+
+    @r.post("/notifications/read")
+    def mark_read(
+        body: s.MarkReadIn, manager_key: str = Query(..., max_length=64, pattern=KEY_PATTERN)
+    ) -> dict[str, Any]:
+        need_db()
+        assert svc.notifications is not None
+        return {"updated": svc.notifications.mark(manager_key, body.ids, "read_at")}
+
+    # ------------------------------------------------------------------ privacy (§75)
+    @r.get("/managers/{manager_key}/export")
+    def export_data(
+        request: Request, manager_key: str = PathParam(..., max_length=64, pattern=KEY_PATTERN)
+    ) -> dict[str, Any]:
+        need_db()
+        assert svc.engine is not None
+        data = export_manager(svc.engine, manager_key)
+        audit(svc.engine, "privacy.export_manager", manager_key, _actor(request))
+        return {"exported_at": datetime.now(UTC).isoformat(), **_jsonable(data)}
+
+    @r.delete("/managers/{manager_key}")
+    def delete_data(
+        request: Request, manager_key: str = PathParam(..., max_length=64, pattern=KEY_PATTERN)
+    ) -> dict[str, Any]:
+        need_db()
+        assert svc.engine is not None
+        counts = delete_manager(svc.engine, manager_key, _actor(request))
+        log.info("privacy_delete", deleted=sum(counts.values()))
+        return {"deleted": counts}
+
+    # ------------------------------------------------------------------ traceability (§76.2)
+    @r.get("/recommendations/{rec_id}/trace")
+    def trace_rec(rec_id: str = PathParam(..., max_length=80)) -> dict[str, Any]:
+        need_db()
+        assert svc.engine is not None
+        out = trace(svc.engine, rec_id)
+        if out is None:
+            raise HTTPException(404, f"recommendation {rec_id} not found")
+        return _jsonable(out)
 
     @r.get("/jobs/{job_id}")
     def job_status(job_id: str) -> dict[str, Any]:
@@ -933,10 +1020,28 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     app.include_router(r)
 
     @app.get("/metrics")
-    def metrics() -> Response:
-        return Response(generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
+    def prometheus_metrics() -> Response:
+        ctx = svc.context()
+        age = None
+        if ctx.latest_source_at is not None:
+            age = (datetime.now(UTC) - ctx.latest_source_at).total_seconds() / 3600.0
+        try:
+            metrics.refresh(svc.engine, age, settings.reports_path)
+        except Exception:  # a scrape must not fail because one gauge source is down
+            log.warning("metrics_refresh_failed", exc_info=True)
+        return Response(generate_latest(metrics.registry), media_type=CONTENT_TYPE_LATEST)
 
     return app
+
+
+def _minute() -> str:
+    """Evaluation bucket: identical evaluate requests within a minute share one job."""
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M")
+
+
+def _actor(request: Request) -> str | None:
+    key = request.headers.get("x-api-key")
+    return hash_key(key)[:16] if key else None
 
 
 def _jsonable(v: Any) -> Any:

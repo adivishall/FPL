@@ -106,7 +106,6 @@ jobs:
     env:
       FPL_E2E_DATABASE_URL: postgresql+psycopg://fpl:fpl@localhost:5432/fpl_e2e
       NEXT_TELEMETRY_DISABLED: "1"
-      NEXT_PUBLIC_API_BASE: http://127.0.0.1:8000
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -160,3 +159,10 @@ jobs:
           file: infra/docker/python.Dockerfile
           push: false
           tags: fpl-engine:ci
+      - name: build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/web.Dockerfile
+          push: false
+          tags: fpl-web:ci

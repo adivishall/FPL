@@ -10,6 +10,7 @@ Usage (repo root): uv run python infra/scripts/e2e_api.py
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import subprocess
 import sys
@@ -21,10 +22,12 @@ import uvicorn
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("FPL_CONFIG_DIR", str(ROOT / "config"))
+E2E_KEY = "e2e-only-key"  # test-only credential, accepted solely by this throw-away stack
 
 
 def main() -> None:
-    from fpl_storage.dataset import export_snapshot  # noqa: PLC0415 (after sys.path setup)
+    from fpl_api.security import hash_key  # noqa: PLC0415 (after sys.path setup)
+    from fpl_storage.dataset import export_snapshot  # noqa: PLC0415
     from fpl_storage.testing import ephemeral_postgres  # noqa: PLC0415
     from tests.fixtures_util import fixture_dataset  # noqa: PLC0415
 
@@ -52,6 +55,10 @@ def main() -> None:
                 "FPL_RATE_LIMIT_PER_MINUTE": "1000",
                 "FPL_EXPENSIVE_RATE_LIMIT_PER_MINUTE": "1000",
                 "FPL_CORS_ORIGINS": '["http://localhost:3000","http://127.0.0.1:3000"]',
+                # production auth path: the UI's server-side proxy holds the key (playwright
+                # config passes FPL_API_KEY=e2e-only-key to the Next server only)
+                "FPL_REQUIRE_API_KEY": "true",
+                "FPL_API_KEYS_SHA256": json.dumps([hash_key(E2E_KEY)]),
             }
         )
         from fpl_api.app import create_app  # noqa: PLC0415 (reads env set above)

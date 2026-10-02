@@ -1,0 +1,72 @@
+# Release pipeline: build and publish the API/worker and web images to GHCR for a version tag,
+# then smoke-test the target environment (read-only checks; infra/scripts/smoke.py). Rolling the
+# new images out is environment-specific and documented in docs/DEPLOYMENT.md; the smoke job
+# runs only where the environment's API URL is configured as a repository/environment variable.
+name: deploy
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to smoke-test after publishing"
+        default: staging
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: api
+            file: infra/docker/python.Dockerfile
+          - name: web
+            file: infra/docker/web.Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+
+  smoke:
+    needs: images
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'staging' }}
+    if: ${{ vars.API_URL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: uv sync --frozen
+      - name: smoke test
+        run: uv run python infra/scripts/smoke.py --api "${{ vars.API_URL }}" ${{ vars.WEB_URL && format('--web {0}', vars.WEB_URL) || '' }}

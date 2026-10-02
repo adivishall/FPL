@@ -1,0 +1,11 @@
+# Scrape config for the API's /metrics endpoint (§76.1). Gauges for data freshness, job queue
+# depth and model gate metrics are refreshed at scrape time from their sources of truth.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+rule_files: [alerts.yml]
+scrape_configs:
+  - job_name: fpl-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]

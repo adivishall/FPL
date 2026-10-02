@@ -1,0 +1,26 @@
+# Notification rules (fpl_notifications; §74). Every alert must clear a materiality threshold —
+# small fluctuations never notify. Materiality is in expected FPL points over the plan horizon
+# unless stated otherwise; every evaluation stores this file's version + content hash.
+version: "1.0.0"
+deadline:
+  lead_hours: [24, 2]          # remind once in each window before the official deadline
+  default_timezone: Europe/London
+squad_change:
+  min_points_impact: 1.0       # Δ(availability or start probability) × expected points ≥ this
+  chance_drop: 25              # percentage-point drop in FPL chance of playing that counts
+  role_change_start_prob: 0.25 # |Δ P(start)| that counts as a role change
+  benching_min_recent_starts: 3   # started ≥ this many of the previous 4 matches ...
+  benching_window: 4              # ... then benched while available → unexpected benching
+price_risk:
+  min_probability: 0.30        # P(plan becomes unaffordable before the deadline) to alert
+fixture_change:
+  min_points_impact: 1.5       # |Δ fixtures| × expected points per match over planned squad
+invalidation:
+  min_gain_points: 2.0         # a new best plan beats the saved plan by ≥ this (horizon EV)
+  min_probability_positive: 0.5   # saved move's P(beats hold) falling below this invalidates it
+post_gameweek:
+  miss_points: 4.0             # |actual − expected| at which a player's miss is explained
+  max_items: 6
+delivery:
+  webhook_allowed_hosts: []    # SSRF guard: user webhooks only to these HTTPS hosts
+  webhook_timeout_seconds: 5.0

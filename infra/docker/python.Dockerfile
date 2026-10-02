@@ -45,7 +45,11 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app config config
 COPY --chown=app:app db db
 COPY --chown=app:app alembic.ini alembic.ini
-ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 FPL_CONFIG_DIR=/app/config
+# published evaluation reports served by /api/v1/reports, /models and the model gauges
+COPY --chown=app:app ml/reports ml/reports
+ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 FPL_CONFIG_DIR=/app/config \
+    FPL_REPORTS_DIR=/app/ml/reports FPL_DATA_DIR=/data FPL_SNAPSHOTS_ROOT=/data/snapshots \
+    FPL_ARTIFACT_DIR=/data/artifacts FPL_FEATURE_STORE_DIR=/data/feature-store
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

@@ -89,7 +89,11 @@ def _cmd_export(args: argparse.Namespace) -> int:
                 seasons=ds.seasons(),
                 tables={t: {"sha256": h} for t, h in ds.table_hashes.items()},
                 storage_uri=str(path),
-                source_versions={"sources": cfg.ref},
+                source_versions={
+                    "sources_config": cfg.ref,
+                    "historical_repo": cfg.data["historical_repo"]["name"],
+                    "commit": cfg.data["historical_repo"]["commit"],
+                },
                 validated=True,
             )
             .on_conflict_do_nothing()

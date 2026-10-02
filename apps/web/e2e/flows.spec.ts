@@ -54,3 +54,20 @@ test("what-if scenario re-simulates the squad", async ({ page }) => {
   await page.getByTestId("run-scenario").click();
   await expect(page.getByTestId("scenario-result")).toContainText("holding scores");
 });
+
+test("alerts evaluate, and a recommendation traces back to its source revision", async ({ page }) => {
+  await page.goto("/alerts");
+  await page.getByTestId("evaluate-alerts").click();
+  await expect(page.getByTestId("alerts-msg")).toContainText("Evaluated");
+  await page.goto("/journal");
+  await page.getByTestId("journal").locator("tbody tr a").first().click();
+  await expect(page.getByTestId("trace")).toContainText("chain complete");
+  await expect(page.getByTestId("trace")).toContainText("Source retrieval");
+});
+
+test("settings reject an unsafe webhook URL (SSRF guard)", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByLabel("Webhook (HTTPS, allow-listed host)").fill("https://169.254.169.254/latest");
+  await page.getByTestId("save-settings").click();
+  await expect(page.getByTestId("settings-msg")).toContainText("allow-list");
+});

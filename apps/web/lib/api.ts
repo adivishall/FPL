@@ -1,7 +1,11 @@
 // Typed client for the FPL Decision Engine API (docs/API.md). All numbers shown in the UI come
 // from these responses — the UI never computes or invents a recommendation.
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+// Direct mode (NEXT_PUBLIC_API_BASE set, development/e2e) or same-origin proxy mode (production:
+// /backend/* is forwarded server-side with the API key, which never reaches the browser).
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
+const ROOT = API_BASE ? `${API_BASE}/api/v1` : "/backend";
+export const apiUrl = (path: string) => `${ROOT}${path}`;
 
 export class ApiError extends Error {
   constructor(public status: number, public detail: unknown) {
@@ -10,7 +14,7 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}/api/v1${path}`, {
+  const res = await fetch(`${ROOT}${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     cache: "no-store",
@@ -236,4 +240,32 @@ export async function waitForJob(id: string, onTick?: (j: Job) => void): Promise
     await new Promise((r) => setTimeout(r, 1500));
   }
   throw new Error("job did not finish in time");
+}
+
+export const del = <T,>(path: string) => api<T>(path, { method: "DELETE" });
+
+export interface Notification {
+  id: string;
+  kind: "deadline" | "squad_change" | "price_risk" | "fixture_change" | "invalidation" | "post_gameweek";
+  severity: "info" | "warning" | "critical";
+  title: string;
+  body: string;
+  materiality: number;
+  evidence: Record<string, unknown>;
+  created_at: string;
+  delivered_at: string | null;
+  read_at: string | null;
+}
+
+export interface TraceCheck {
+  check: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface Trace {
+  recommendation_id: string;
+  complete: boolean;
+  checks: TraceCheck[];
+  chain: Record<string, Record<string, unknown>>;
 }

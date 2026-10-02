@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Card, State, useApi } from "@/components/ui";
-import { API_BASE } from "@/lib/api";
+import { apiUrl } from "@/lib/api";
 
 interface Report {
   name: string;
@@ -45,7 +45,7 @@ export default function BacktestLab() {
         <div className="row">
           {(FIGS[tab] ?? []).map((f) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={f} src={`${API_BASE}/api/v1/reports/figures/${f}`} alt={f} style={{ background: "#fff", borderRadius: 6, maxWidth: 420 }} />
+            <img key={f} src={apiUrl(`/reports/figures/${f}`)} alt={f} style={{ background: "#fff", borderRadius: 6, maxWidth: 420 }} />
           ))}
         </div>
         {rep.data ? <pre className="md">{rep.data.markdown}</pre> : null}

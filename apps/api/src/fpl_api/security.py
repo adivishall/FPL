@@ -33,6 +33,10 @@ EXPENSIVE_PREFIXES = (
 )
 
 
+# reads of manager-linked personal data need a key too when keys are required (§75)
+PRIVILEGED_GET_PREFIXES = ("/api/v1/managers/",)
+
+
 def hash_key(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
@@ -70,7 +74,11 @@ class Guard:
         return "ip:" + (request.client.host if request.client else "unknown")
 
     def check_key(self, request: Request) -> None:
-        if not self.settings.require_api_key or request.method in ("GET", "HEAD", "OPTIONS"):
+        if not self.settings.require_api_key or request.method == "OPTIONS":
+            return
+        if request.method in ("GET", "HEAD") and not request.url.path.startswith(
+            PRIVILEGED_GET_PREFIXES
+        ):
             return
         key = request.headers.get("x-api-key")
         if not key:

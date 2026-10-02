@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 ManagerKey = str
 
@@ -131,3 +132,22 @@ class ManagerSettingsIn(_Req):
     league_rivals: list[int] = Field(default_factory=list, max_length=20)
     notify_min_gain: float = Field(1.0, ge=0.0, le=20.0)
     notify_injuries: bool = True
+    timezone: str = Field("Europe/London", max_length=64, description="IANA zone for reminders")
+    webhook_url: str | None = Field(None, max_length=512, description="HTTPS, allow-listed host")
+
+    @field_validator("timezone")
+    @classmethod
+    def _tz(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"unknown time zone '{v}'") from exc
+        return v
+
+
+class AlertsIn(_Req):
+    manager_key: ManagerKey = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_\-]+$")
+
+
+class MarkReadIn(_Req):
+    ids: list[str] = Field(min_length=1, max_length=200)

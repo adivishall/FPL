@@ -12,7 +12,10 @@
 
 from __future__ import annotations
 
+import json
 import threading
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,9 +23,11 @@ from typing import Any
 
 import joblib
 import pandas as pd
+import structlog
 import yaml
 from sqlalchemy import Engine, select, update
 
+from fpl_api.observability import Metrics
 from fpl_api.settings import Settings
 from fpl_decision.engine import RecommendationPackage
 from fpl_domain.enums import FreshnessStatus
@@ -32,8 +37,9 @@ from fpl_domain.rules import Ruleset, load_ruleset
 from fpl_domain.rules.loader import config_root
 from fpl_domain.state import ManagerState
 from fpl_features.registry import FEATURE_VERSION
-from fpl_forecasting.model_config import minutes_spec, points_spec
+from fpl_forecasting.model_config import minutes_spec, points_spec, price_spec
 from fpl_forecasting.pipeline import Forecast, forecast, train_forecast_models
+from fpl_forecasting.price_change import PriceChangeModel, decision_features, training_rows
 from fpl_forecasting.walkforward import Cutoff, FeatureCache, cutoffs
 from fpl_simulation.engine import SimulationConfig
 from fpl_storage import models as m
@@ -42,6 +48,7 @@ from fpl_storage.db import session_scope
 from fpl_storage.pit import PointInTimeView, decision_cutoff
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+log = structlog.get_logger("fpl_api")
 
 
 def sources_config() -> dict[str, Any]:
@@ -82,21 +89,53 @@ class CurrentContext:
 
 
 class DataService:
+    """Serves the newest validated snapshot; picks up a newly exported one without a restart.
+
+    A pinned ``snapshot_dir`` (or an injected dataset) is served as is. Otherwise the newest
+    ``data/snapshots/snap_*`` is re-checked every ``snapshot_check_seconds`` and swapped in
+    atomically; forecasts are keyed by snapshot id, so the swap invalidates them naturally.
+    """
+
     def __init__(self, settings: Settings, dataset: CanonicalDataset | None = None) -> None:
         self.settings = settings
         self._ds = dataset
+        self._pinned = dataset is not None or settings.snapshot_dir is not None
+        self._path: Path | None = None
+        self._checked = 0.0
         self._lock = threading.Lock()
+
+    def _newest(self) -> Path:
+        if self.settings.snapshot_dir is not None:
+            return self.settings.snapshot_dir
+        root = self.settings.snapshots_root or (REPO_ROOT / "data" / "snapshots")
+        found = sorted(
+            (p for p in root.glob("snap_*") if (p / "manifest.json").exists()),
+            key=lambda p: json.loads((p / "manifest.json").read_text())["created_at"],
+        )
+        if not found:
+            raise FileNotFoundError(f"no canonical snapshot under {root}")
+        return found[-1]
 
     @property
     def ds(self) -> CanonicalDataset:
-        if self._ds is None:
+        stale = (
+            not self._pinned
+            and time.monotonic() - self._checked > self.settings.snapshot_check_seconds
+        )
+        if self._ds is None or stale:
             with self._lock:
-                if self._ds is None:
-                    path = (
-                        self.settings.snapshot_dir
-                        or sorted((REPO_ROOT / "data" / "snapshots").glob("snap_*"))[-1]
-                    )
-                    self._ds = load_snapshot(path)
+                if self._ds is None or stale:
+                    path = self._newest()
+                    self._checked = time.monotonic()
+                    if path != self._path:
+                        ds = load_snapshot(path)  # verified against its manifest hash
+                        ds.meta.setdefault("path", str(path))
+                        if self._ds is not None:
+                            log.info(
+                                "snapshot_swapped", old=self._ds.snapshot_id, new=ds.snapshot_id
+                            )
+                        self._ds, self._path = ds, path
+        assert self._ds is not None
         return self._ds
 
     @property
@@ -168,9 +207,14 @@ class DataService:
 
 
 class ForecastService:
-    def __init__(self, settings: Settings, data: DataService) -> None:
+    def __init__(
+        self, settings: Settings, data: DataService, metrics: Metrics | None = None
+    ) -> None:
         self.settings = settings
         self.data = data
+        self.metrics = metrics or Metrics()
+        # lineage hook (forecast, canonical horizon, artifact path); failures never block serving
+        self.on_forecast: Callable[[Forecast, int, Path | None], None] | None = None
         self._mem: dict[str, Forecast] = {}
         self._lock = threading.Lock()
 
@@ -207,28 +251,47 @@ class ForecastService:
         horizon = max(horizon, self.settings.forecast_horizon)
         k = self.key(season, gw, horizon, n, seed)
         if k in self._mem:
+            self.metrics.forecast_cache.labels("memory").inc()
             return self._mem[k]
         path = self._path(k)
         if path.exists():
             fc: Forecast = joblib.load(path)
             self._mem[k] = fc
+            self.metrics.forecast_cache.labels("disk").inc()
+            self._lineage(fc, horizon, path)
             return fc
         allowed = self.settings.forecast_on_demand if compute is None else compute
+        self.metrics.forecast_cache.labels("miss").inc()
         if not allowed:
             raise ForecastUnavailable(k)
         with self._lock:
             if k in self._mem:
                 return self._mem[k]
-            hist = self.data.history_cutoffs(season)
-            cut = next(c for c in hist if c.season == season and c.gw == gw)
-            cache = FeatureCache(self.data.ds, horizon, self.settings.feature_store_dir)
-            models = train_forecast_models(cache, cut, hist)
-            fc = forecast(cache, cut, models, SimulationConfig(n_sims=n, seed=seed))
+            t0 = time.perf_counter()
+            try:
+                hist = self.data.history_cutoffs(season)
+                cut = next(c for c in hist if c.season == season and c.gw == gw)
+                cache = FeatureCache(self.data.ds, horizon, self.settings.feature_store_dir)
+                models = train_forecast_models(cache, cut, hist)
+                fc = forecast(cache, cut, models, SimulationConfig(n_sims=n, seed=seed))
+            except Exception:
+                self.metrics.forecast_failures.inc()
+                raise
+            self.metrics.forecast_seconds.observe(time.perf_counter() - t0)
             fc.provenance["forecast_key"] = k
             path.parent.mkdir(parents=True, exist_ok=True)
             joblib.dump(fc, path, compress=3)
             self._mem[k] = fc
+            self._lineage(fc, horizon, path)
             return fc
+
+    def _lineage(self, fc: Forecast, horizon: int, path: Path | None) -> None:
+        if self.on_forecast is None:
+            return
+        try:
+            self.on_forecast(fc, horizon, path)
+        except Exception:
+            log.warning("lineage_record_failed", run_id=fc.run_id, exc_info=True)
 
     def features(self, season: str, gw: int, horizon: int) -> pd.DataFrame:
         hist = self.data.history_cutoffs(season)
@@ -236,6 +299,59 @@ class ForecastService:
         h = max(horizon, self.settings.forecast_horizon)
         frame = FeatureCache(self.data.ds, h, self.settings.feature_store_dir).get(cut).frame
         return frame[frame["target_gw"] < gw + horizon]
+
+
+class PriceService:
+    """Calibrated P(price rise / fall before the next deadline) per player (§23, §57.1).
+
+    Trained on every labelled price move visible at the decision cutoff (point-in-time view),
+    keyed like forecasts by (snapshot, price-model config, season, GW) and cached in memory and on
+    disk. When no history is visible the result is empty and callers treat price risk as unknown.
+    """
+
+    def __init__(self, settings: Settings, data: DataService) -> None:
+        self.settings = settings
+        self.data = data
+        self._mem: dict[str, pd.DataFrame] = {}
+        self._lock = threading.Lock()
+
+    def key(self, season: str, gw: int) -> str:
+        return short_id(
+            "px",
+            {
+                "snapshot": self.data.snapshot_id,
+                "model": price_spec()[1].ref,
+                "s": season,
+                "gw": gw,
+            },
+        )
+
+    def probabilities(self, season: str, gw: int, cutoff: datetime) -> pd.DataFrame:
+        k = self.key(season, gw)
+        if k in self._mem:
+            return self._mem[k]
+        path = self.settings.artifact_dir / "prices" / f"{k}.parquet"
+        with self._lock:
+            if k in self._mem:
+                return self._mem[k]
+            if path.exists():
+                out = pd.read_parquet(path)
+            else:
+                view = self.data.view(cutoff)
+                seasons = sorted(
+                    x for x in self.data.ds["gameweeks"]["season"].unique() if x <= season
+                )
+                rows = training_rows(view, seasons)
+                feats = decision_features(view, season, gw)
+                if rows.empty or feats.empty:
+                    out = pd.DataFrame(columns=["player_code", "p_rise", "p_fall"])
+                else:
+                    spec = price_spec()[0]
+                    out = PriceChangeModel(spec.params).fit(rows).predict(feats)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                out.to_parquet(path, index=False)
+            self._mem[k] = out
+            return out
 
 
 # ----------------------------------------------------------------------------- app state
@@ -298,7 +414,13 @@ class RecommendationStore:
     engine: Engine
 
     def save(
-        self, pkg: RecommendationPackage, manager_key: str, state_id: str | None, markdown: str
+        self,
+        pkg: RecommendationPackage,
+        manager_key: str,
+        state_id: str | None,
+        markdown: str,
+        watch: dict[str, Any] | None = None,
+        prediction_run_id: str | None = None,
     ) -> str:
         rec_id = pkg.decision_id.replace("dec_", "rec_", 1)
         with session_scope(self.engine) as s:
@@ -318,12 +440,15 @@ class RecommendationStore:
             conf = pkg.decision.get("confidence")
             if conf is None:  # HOLD: probability that no considered move beats holding
                 conf = 1.0 - max(alts) if alts else 1.0
+            if prediction_run_id and s.get(m.PredictionRunRow, prediction_run_id) is None:
+                prediction_run_id = None  # lineage not registered (no FK target): stays in payload
             opt = m.OptimizationRunRow(
                 id=pkg.optimizer_run_id,
                 season_id=season_id,
                 gw=pkg.gameweek,
                 input_hash=pkg.optimizer_run_id,
                 input_state_id=state_id,
+                prediction_run_id=prediction_run_id,
                 ruleset_version=pkg.ruleset_version,
                 ruleset_hash=pkg.ruleset_version,
                 solver="highs",
@@ -343,6 +468,7 @@ class RecommendationStore:
             payload = pkg.model_dump(mode="json")
             payload["manager_key"] = manager_key
             payload["markdown"] = markdown
+            payload["watch"] = watch or {}  # inputs baseline for re-optimisation alerts (§74)
             s.add(
                 m.RecommendationRow(
                     id=rec_id,
@@ -360,6 +486,7 @@ class RecommendationStore:
                     explanation_json=pkg.explanation.model_dump(mode="json"),
                     payload_json=payload,
                     optimization_run_id=opt.id,
+                    prediction_run_id=prediction_run_id,
                     data_snapshot_id=pkg.snapshot_id,
                     ruleset_version=pkg.ruleset_version,
                     model_versions=pkg.model_versions,
@@ -413,6 +540,22 @@ class RecommendationStore:
                 "created_at": row.created_at.isoformat(),
                 **row.payload_json,
             }
+
+    def latest_for_gameweek(self, manager_key: str, gw: int) -> dict[str, Any] | None:
+        """The most recent recommendation for a gameweek, whatever its status (post-GW review)."""
+        with session_scope(self.engine) as s:
+            row = s.scalars(
+                select(m.RecommendationRow)
+                .where(
+                    m.RecommendationRow.payload_json["manager_key"].astext == manager_key,
+                    m.RecommendationRow.gw == gw,
+                )
+                .order_by(m.RecommendationRow.created_at.desc())
+                .limit(1)
+            ).first()
+            if row is None:
+                return None
+            return {"id": row.id, "status": row.status, **row.payload_json}
 
     def journal(self, manager_key: str, limit: int = 50) -> list[dict[str, Any]]:
         with session_scope(self.engine) as s:

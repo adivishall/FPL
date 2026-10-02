@@ -11,6 +11,10 @@ interface Profile {
   recent_matches: { gw: number; season: string; minutes: number; points: number; goals: number; assists: number; xg: number | null; xa: number | null; bonus: number }[];
   price_history: { observed_at: string; price: number }[];
   live: { status: string; news: string | null; chance_of_playing_next_round: number | null; captured_at: string }[];
+  price_risk: {
+    engine: { p_rise: number; p_fall: number; model: string } | null;
+    official: { price_change_percent: number; captured_at: string; source: string } | null;
+  };
   freshness: Freshness;
 }
 
@@ -79,6 +83,20 @@ export default function PlayerDetail({ params }: { params: Promise<{ code: strin
           {prof.data?.live.map((l) => (
             <p key={l.captured_at} className="small">Live status <strong>{l.status}</strong> {l.news ? `— ${l.news}` : ""} (captured {when(l.captured_at)})</p>
           ))}
+          <div data-testid="price-risk" className="small">
+            <strong>Price change before the next deadline</strong>
+            <div>
+              Engine (calibrated): {prof.data?.price_risk.engine
+                ? `rise ${pct(prof.data.price_risk.engine.p_rise)} · fall ${pct(prof.data.price_risk.engine.p_fall)}`
+                : "unavailable"}
+            </div>
+            <div>
+              Official predictor: {prof.data?.price_risk.official
+                ? `${prof.data.price_risk.official.price_change_percent.toFixed(1)}% (captured ${when(prof.data.price_risk.official.captured_at)})`
+                : "not in this snapshot"}
+            </div>
+            <div className="muted">Shown separately on purpose — the two are never blended.</div>
+          </div>
         </Card>
       </div>
     </>

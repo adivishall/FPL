@@ -1,0 +1,17 @@
+# Build contexts must never carry local state, secrets or heavy caches into images.
+.git
+.env
+.env.*
+!.env.example
+.venv
+**/__pycache__
+**/*.pyc
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.coverage
+data
+apps/web/node_modules
+apps/web/.next
+apps/web/test-results
+apps/web/playwright-report

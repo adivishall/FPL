@@ -271,6 +271,7 @@ def forecast(
         "cutoff": cut.cutoff.isoformat(),
         "feature_snapshot_id": ff.snapshot_id,
         "feature_version": FEATURE_VERSION,
+        "feature_rows": len(ff.frame),
         "data_snapshot_id": ds.snapshot_id,
         "model_versions": models.versions,
         "ruleset_version": ruleset.ruleset_version,

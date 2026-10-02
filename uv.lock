@@ -683,6 +683,7 @@ dependencies = [
     { name = "fpl-domain" },
     { name = "fpl-storage" },
     { name = "httpx" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
@@ -690,6 +691,7 @@ requires-dist = [
     { name = "fpl-domain", editable = "packages/domain" },
     { name = "fpl-storage", editable = "packages/storage" },
     { name = "httpx", specifier = ">=0.28" },
+    { name = "pydantic", specifier = ">=2.13" },
 ]
 
 [[package]]

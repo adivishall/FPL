@@ -2,26 +2,43 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
+import pandas as pd
+import structlog
 from sqlalchemy import Engine
 
+from fpl_api.lineage import LineageStore
+from fpl_api.observability import Metrics
 from fpl_api.services import (
     CurrentContext,
     DataService,
     ForecastService,
+    PriceService,
     RecommendationStore,
     StateStore,
 )
 from fpl_api.settings import Settings
+from fpl_api.watch import plan_watch
 from fpl_decision.engine import DecisionContext, RecommendationPackage, recommend
 from fpl_decision.inputs import player_table
 from fpl_decision.render import render_markdown
 from fpl_domain.state import ManagerState
 from fpl_forecasting.pipeline import Forecast
-from fpl_optimizer.problem import OptimizerConfig, PlayerTable, Preferences, load_optimizer_config
+from fpl_notifications.store import NotificationStore
+from fpl_optimizer.pool import candidate_pool
+from fpl_optimizer.problem import (
+    OptimizationProblem,
+    OptimizerConfig,
+    PlayerTable,
+    Preferences,
+    load_optimizer_config,
+)
 from fpl_storage.db import make_engine
+
+log = structlog.get_logger("fpl_api")
 
 
 @dataclass
@@ -32,19 +49,32 @@ class AppServices:
     engine: Engine | None
     states: StateStore | None
     recs: RecommendationStore | None
+    prices: PriceService | None = None
+    notifications: NotificationStore | None = None
+    metrics: Metrics = field(default_factory=Metrics)
     extras: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def build(cls, settings: Settings, dataset: Any = None) -> AppServices:
         data = DataService(settings, dataset)
         engine = make_engine(settings.database_url) if settings.database_url else None
+        metrics = Metrics()
+        forecasts = ForecastService(settings, data, metrics)
+        if engine is not None:
+            lineage = LineageStore(engine, settings)
+            forecasts.on_forecast = lambda fc, h, path: lineage.record_forecast(
+                fc, data.ds, h, path
+            )
         return cls(
             settings=settings,
             data=data,
-            forecasts=ForecastService(settings, data),
+            forecasts=forecasts,
+            metrics=metrics,
             engine=engine,
             states=StateStore(engine) if engine else None,
             recs=RecommendationStore(engine) if engine else None,
+            prices=PriceService(settings, data),
+            notifications=NotificationStore(engine) if engine else None,
         )
 
     # ------------------------------------------------------------------ shared building blocks
@@ -60,6 +90,15 @@ class AppServices:
     ) -> Forecast:
         return self.forecasts.get(ctx.season, ctx.gameweek, horizon, n_sims)
 
+    def price_probs(self, ctx: CurrentContext) -> pd.DataFrame | None:
+        if self.prices is None:
+            return None
+        try:
+            return self.prices.probabilities(ctx.season, ctx.gameweek, ctx.cutoff)
+        except Exception:  # price risk is supporting evidence; its absence is reported, not fatal
+            log.warning("price_model_unavailable", exc_info=True)
+            return None
+
     def table(
         self, ctx: CurrentContext, fc: Forecast, horizon: int, state: ManagerState | None = None
     ) -> PlayerTable:
@@ -68,6 +107,32 @@ class AppServices:
         names = self.data.names(ctx.season)
         pool = pool.assign(web_name=pool["player_code"].map(names))
         return player_table(fc.summary, pool, gws, state)
+
+
+def optimization_problem(
+    svc: AppServices,
+    ctx: CurrentContext,
+    fc: Forecast,
+    state: ManagerState,
+    horizon: int,
+    profile: str = "default",
+    preferences: Preferences | None = None,
+) -> OptimizationProblem:
+    """The transfer-planning problem on the candidate pool (one definition for API + alerts)."""
+    table = svc.table(ctx, fc, horizon, state)
+    cfg = load_optimizer_config(profile)
+    prefs = preferences or Preferences()
+    pool = candidate_pool(
+        table, state.codes, cfg.pool, must_include=prefs.forced_in, discount=cfg.objective.discount
+    )
+    return OptimizationProblem(
+        state=state,
+        ruleset=svc.data.ruleset(ctx.season),
+        players=pool,
+        gameweeks=tuple(range(ctx.gameweek, ctx.gameweek + table.horizon)),
+        config=cfg,
+        preferences=prefs,
+    )
 
 
 def build_recommendation(
@@ -91,6 +156,7 @@ def build_recommendation(
     table = svc.table(ctx, fc, h, state)
     names = svc.data.names(ctx.season)
     cfg = config or load_optimizer_config(profile)
+    prices = svc.price_probs(ctx)
     dctx = DecisionContext(
         state=state,
         ruleset=svc.data.ruleset(ctx.season),
@@ -101,17 +167,34 @@ def build_recommendation(
         features=svc.forecasts.features(ctx.season, ctx.gameweek, h),
         names=names,
         preferences=preferences or Preferences(),
+        price_probs=prices,
     )
-    pkg = recommend(
-        dctx,
-        n_alternatives=n_alternatives,
-        run_stability=run_stability,
-        run_scenarios=run_scenarios,
-        run_chips=run_chips,
-    )
+    t0 = time.perf_counter()
+    try:
+        pkg = recommend(
+            dctx,
+            n_alternatives=n_alternatives,
+            run_stability=run_stability,
+            run_scenarios=run_scenarios,
+            run_chips=run_chips,
+        )
+    except Exception:
+        svc.metrics.recommendations.labels("failure").inc()
+        raise
+    svc.metrics.optimization_seconds.labels("recommendation").observe(time.perf_counter() - t0)
+    for stage in ("optimise", "stability", "scenarios", "chips"):
+        if stage in pkg.timings:
+            svc.metrics.optimization_seconds.labels(stage).observe(pkg.timings[stage])
+    svc.metrics.optimization_status.labels("valid" if pkg.chosen.valid else "invalid").inc()
     if ctx.degraded_reasons:
         pkg.assumptions.extend(ctx.degraded_reasons)
+    if prices is None or prices.empty:
+        pkg.assumptions.append("price-change probabilities unavailable: price risk not assessed")
     rec_id = None
     if persist and svc.recs is not None:
-        rec_id = svc.recs.save(pkg, manager_key, state_id, render_markdown(pkg, names))
+        watch = plan_watch(svc, ctx, fc, state, pkg)
+        rec_id = svc.recs.save(
+            pkg, manager_key, state_id, render_markdown(pkg, names), watch, fc.run_id
+        )
+    svc.metrics.recommendations.labels("success").inc()
     return rec_id, pkg

@@ -27,7 +27,8 @@ export default defineConfig({
       url: "http://127.0.0.1:3000",
       timeout: 120_000,
       reuseExistingServer: !process.env.CI,
-      env: { NEXT_PUBLIC_API_BASE: "http://127.0.0.1:8000" },
+      // production mode: the browser calls /backend/*, the Next server forwards with the key
+      env: { FPL_API_INTERNAL_URL: "http://127.0.0.1:8000", FPL_API_KEY: "e2e-only-key" },
     },
   ],
 });

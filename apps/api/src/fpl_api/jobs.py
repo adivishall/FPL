@@ -13,12 +13,14 @@ import traceback
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import Any
 
 import redis
 from rq import Queue
 from sqlalchemy import select
 
+from fpl_api.alerts import evaluate_alerts
 from fpl_api.container import AppServices, build_recommendation
 from fpl_api.settings import Settings
 from fpl_backtest.runner import default_strategies, run_season
@@ -109,7 +111,13 @@ def _job_backtest(svc: AppServices, p: dict[str, Any]) -> str:
     return bt_id
 
 
+def _job_alerts(svc: AppServices, p: dict[str, Any]) -> str:
+    out = evaluate_alerts(svc, p["manager_key"])
+    return f"alerts:{len(out['new_ids'])}/{len(out['alerts'])}"
+
+
 JOB_KINDS: dict[str, JobFn] = {
+    "alerts": _job_alerts,
     "forecast": _job_forecast,
     "recommendation": _job_recommendation,
     "backtest": _job_backtest,
@@ -185,6 +193,7 @@ def execute(svc: AppServices, job_id: str) -> None:
     except Exception as exc:  # recorded, surfaced through GET /jobs/{id}
         ref, status = None, "failed"
         error = f"{type(exc).__name__}: {exc}\n" + traceback.format_exc(limit=3)
+        svc.metrics.job_failures.labels(kind).inc()
     with session_scope(svc.engine) as s:
         r = s.get(m.JobRow, job_id)
         assert r is not None
@@ -192,6 +201,12 @@ def execute(svc: AppServices, job_id: str) -> None:
         r.finished_at, r.progress = datetime.now(UTC), 1.0
 
 
+@lru_cache(maxsize=1)
+def services() -> AppServices:
+    """One service container per worker process (dataset, caches and metrics are reused)."""
+    return AppServices.build(Settings())
+
+
 def run_job(job_id: str) -> None:
     """RQ entry point (worker process)."""
-    execute(AppServices.build(Settings()), job_id)
+    execute(services(), job_id)

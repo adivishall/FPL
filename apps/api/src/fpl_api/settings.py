@@ -7,14 +7,19 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_REPO_ROOT = Path(__file__).resolve().parents[4]  # source checkout; images set FPL_REPORTS_DIR
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FPL_", env_file=None, extra="ignore")
 
     database_url: str | None = Field(None, description="PostgreSQL URL for application state")
     redis_url: str | None = Field(None, description="Redis for queue/cache; absent = inline jobs")
-    snapshot_dir: Path | None = Field(None, description="canonical Parquet snapshot to serve")
+    snapshot_dir: Path | None = Field(None, description="pin one canonical snapshot to serve")
+    snapshots_root: Path | None = Field(None, description="directory of exported snapshots")
+    snapshot_check_seconds: float = Field(300.0, description="how often to look for a newer one")
     artifact_dir: Path = Path("data/artifacts")
+    reports_dir: Path | None = Field(None, description="published experiment reports (ml/reports)")
     feature_store_dir: Path | None = None
     # forecasting / decision limits (§80 cost control)
     horizon_default: int = 5
@@ -37,6 +42,13 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 120
     expensive_rate_limit_per_minute: int = 12
     max_body_bytes: int = 256_000
+    webhook_allowed_hosts: list[str] = Field(
+        default_factory=list, description="hosts manager webhooks may target (SSRF guard)"
+    )
     # live source (blocked in the build environment; ADR-0001 #5)
     live_sync_enabled: bool = True
     environment: str = "development"
+
+    @property
+    def reports_path(self) -> Path:
+        return self.reports_dir or _REPO_ROOT / "ml" / "reports"

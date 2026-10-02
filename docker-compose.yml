@@ -1,4 +1,7 @@
 # Local production-like stack. Secrets come from .env (never committed); see .env.example.
+# The /data volume holds canonical snapshots, raw captures, forecasts and the feature store;
+# seed it once with `docker compose run --rm scheduler fpl-ingest historical --all` followed by
+# `docker compose run --rm scheduler fpl-ingest export-snapshot` (see docs/DEPLOYMENT.md).
 services:
   postgres:
     image: postgres:16-alpine
@@ -31,8 +34,9 @@ services:
   api:
     build: {context: ., dockerfile: infra/docker/python.Dockerfile}
     env_file: .env
+    environment: {FPL_FORECAST_ON_DEMAND: "false"}   # serve precomputed forecasts only
     ports: ["127.0.0.1:8000:8000"]
-    volumes: [artifacts:/data]
+    volumes: [data:/data]
     depends_on:
       migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
@@ -41,7 +45,7 @@ services:
     build: {context: ., dockerfile: infra/docker/python.Dockerfile}
     command: ["fpl-worker", "work"]
     env_file: .env
-    volumes: [artifacts:/data]
+    volumes: [data:/data]
     depends_on:
       migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
@@ -50,10 +54,20 @@ services:
     build: {context: ., dockerfile: infra/docker/python.Dockerfile}
     command: ["fpl-worker", "schedule"]
     env_file: .env
+    volumes: [data:/data]
     depends_on:
       migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
 
+  web:
+    # same-origin proxy mode: the browser calls /backend/*, the Next server adds the API key
+    build: {context: ., dockerfile: infra/docker/web.Dockerfile}
+    environment:
+      FPL_API_INTERNAL_URL: http://api:8000
+      FPL_API_KEY: ${FPL_WEB_API_KEY:-}
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [api]
+
 volumes:
   pgdata: {}
-  artifacts: {}
+  data: {}

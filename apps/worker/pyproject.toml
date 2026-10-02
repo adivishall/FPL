@@ -21,6 +21,9 @@ dependencies = [
   "structlog>=26.1",
 ]
 
+[project.scripts]
+fpl-worker = "fpl_worker.cli:main"
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
