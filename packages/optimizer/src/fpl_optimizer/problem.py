@@ -124,6 +124,10 @@ class PlayerTable:
     def index(self) -> dict[int, int]:
         return {int(c): i for i, c in enumerate(self.code)}
 
+    def teams_by_code(self) -> dict[int, int]:
+        """Current club of every player in the table (code → team code)."""
+        return {int(c): int(t) for c, t in zip(self.code, self.team, strict=True)}
+
     def downside(self) -> npt.NDArray[np.float64]:
         if self.q10 is None:
             return np.zeros_like(self.ev)

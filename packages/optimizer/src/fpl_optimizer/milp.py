@@ -41,7 +41,7 @@ from scipy import sparse
 from fpl_domain.enums import POSITIONS, ChipType, Position
 from fpl_domain.rules.model import ChipFtPolicy
 from fpl_domain.squad import Lineup
-from fpl_domain.state import ChipState, next_free_transfers
+from fpl_domain.state import ChipState, next_free_transfers, paid_transfer_count
 from fpl_optimizer.lineup import best_lineup
 from fpl_optimizer.problem import OptimizationProblem
 
@@ -322,8 +322,10 @@ def build_and_solve(
             )
         for team in np.unique(pl.team):
             members = np.flatnonzero(pl.team == team).tolist()
-            if len(members) > rs.squad.max_per_club:
-                m.row({int(x[p, t]): 1.0 for p in members}, -INF, rs.squad.max_per_club)
+            # an excess caused by owned players changing club may be kept, never increased
+            cap = max(rs.squad.max_per_club, int(owned[members].sum()))
+            if len(members) > cap:
+                m.row({int(x[p, t]): 1.0 for p in members}, -INF, cap)
         for p in range(n_pl):
             coefs: dict[int, float] = {int(x[p, t]): 1.0, int(y[p, t]): -1.0, int(z[p, t]): 1.0}
             if t > 0:
@@ -594,13 +596,16 @@ def build_and_solve(
     paid_before = max(0, st.transfers_made - st.free_transfers)
     m.const += disc[0] * hit_cost * paid_before
 
-    # terminal values
-    m.add_cost(f[n_gw], obj.free_transfer_value)
-    terms_idx["free_transfers_end"].append((f[n_gw], obj.free_transfer_value))
-    if obj.bank_value_per_tenth:
+    # terminal values — none after the season's last gameweek: banked transfers, money in the
+    # bank and the squad itself are worth nothing once the season is over
+    season_end = season_ends(prob)
+    if not season_end:
+        m.add_cost(f[n_gw], obj.free_transfer_value)
+        terms_idx["free_transfers_end"].append((f[n_gw], obj.free_transfer_value))
+    if obj.bank_value_per_tenth and not season_end:
         m.add_cost(bank[n_gw - 1], obj.bank_value_per_tenth)
         terms_idx["bank_end"].append((bank[n_gw - 1], obj.bank_value_per_tenth))
-    if obj.terminal_squad_weight:
+    if obj.terminal_squad_weight and not season_end:
         for p in range(n_pl):
             m.add_cost(int(x[p, n_gw - 1]), obj.terminal_squad_weight * ev[p, n_gw - 1])
             terms_idx["terminal_squad"].append(
@@ -711,21 +716,35 @@ def build_and_solve(
         values={n: float(v) for n, v in zip(m.names, sol, strict=True) if v != 0.0},
     )
     if status != "Optimal":
-        _polish(prob, result, round(sol[f[n_gw]]))
+        _polish(prob, result)
     return result
 
 
-def _polish(prob: OptimizationProblem, sol: Solution, ft_end_var: int) -> None:
-    """Repair a non-optimal (time-limited) incumbent without changing any transfer decision:
-    re-solve each gameweek's lineup exactly for the chosen playing squad (the incumbent's
-    lineup need not be optimal) and replace the free-transfer term by the true end count (the
-    variable may be slack). The objective is corrected by the same amounts, so it stays equal to
-    an independent recomputation (ADR-0007)."""
+def season_ends(prob: OptimizationProblem) -> bool:
+    """Does the planning horizon include the season's final gameweek?"""
+    return prob.gameweeks[-1] >= prob.ruleset.num_gameweeks
+
+
+def _polish(prob: OptimizationProblem, sol: Solution) -> None:
+    """Repair a non-optimal (time-limited) incumbent without changing any transfer decision,
+    then report the exact value of the plan actually returned (ADR-0007):
+
+    * re-solve each gameweek's lineup exactly for the chosen playing squad (the incumbent's
+      lineup need not be optimal);
+    * recompute paid transfers and hits from the true free-transfer path (the incumbent's hit
+      variables are only bounded below, so they may charge transfers that are free);
+    * re-evaluate the objective with the validator's own function — the incumbent's MILP value
+      can under-count its plan, because one-sided linking constraints are only tight at an
+      optimum. The raw incumbent value is kept in ``stats`` for transparency.
+    """
+    from fpl_optimizer.validate import plan_objective  # noqa: PLC0415 — validate imports milp
+
     pl, w = prob.players, prob.config.objective
+    rs, st = prob.ruleset, prob.state
+    hit_cost = rs.transfers.hit_cost
     idx = pl.index()
     pos = pl.positions_map()
     down = pl.downside()
-    gain = 0.0
     for t, plan in enumerate(sol.plans):
         ev = {c: float(pl.ev[idx[c], t]) for c in plan.playing_squad}
         val = {
@@ -733,14 +752,27 @@ def _polish(prob: OptimizationProblem, sol: Solution, ft_end_var: int) -> None:
             for c in plan.playing_squad
         }
         best = best_lineup(plan.playing_squad, pos, ev, val, w, prob.ruleset, plan.chip_type)
-        mine = _lineup_objective(plan, ev, val, w, prob, pos)
-        if best.value > mine + 1e-9:
-            gain += w.discount**t * (best.value - mine)
+        if best.value > _lineup_objective(plan, ev, val, w, prob, pos) + 1e-9:
             plan.lineup = best.lineup
             plan.expected_points = best.expected_points
-    gain += w.free_transfer_value * (sol.free_transfers_end - ft_end_var)
-    sol.objective += gain
-    sol.stats["polished_gain"] = gain
+        if not (prob.initial_squad_mode and t == 0):
+            made = st.transfers_made if t == 0 else 0
+            total = paid_transfer_count(
+                plan.free_transfers,
+                len(plan.transfers_in) + made,
+                plan.gameweek,
+                plan.chip_type,
+                rs,
+            )
+            before = max(0, st.transfers_made - st.free_transfers) if t == 0 else 0
+            plan.paid_transfers = max(total - before, 0)
+            plan.hit_points = plan.paid_transfers * hit_cost
+    last = sol.plans[-1]
+    terminal = None if season_ends(prob) else (sol.free_transfers_end, last.bank_after, last.squad)
+    exact = plan_objective(prob, sol, terminal)
+    sol.stats["incumbent_objective"] = sol.objective
+    sol.stats["polished_gain"] = exact - sol.objective
+    sol.objective = exact
 
 
 def _lineup_objective(

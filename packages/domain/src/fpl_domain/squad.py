@@ -32,10 +32,22 @@ def selling_price(purchase: int, current: int, rule: SellingPriceRule) -> int:
     raise ValueError(f"unsupported selling price rule {rule}")  # pragma: no cover
 
 
+def club_allowance(picks: Sequence[SquadPick], ruleset: Ruleset) -> dict[int, int]:
+    """Clubs a squad already holds more players from than the limit allows — possible only
+    when owned players change club mid-season. Such an excess may be kept or reduced, but
+    transfers may never increase a club's count above the limit (ADR-0005 note)."""
+    cap = ruleset.squad.max_per_club
+    return {t: n for t, n in Counter(p.team_code for p in picks).items() if n > cap}
+
+
 def squad_violations(
-    picks: Sequence[SquadPick], ruleset: Ruleset, bank: int | None = None
+    picks: Sequence[SquadPick],
+    ruleset: Ruleset,
+    bank: int | None = None,
+    allowance: Mapping[int, int] | None = None,
 ) -> list[RuleViolation]:
-    """All squad-level invariant violations (empty list == legal)."""
+    """All squad-level invariant violations (empty list == legal). ``allowance`` raises the
+    club limit for clubs already over it before the transfers (see :func:`club_allowance`)."""
     out: list[RuleViolation] = []
     rules = ruleset.squad
     codes = [p.player_code for p in picks]
@@ -59,11 +71,12 @@ def squad_violations(
             )
     clubs = Counter(p.team_code for p in picks)
     for team, n in clubs.items():
-        if n > rules.max_per_club:
+        cap = max(rules.max_per_club, (allowance or {}).get(team, 0))
+        if n > cap:
             out.append(
                 RuleViolation(
                     "club_limit",
-                    f"{n} players from team {team} (max {rules.max_per_club})",
+                    f"{n} players from team {team} (max {cap})",
                     team_code=team,
                 )
             )

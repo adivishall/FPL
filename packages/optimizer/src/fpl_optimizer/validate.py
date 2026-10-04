@@ -22,7 +22,7 @@ from fpl_domain.squad import SquadPick, lineup_violations, squad_violations
 from fpl_domain.state import GameweekDecision, ManagerState, Transfer
 from fpl_domain.validation import ValidationReport, validate_plan
 from fpl_optimizer.lineup import best_lineup
-from fpl_optimizer.milp import Solution
+from fpl_optimizer.milp import Solution, season_ends
 from fpl_optimizer.problem import POS_INDEX, OptimizationProblem
 
 
@@ -139,21 +139,14 @@ def validate_solution(
         replay = validate_plan(state, decisions, prices, prob.ruleset)
     if not replay.valid:
         return ValidationResult(False, list(replay.violations), replay, float("nan"))
-    w = prob.config.objective
-    hit_cost = prob.ruleset.transfers.hit_cost
-    total = 0.0
     gaps: list[float] = []
     for t, plan in enumerate(sol.plans):
-        d = w.discount**t
         best_v, _ = gameweek_value(prob, t, plan.playing_squad, plan.chip_type)
         chosen_v = _lineup_value(prob, t, plan)
         gaps.append(best_v - chosen_v)
         if best_v - chosen_v > tol * max(1.0, abs(best_v)):
             issues.append(f"GW{plan.gameweek}: lineup suboptimal by {best_v - chosen_v:.6f}")
         is_fh = plan.chip_type is not None and plan.chip_type.value == "free_hit"
-        total += d * (chosen_v - hit_cost * plan.paid_transfers)
-        if not is_fh and not (prob.initial_squad_mode and t == 0):
-            total -= d * w.transfer_penalty * len(plan.transfers_in)
         if t < offset:
             continue
         step = replay.steps[t - offset]
@@ -170,26 +163,50 @@ def validate_solution(
                 f"{step.free_transfers_at_start}"
             )
     final = replay.final_state
+    terminal: tuple[int, int, tuple[int, ...] | None] | None = None
     if final is not None:
         if final.free_transfers != sol.free_transfers_end:
             issues.append(f"end FT {sol.free_transfers_end} vs replay {final.free_transfers}")
-        total += w.free_transfer_value * final.free_transfers
-        total += w.bank_value_per_tenth * final.bank
-        if w.terminal_squad_weight:
-            pl = prob.players
-            idx = pl.index()
-            total += w.terminal_squad_weight * sum(
-                float(pl.ev[idx[c], pl.horizon - 1]) for c in final.codes
-            )
-    elif prob.initial_squad_mode and len(sol.plans) == 1:
-        total += w.free_transfer_value * sol.free_transfers_end
-        total += w.bank_value_per_tenth * sol.plans[0].bank_after
-    for plan in sol.plans:
-        if plan.chip_type is not None:
-            total -= w.chip_values.get(plan.chip_type.value, 0.0)
+        terminal = (final.free_transfers, final.bank, tuple(final.codes))
+    elif prob.initial_squad_mode and len(sol.plans) == 1 and not season_ends(prob):
+        terminal = (sol.free_transfers_end, sol.plans[0].bank_after, None)
+    total = plan_objective(prob, sol, terminal)
     if abs(total - sol.objective) > 1e-4 * max(1.0, abs(total)):
         issues.append(f"objective {sol.objective:.6f} vs recomputed {total:.6f}")
     return ValidationResult(not issues, issues, replay, total, gaps)
+
+
+def plan_objective(
+    prob: OptimizationProblem,
+    sol: Solution,
+    terminal: tuple[int, int, tuple[int, ...] | None] | None,
+) -> float:
+    """Exact objective of a plan (the MILP's objective, recomputed from the decisions):
+    discounted lineup values minus hits and churn penalties, plus terminal values of the free
+    transfers, bank and squad left after the horizon (``terminal``; none after the season's
+    last gameweek), minus the opportunity value of chips played."""
+    w = prob.config.objective
+    hit_cost = prob.ruleset.transfers.hit_cost
+    total = 0.0
+    for t, plan in enumerate(sol.plans):
+        d = w.discount**t
+        is_fh = plan.chip_type is not None and plan.chip_type.value == "free_hit"
+        total += d * (_lineup_value(prob, t, plan) - hit_cost * plan.paid_transfers)
+        if not is_fh and not (prob.initial_squad_mode and t == 0):
+            total -= d * w.transfer_penalty * len(plan.transfers_in)
+    if terminal is not None:
+        ft, bank, codes = terminal
+        total += w.free_transfer_value * ft + w.bank_value_per_tenth * bank
+        if codes is not None and w.terminal_squad_weight:
+            pl = prob.players
+            idx = pl.index()
+            total += w.terminal_squad_weight * sum(
+                float(pl.ev[idx[c], pl.horizon - 1]) for c in codes
+            )
+    for plan in sol.plans:
+        if plan.chip_type is not None:
+            total -= w.chip_values.get(plan.chip_type.value, 0.0)
+    return total
 
 
 def _lineup_value(prob: OptimizationProblem, t: int, plan) -> float:  # type: ignore[no-untyped-def]

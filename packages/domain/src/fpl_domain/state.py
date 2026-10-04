@@ -26,6 +26,7 @@ from fpl_domain.rules.model import ChipFtPolicy, Ruleset
 from fpl_domain.squad import (
     Lineup,
     SquadPick,
+    club_allowance,
     lineup_violations,
     selling_price,
     squad_violations,
@@ -231,6 +232,18 @@ def next_free_transfers(
 # ------------------------------------------------------------------ transitions
 
 
+def with_current_clubs(state: ManagerState, teams: Mapping[int, int]) -> ManagerState:
+    """Owned players keep their purchase price but count for their *current* club: a player
+    who moved club mid-season counts against the new club's limit (``teams``: code → club)."""
+    squad = tuple(
+        p
+        if teams.get(p.player_code, p.team_code) == p.team_code
+        else p.model_copy(update={"team_code": int(teams[p.player_code])})
+        for p in state.squad
+    )
+    return state if squad == state.squad else state.model_copy(update={"squad": squad})
+
+
 def apply_deadline(
     state: ManagerState,
     decision: GameweekDecision,
@@ -284,7 +297,7 @@ def apply_deadline(
     ]
     squad = tuple(kept + new)
     bank_after = state.bank + proceeds - cost
-    violations = squad_violations(squad, ruleset, bank_after)
+    violations = squad_violations(squad, ruleset, bank_after, club_allowance(state.squad, ruleset))
     if violations:
         raise violations[0]
 

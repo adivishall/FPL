@@ -195,3 +195,38 @@ def test_time_limited_incumbent_is_polished_and_valid() -> None:
     v = validate_solution(prob, sol)
     assert v.valid, (sol.status, v.issues)
     assert sol.objective == pytest.approx(base.objective, abs=1e-6)  # repaired to the optimum
+
+
+def test_time_limited_incumbent_with_slack_hits_is_repaired() -> None:
+    """An incumbent may charge a hit for a transfer that is actually free (the hit variable is
+    only bounded below); the polish recomputes hits from the true free-transfer path."""
+    from fpl_optimizer.problem import SolverSettings
+
+    for seed in range(1200, 1260):
+        prob = tiny_league(seed, extras=(3, 6, 6, 4), horizon=3, free_transfers=2)
+        base = build_and_solve(prob)
+        if base.plans[0].transfers_in and base.plans[0].paid_transfers == 0:
+            break
+    else:  # pragma: no cover
+        pytest.fail("no seed with a free first-week transfer")
+    vals = dict(base.values)
+    vals["h[0]"] = vals.get("h[0]", 0.0) + 1.0  # charge one spurious hit
+    bad = replace(base, values=vals)
+    cfg = prob.config.model_copy(update={"solver": SolverSettings(time_limit_seconds=1e-4)})
+    sol = build_and_solve(replace(prob, config=cfg), start=bad)
+    assert sol.status != "Optimal"  # the incumbent was returned, not re-optimised
+    v = validate_solution(prob, sol)
+    assert v.valid, (sol.status, v.issues)
+    assert sol.plans[0].hit_points == 0
+
+
+@pytest.mark.parametrize(("gw", "horizon"), [(37, 2), (38, 1), (34, 5)])
+def test_no_terminal_value_after_the_last_gameweek(gw: int, horizon: int) -> None:
+    """Banked transfers and money are worthless once the season ends (objective = replay)."""
+    prob = tiny_league(7, gameweek=gw, horizon=horizon, free_transfers=3)
+    sol = build_and_solve(prob)
+    assert "free_transfers_end" not in sol.terms
+    v = validate_solution(prob, sol)
+    assert v.valid, v.issues
+    mid = tiny_league(7, gameweek=30, horizon=horizon, free_transfers=3)
+    assert "free_transfers_end" in build_and_solve(mid).terms  # still valued mid-season
