@@ -1,341 +1,246 @@
 """Walk-forward backtest of the decision engine against benchmarks (§27, §28, §70).
 
 Usage:
-  uv run python ml/experiments/backtest.py 2025-26 [2024-25 2023-24 …]   # run + report
-  uv run python ml/experiments/backtest.py --report-only                  # rebuild report
+  uv run python ml/experiments/backtest.py --run-only 2023-24      # one season (resumable)
+  uv run python ml/experiments/backtest.py 2023-24 2024-25 2025-26 # run, then report
+  uv run python ml/experiments/backtest.py --report-only           # rebuild report
 
-Per season, every strategy starts from the same GW1 squad and is replayed through all 38
-gameweeks with the protocol in docs/BACKTEST_PROTOCOL.md. Records go to
-data/eval/backtest_<season>.parquet; the report to ml/reports/backtest.{md,json} and
-ml/reports/figures/backtest_cumulative_<season>.svg.
+Parameters (pinned snapshot, horizon, retraining cadence, samples) come from
+config/backtest/default.yaml. Per season, every strategy starts from the same GW1 squad and is
+replayed through all 38 gameweeks with the protocol in docs/BACKTEST_PROTOCOL.md. Progress is
+checkpointed after every gameweek in data/eval/checkpoints/<season>/ (an interrupted run resumes
+there); finished records go to data/eval/backtest_<season>.parquet and the forecasts used at each
+cutoff to data/eval/forecasts_<season>.parquet; the report to ml/reports/backtest.{md,json} and
+ml/reports/figures/.
 """
 
 from __future__ import annotations
 
-import json
 import sys
 import time
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 from fpl_backtest.runner import default_strategies, run_season
+from fpl_domain.config import load_versioned_config
 from fpl_optimizer.problem import load_optimizer_config
 from fpl_simulation.engine import SimulationConfig
 from fpl_storage.dataset import load_snapshot
+from fpl_storage.schedule import reconstruct
 
 ROOT = Path(__file__).resolve().parents[2]
-ALL_SEASONS = ["2022-23", "2023-24", "2024-25", "2025-26"]
 OUT = ROOT / "data" / "eval"
 REP = ROOT / "ml" / "reports"
 ENGINE = "engine"
+BT = load_versioned_config("backtest", "default")
+
+
+def _dataset():  # type: ignore[no-untyped-def]
+    snap = ROOT / "data" / "snapshots" / str(BT.data["snapshot_id"])
+    if not snap.exists():
+        raise SystemExit(
+            f"pinned snapshot {snap.name} not found: run `fpl-ingest historical --all` and "
+            "`fpl-ingest export-snapshot` (config/backtest/default.yaml pins the snapshot)"
+        )
+    ds = load_snapshot(snap)  # verifies every table against the manifest hash
+    assert ds.snapshot_id == BT.data["snapshot_id"], ds.snapshot_id
+    return ds
+
+
+def schedule_audit(ds) -> list[dict]:  # type: ignore[no-untyped-def,type-arg]
+    """Schedule rule S1 for every season a backtest reads: moved fixtures, original rounds and
+    when each move is treated as known. Refuses to proceed unless each is proven unique."""
+    rows = []
+    for season in BT.data["history_seasons"]:
+        fx = ds["fixtures"]
+        rec = reconstruct(season, fx[fx["season"] == season], ds["gameweeks"])
+        if rec.status != "reconstructed":
+            raise SystemExit(f"{season}: schedule reconstruction {rec.status}; refusing to run")
+        teams = ds["teams"][ds["teams"]["season"] == season].set_index("team_code")["short_name"]
+        f = fx[fx["season"] == season].set_index("fixture_id")
+        for fid, mv in sorted(rec.moves.items(), key=lambda kv: (kv[1].original_gw, kv[0])):
+            rows.append(
+                {
+                    "season": season,
+                    "fixture": f"{teams[f.loc[fid, 'home_team_code']]} v "
+                    f"{teams[f.loc[fid, 'away_team_code']]}",
+                    "original_gw": mv.original_gw,
+                    "final_gw": mv.final_gw,
+                    "known_at": mv.known_at.isoformat(),
+                    "announced_at": mv.announced_at.isoformat(),
+                }
+            )
+    return rows
 
 
 def run(seasons: list[str]) -> None:
-    ds = load_snapshot(sorted((ROOT / "data" / "snapshots").glob("snap_*"))[-1])
-    cfg = load_optimizer_config("default")
+    ds = _dataset()
+    schedule_audit(ds)
+    p = BT.data
+    cfg = load_optimizer_config(str(p["optimizer_profile"]))
     OUT.mkdir(parents=True, exist_ok=True)
     for season in seasons:
-        hist = [s for s in ALL_SEASONS if s < season]
+        hist = [s for s in p["history_seasons"] if s < season]
         t0 = time.time()
+        ckpt = OUT / "checkpoints" / season
         df = run_season(
             ds,
             season,
-            default_strategies(cfg),
+            default_strategies(cfg, int(p["horizon"])),
             hist,
-            horizon=5,
-            retrain_every=4,
-            sim=SimulationConfig(n_sims=1000),
+            horizon=int(p["horizon"]),
+            retrain_every=int(p["retrain_every"]),
+            sim=SimulationConfig(n_sims=int(p["n_sims"])),
             cache_root=ROOT / "data" / "feature-store",
             progress=lambda m, t0=t0: print(f"[{time.time() - t0:6.0f}s] {m}", flush=True),
             initial_cfg=cfg,
+            checkpoint_dir=ckpt,
         )
+        if sorted(df["gw"].unique()) != list(range(1, 39)):
+            raise SystemExit(f"{season}: incomplete replay {sorted(df['gw'].unique())}")
         df["snapshot_id"] = ds.snapshot_id
         df["optimizer_config"] = cfg.config_ref
+        df["backtest_config"] = BT.ref
         df.to_parquet(OUT / f"backtest_{season}.parquet", index=False)
-
-
-def _realised_transfer_gain(df: pd.DataFrame, ds_points: pd.DataFrame, k: int) -> pd.DataFrame:
-    """Hindsight diagnostic: actual points of players bought minus players sold over the next
-    k gameweeks (including the transfer week), minus the hit paid that week."""
-    pts = ds_points.set_index(["season", "gw", "player_code"])["points"]
-    rows = []
-    for r in df.itertuples():
-        chip = r.chip if isinstance(r.chip, str) else ""
-        if len(r.transfers_in) == 0 or chip.startswith(("wildcard", "free_hit")):
-            continue
-        gws = range(r.gw, min(r.gw + k, 39))
-        got = sum(pts.get((r.season, g, c), 0) for g in gws for c in r.transfers_in)
-        lost = sum(pts.get((r.season, g, c), 0) for g in gws for c in r.transfers_out)
-        rows.append(
-            {
-                "strategy": r.strategy,
-                "season": r.season,
-                "gw": r.gw,
-                "sold": list(r.transfers_out),
-                "bought": list(r.transfers_in),
-                "hit": r.hit_points,
-                f"gain_{k}gw": got - lost - r.hit_points,
-            }
+        fc = pd.concat(
+            [pd.read_parquet(f) for f in sorted((ckpt / "forecasts").glob("gw*.parquet"))],
+            ignore_index=True,
         )
-    return pd.DataFrame(rows)
+        fc.to_parquet(OUT / f"forecasts_{season}.parquet", index=False)
+        print(f"{season}: finished in {time.time() - t0:.0f}s", flush=True)
 
 
-def _paired_ci(diff_by_gw: np.ndarray, n_boot: int = 4000, seed: int = 0) -> tuple[float, float]:
-    rng = np.random.default_rng(seed)
-    idx = rng.integers(0, len(diff_by_gw), (n_boot, len(diff_by_gw)))
-    sums = diff_by_gw[idx].sum(axis=1)
-    return float(np.quantile(sums, 0.025)), float(np.quantile(sums, 0.975))
+def _club_moves(ds, season: str, rec: pd.DataFrame, gw: int) -> list[str]:  # type: ignore[no-untyped-def]
+    """Owned players entering ``gw`` whose club at its cutoff differs from their first club of
+    the season (mid-season moves change the club-limit arithmetic)."""
+    from fpl_forecasting.walkforward import cutoffs  # noqa: PLC0415
+    from fpl_storage.pit import PointInTimeView  # noqa: PLC0415
+
+    prev = rec[rec["gw"] == gw - 1]
+    if prev.empty:
+        return []
+    r = prev.iloc[0]
+    squad = {int(c) for c in [*r["starters"], *r["bench"]]}
+    cut = next(c.cutoff for c in cutoffs(ds, [season]) if c.gw == gw)
+    pool = PointInTimeView(ds, cut).player_pool(season, gw).set_index("player_code")["team_code"]
+    pm = ds["player_match"]
+    pm = pm[pm["season"] == season].sort_values("kickoff_at")
+    first = pm.groupby("player_code")["team_code"].first()
+    reg = ds["players"]
+    names = reg[reg["season"] == season].set_index("player_code")["web_name"]
+    return [
+        str(names.get(c, c))
+        for c in sorted(squad)
+        if c in pool.index and c in first.index and int(pool[c]) != int(first[c])
+    ]
 
 
-def report() -> None:
+def _reproducibility(baseline: Path, ds) -> dict | None:  # type: ignore[no-untyped-def,type-arg]
+    """Compare these records with an earlier run's (decision columns and points)."""
+    cols = [
+        "transfers_out",
+        "transfers_in",
+        "starters",
+        "bench",
+        "captain",
+        "vice_captain",
+        "chip",
+        "points",
+    ]
+    rows = []
+    for f in sorted(OUT.glob("backtest_*.parquet")):
+        old_f = baseline / f.name
+        if not old_f.exists():
+            continue
+        new, old = pd.read_parquet(f), pd.read_parquet(old_f)
+        for strat in sorted(new["strategy"].unique()):
+            a = new[new["strategy"] == strat].sort_values("gw").reset_index(drop=True)
+            b = old[old["strategy"] == strat].sort_values("gw").reset_index(drop=True)
+            same = [
+                all(
+                    str(list(x)) == str(list(y))
+                    if hasattr(x, "__len__") and not isinstance(x, str)
+                    else (x == y or (pd.isna(x) and pd.isna(y)))
+                    for x, y in zip(a.loc[i, cols], b.loc[i, cols], strict=True)
+                )
+                for i in range(len(a))
+            ]
+            first = next((int(a.loc[i, "gw"]) for i, ok in enumerate(same) if not ok), None)
+            season = f.stem.split("_")[1]
+            status = "identical in all 38 gameweeks"
+            if first is not None:
+                moved = _club_moves(ds, season, a, first)
+                why = (
+                    f"; owned player(s) who had changed club: {', '.join(moved)} — the club-move "
+                    "rule changed between the runs"
+                    if moved
+                    else "; no club move involved — unexplained"
+                )
+                status = (
+                    f"diverges from GW{first} (points {int(a['points'].sum())} vs "
+                    f"{int(b['points'].sum())}){why}"
+                )
+            rows.append({"season": season, "strategy": strat, "status": status})
+    if not rows:
+        return None
+    n_same = sum(r["status"].startswith("identical") for r in rows)
+    return {
+        "baseline": str(baseline.relative_to(ROOT)),
+        "by_season_strategy": rows,
+        "summary": f"Re-running the replays from scratch reproduced {n_same} of {len(rows)} "
+        f"strategy-seasons decision-for-decision against `{baseline.relative_to(ROOT)}` "
+        "(an earlier full run of the same pinned inputs; differences are listed with their first "
+        "gameweek and cause).",
+    }
+
+
+def _runtime() -> str | None:
+    lines = []
+    for season in BT.data["seasons"]:
+        log = ROOT / "data" / "logs" / f"backtest_{season}.log"
+        if log.exists():
+            done = [x for x in log.read_text().splitlines() if "finished in" in x]
+            if done:
+                lines.append(done[-1].strip())
+    if not lines:
+        return None
+    return (
+        "Wall time per season (three seasons run as parallel processes on the machine in "
+        "`ml/reports/performance.md`): " + "; ".join(lines) + "."
+    )
+
+
+def report(compare_with: Path | None = None) -> None:
+    import backtest_report  # noqa: PLC0415 — sibling module of this script
+
+    from fpl_features.registry import FEATURE_VERSION  # noqa: PLC0415
+
     files = sorted(OUT.glob("backtest_*.parquet"))
     if not files:
         raise SystemExit("no backtest records")
-    df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
-    ds = load_snapshot(sorted((ROOT / "data" / "snapshots").glob("snap_*"))[-1])
-    pm = ds["player_match"]
-    ds_points = pm.groupby(["season", "gw", "player_code"], as_index=False)["points"].sum()
-    reg = ds["players"]
-    names = {
-        (str(se), int(c)): str(n)
-        for se, c, n in zip(reg["season"], reg["player_code"], reg["web_name"], strict=True)
-    }
-    seasons = sorted(df["season"].unique())
-    df["lineup_regret"] = df["hindsight_lineup_points"] - df["raw_points"]
-    summary = (
-        df.groupby(["season", "strategy"])
-        .agg(
-            total_points=("points", "sum"),
-            gameweeks=("gw", "count"),
-            hits=("hit_points", "sum"),
-            transfers=("transfers", "sum"),
-            captain_points=("captain_points", "sum"),
-            bench_points=("bench_points", "sum"),
-            lineup_regret=("lineup_regret", "sum"),
-            validity=("valid", "mean"),
-            runtime_s=("runtime_s", "mean"),
-            data_age_h=("data_age_hours", "mean"),
-            chips=("chip", lambda c: ", ".join(f"{x}" for x in c.dropna())),
-        )
-        .reset_index()
+    ds = _dataset()
+    extra = {"feature_version": FEATURE_VERSION}
+    if compare_with is not None and (rp := _reproducibility(compare_with, ds)) is not None:
+        extra["reproducibility"] = rp
+    if (rt := _runtime()) is not None:
+        extra["runtime"] = rt
+    b = BT.data["bootstrap"]
+    backtest_report.build(
+        OUT, REP, ds, schedule_audit(ds), BT.ref, int(b["n_boot"]), int(b["seed"]), extra
     )
-    comps = []
-    for season in seasons:
-        s = df[df["season"] == season].pivot(index="gw", columns="strategy", values="points")
-        for other in s.columns:
-            if other == ENGINE:
-                continue
-            d = (s[ENGINE] - s[other]).to_numpy(float)
-            lo, hi = _paired_ci(d)
-            comps.append(
-                {
-                    "season": season,
-                    "vs": other,
-                    "difference": float(d.sum()),
-                    "ci_low": lo,
-                    "ci_high": hi,
-                    "gws_better": int((d > 0).sum()),
-                    "gws_worse": int((d < 0).sum()),
-                }
-            )
-    comp = pd.DataFrame(comps)
-    tg1 = _realised_transfer_gain(df, ds_points, 1)
-    tg4 = _realised_transfer_gain(df, ds_points, 4)
-    eng = df[df["strategy"] == ENGINE].sort_values(["season", "gw"])
-    churn = []
-    for season, grp in eng.groupby("season"):
-        g = grp.reset_index(drop=True)
-        for i in range(len(g) - 1):
-            plan = g.loc[i, "planned_next"]
-            if plan is None or isinstance(plan, float):  # no plan recorded (NaN after Parquet)
-                continue
-            planned = (sorted(int(c) for c in plan[0]), sorted(int(c) for c in plan[1]))
-            actual = (
-                sorted(int(c) for c in g.loc[i + 1, "transfers_out"]),
-                sorted(int(c) for c in g.loc[i + 1, "transfers_in"]),
-            )
-            ins_p, ins_a = set(planned[1]), set(actual[1])
-            overlap = len(ins_p & ins_a) / len(ins_p | ins_a) if (ins_p or ins_a) else 1.0
-            churn.append(
-                {
-                    "season": season,
-                    "gw": int(g.loc[i + 1, "gw"]),
-                    "planned_hold": not planned[1],
-                    "acted": bool(actual[1]),
-                    "as_planned": planned == actual,
-                    "overlap": overlap,
-                }
-            )
-    churn_df = pd.DataFrame(churn)
-    # round-trip churn: a player bought and sold again within 3 gameweeks (executed actions)
-    trips = []
-    for (season, strat), grp in df.sort_values("gw").groupby(["season", "strategy"]):
-        bought_at: dict[int, int] = {}
-        n = 0
-        for r in grp.itertuples():
-            chip = r.chip if isinstance(r.chip, str) else ""
-            if chip.startswith("free_hit"):
-                continue
-            for c in r.transfers_out:
-                if int(c) in bought_at and r.gw - bought_at[int(c)] <= 3:
-                    n += 1
-            for c in r.transfers_in:
-                bought_at[int(c)] = r.gw
-        trips.append({"season": season, "strategy": strat, "round_trips": n})
-    trips_df = pd.DataFrame(trips)
-    calib = eng.dropna(subset=["expected_points"])
-    figs = REP / "figures"
-    figs.mkdir(parents=True, exist_ok=True)
-    for season in seasons:
-        s = df[df["season"] == season].pivot(index="gw", columns="strategy", values="points")
-        fig, ax = plt.subplots(figsize=(7, 4))
-        for col in s.columns:
-            ax.plot(s.index, s[col].cumsum(), label=col, lw=2 if col == ENGINE else 1)
-        ax.set_xlabel("gameweek")
-        ax.set_ylabel("cumulative points (after hits)")
-        ax.set_title(f"Walk-forward backtest {season}", fontsize=10)
-        ax.legend(fontsize=7)
-        fig.tight_layout()
-        fig.savefig(figs / f"backtest_cumulative_{season}.svg")
-        plt.close(fig)
-    payload = {
-        "snapshot_id": str(df["snapshot_id"].iloc[0]),
-        "optimizer_config": str(df["optimizer_config"].iloc[0]),
-        "seasons": seasons,
-        "summary": summary.to_dict("records"),
-        "engine_vs": comp.to_dict("records"),
-        "transfers_1gw": tg1.to_dict("records"),
-        "transfers_4gw": tg4.to_dict("records"),
-        "plan_churn_rate": float(1 - churn_df["as_planned"].mean()) if len(churn_df) else None,
-        "planned_vs_actual_overlap": float(churn_df["overlap"].mean()) if len(churn_df) else None,
-        "round_trips": trips_df.to_dict("records"),
-        "planned_hold_kept": float((~churn_df.loc[churn_df["planned_hold"], "acted"]).mean())
-        if len(churn_df) and churn_df["planned_hold"].any()
-        else None,
-        "planned_move_executed": float(churn_df.loc[~churn_df["planned_hold"], "as_planned"].mean())
-        if len(churn_df) and (~churn_df["planned_hold"]).any()
-        else None,
-        "engine_expected_vs_actual": {
-            "mean_expected": float(calib["expected_points"].mean()) if len(calib) else None,
-            "mean_actual": float(calib["raw_points"].mean()) if len(calib) else None,
-            "corr": float(np.corrcoef(calib["expected_points"], calib["raw_points"])[0, 1])
-            if len(calib) > 2
-            else None,
-        },
-        "lookahead_violations": int((df["data_age_hours"].dropna() < 0).sum()),
-        "validity_rate": float(df["valid"].mean()),
-    }
-    (REP / "backtest.json").write_text(json.dumps(payload, indent=2, default=str) + "\n")
-    lines = [
-        "# Walk-forward backtest — decision engine vs benchmarks",
-        "",
-        f"Snapshot `{payload['snapshot_id']}` · optimizer `{payload['optimizer_config']}` · "
-        f"seasons {', '.join(seasons)} · protocol `docs/BACKTEST_PROTOCOL.md` · generated by "
-        "`ml/experiments/backtest.py`. All strategies start from the same GW1 squad; points are "
-        "actual FPL points after hits (automatic substitutions and armband rules applied).",
-        "",
-        "Strategies: **engine** (decomposed MC forecast, 5-GW MILP, paired-gain thresholds vs "
-        "HOLD, chip planner); **engine_no_chips** (same, chips never played); **single_gw_mc** "
-        "(same forecast, 1-GW optimiser, no thresholds); **simple_xp** (ppg × availability "
-        "forecast, 1-GW optimiser); **form** (recent-form forecast, 1-GW optimiser); "
-        "**fpl_style_heuristic** (approximation of an official-style heuristic, 1-GW optimiser); "
-        "**hold** (no transfers, XI/captain from the MC forecast). No overall-rank claims are "
-        "made: the archive has no rank distribution.",
-        "",
-        "## Season totals",
-        "",
-        "| season | strategy | points | hits | transfers | captain pts | bench pts | lineup regret "
-        "| valid | s/decision | chips |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
-    ]
-    for r in summary.sort_values(["season", "total_points"], ascending=[True, False]).itertuples():
-        lines.append(
-            f"| {r.season} | {r.strategy} | {r.total_points} | {r.hits} | {r.transfers} | "
-            f"{r.captain_points} | {r.bench_points} | {r.lineup_regret} | {r.validity:.0%} | "
-            f"{r.runtime_s:.1f} | {r.chips or '—'} |"
-        )
-    lines += [
-        "",
-        "## Engine minus benchmark (season points; 95 % bootstrap CI over gameweeks)",
-        "",
-        "| season | vs | difference | 95 % CI | GWs better | GWs worse |",
-        "|---|---|---|---|---|---|",
-    ]
-    for r in comp.itertuples():
-        lines.append(
-            f"| {r.season} | {r.vs} | {r.difference:+.0f} | [{r.ci_low:+.0f}, "
-            f"{r.ci_high:+.0f}] | {r.gws_better} | {r.gws_worse} |"
-        )
-    if len(tg4):
-        e4 = tg4[tg4["strategy"] == ENGINE]
-        e1 = tg1[tg1["strategy"] == ENGINE]
-        lines += [
-            "",
-            "## Engine transfers — every one, successful and failed (hindsight diagnostic)",
-            "",
-            f"{len(e4)} transfer weeks; realised gain over 1 GW: mean "
-            f"{e1['gain_1gw'].mean():+.2f}, positive in {(e1['gain_1gw'] > 0).mean():.0%}; over "
-            f"4 GWs: mean {e4['gain_4gw'].mean():+.2f}, positive in "
-            f"{(e4['gain_4gw'] > 0).mean():.0%}. Realised gain = actual points of players in − "
-            "players out (− hit); it ignores lineup effects and is reported as a diagnostic only.",
-            "",
-            "| season | GW | out | in | hit | gain 1 GW | gain 4 GW |",
-            "|---|---|---|---|---|---|---|",
-        ]
-        m = e4.merge(e1[["season", "gw", "gain_1gw"]], on=["season", "gw"], how="left")
-
-        def who(season: str, codes: list[int]) -> str:
-            return ", ".join(names.get((season, int(c)), str(c)) for c in codes)
-
-        for r in m.itertuples():
-            lines.append(
-                f"| {r.season} | {r.gw} | {who(r.season, r.sold)} | {who(r.season, r.bought)} | "
-                f"{r.hit} | {r.gain_1gw:+d} | {r.gain_4gw:+d} |"
-            )
-    lines += [
-        "",
-        "## Diagnostics",
-        "",
-        (
-            f"* Plan stability: {payload['plan_churn_rate']:.0%} of next-week plans changed when "
-            f"the week came. A planned *hold* was kept {payload['planned_hold_kept']:.0%} of the "
-            f"time; a planned *move* was executed exactly as planned "
-            f"{payload['planned_move_executed']:.0%} of the time — future moves in a plan are "
-            "provisional: each week is re-optimised on new information and must clear the "
-            "paired-gain thresholds again. Mean overlap (Jaccard) of planned and executed "
-            f"incoming players: {payload['planned_vs_actual_overlap']:.0%}. Round trips (player "
-            "sold ≤ 3 GWs after purchase, executed actions): "
-            + ", ".join(f"{r['strategy']} {r['round_trips']}" for r in payload["round_trips"])
-            + "."
-            if payload["plan_churn_rate"] is not None
-            and payload["planned_hold_kept"] is not None
-            and payload["planned_move_executed"] is not None
-            else "* Plan stability: n/a"
-        ),
-        f"* Engine expected vs actual squad points per GW: "
-        f"{payload['engine_expected_vs_actual']['mean_expected']:.1f} vs "
-        f"{payload['engine_expected_vs_actual']['mean_actual']:.1f} (corr "
-        f"{payload['engine_expected_vs_actual']['corr']:.2f})."
-        if payload["engine_expected_vs_actual"]["corr"] is not None
-        else "",
-        f"* Validity: {payload['validity_rate']:.1%} of decisions legal under the state machine; "
-        f"look-ahead violations: {payload['lookahead_violations']} (data newer than the cutoff).",
-        "",
-        *[f"![{s}](figures/backtest_cumulative_{s}.svg)" for s in seasons],
-        "",
-    ]
-    (REP / "backtest.md").write_text("\n".join(lines) + "\n")
-    print("\n".join(lines[:60]))
+    print((REP / "backtest.md").read_text()[:4000])
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    if "--report-only" not in sys.argv:
-        run(args or ["2025-26"])
-    report()
+    argv = sys.argv[1:]
+    cmp_dir = None
+    if "--compare-with" in argv:
+        i = argv.index("--compare-with")
+        cmp_dir = (ROOT / argv[i + 1]).resolve()
+        argv = argv[:i] + argv[i + 2 :]
+    args = [a for a in argv if not a.startswith("--")]
+    if "--report-only" not in argv:
+        run(args or list(BT.data["seasons"]))
+    if "--run-only" not in argv:
+        report(cmp_dir)

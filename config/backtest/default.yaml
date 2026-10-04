@@ -1,0 +1,16 @@
+# Walk-forward backtest protocol parameters (§27, §70, §83; docs/BACKTEST_PROTOCOL.md).
+# The snapshot is pinned: a backtest never picks up whatever snapshot happens to be newest on
+# disk (e.g. one that includes live captures). Changing any value here is a new experiment.
+version: "1.0.0"
+snapshot_id: snap_b64560a8c4f434ad984e   # pinned vaastav commit 9779cdbc (config/sources.yaml)
+seasons: ["2023-24", "2024-25", "2025-26"]
+# Seasons available for training/history; a season's backtest only uses those before it.
+history_seasons: ["2022-23", "2023-24", "2024-25", "2025-26"]
+optimizer_profile: default
+horizon: 5
+retrain_every: 4          # gameweeks between model refits (always on data before the cutoff)
+n_sims: 1000
+initial_budget: 1000      # £100.0m in tenths
+bootstrap:
+  n_boot: 4000
+  seed: 0

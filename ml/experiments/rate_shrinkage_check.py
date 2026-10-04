@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pinned import pinned_snapshot
 
 from fpl_forecasting.rates import (
     RATES,
@@ -46,11 +47,7 @@ FUTURE_GWS = 10
 
 
 def main() -> None:
-    snap = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
-        else sorted((ROOT / "data" / "snapshots").glob("snap_*"))[-1]
-    )
+    snap = Path(sys.argv[1]) if len(sys.argv) > 1 else pinned_snapshot()
     ds = load_snapshot(snap)
     allc = cutoffs(ds, sorted({s for s, _ in CUTS}))
     cfg = RateConfig()

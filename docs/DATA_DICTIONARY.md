@@ -98,7 +98,7 @@ builder fails if that is after the cutoff. Recency weights decay by half-life in
 (non-appearances count as zeros while the player is registered).
 
 <!-- BEGIN GENERATED FEATURE TABLE -->
-Feature version `1.0.0` — generated from `fpl_features.registry`.
+Feature version `1.2.0` — generated from `fpl_features.registry`.
 
 | Feature | Family | Definition | Source | Window | Timestamp policy | Missing | Leakage | Type/range |
 |---|---|---|---|---|---|---|---|---|

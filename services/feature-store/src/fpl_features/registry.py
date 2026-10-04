@@ -28,7 +28,7 @@ Family = Literal[
     "meta",
 ]
 
-FEATURE_VERSION = "1.0.0"
+FEATURE_VERSION = "1.2.0"
 
 
 @dataclass(frozen=True)

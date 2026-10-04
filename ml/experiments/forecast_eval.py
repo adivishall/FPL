@@ -25,6 +25,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from pinned import pinned_snapshot
 
 from fpl_forecasting import metrics as fm
 from fpl_forecasting.forecast_eval import (
@@ -98,7 +99,7 @@ def _pit_plot(rows: pd.DataFrame, path: Path) -> None:
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     report_only = "--report-only" in sys.argv
-    snap = Path(args[0]) if args else sorted((ROOT / "data" / "snapshots").glob("snap_*"))[-1]
+    snap = Path(args[0]) if args else pinned_snapshot()
     ds = load_snapshot(snap)
     cfg = ForecastEvalConfig()
     rep = ROOT / "ml" / "reports"

@@ -24,6 +24,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from pinned import pinned_snapshot
 
 from fpl_forecasting.team_eval import evaluate_team_model
 from fpl_forecasting.team_strength import TeamStrengthConfig
@@ -35,11 +36,7 @@ GRID = list(itertools.product([60.0, 120.0, 240.0], [0.0, 0.35, 0.7], [0.2, 0.35
 
 
 def main() -> None:
-    snap = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
-        else sorted((ROOT / "data" / "snapshots").glob("snap_*"))[-1]
-    )
+    snap = Path(sys.argv[1]) if len(sys.argv) > 1 else pinned_snapshot()
     ds = load_snapshot(snap)
     t0 = time.time()
     # Per-season walk-forward log-likelihood for every config (computed once).

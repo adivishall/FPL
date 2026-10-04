@@ -16,6 +16,7 @@ with a JSON manifest (cutoff, max source availability, row count, content hash).
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -81,8 +82,16 @@ class FeatureCache:
         if key in self._mem:
             return self._mem[key]
         path = self._path(c)
+        meta = None
         if path is not None and path.exists():
             meta = json.loads(path.with_suffix(".json").read_text())
+            # an entry is only reused for exactly this cutoff and data snapshot
+            if (
+                pd.Timestamp(meta["cutoff"]) != c.cutoff
+                or meta.get("data_snapshot_id") != self.ds.snapshot_id
+            ):
+                meta = None
+        if path is not None and meta is not None:
             ff = FeatureFrame(
                 frame=pd.read_parquet(path),
                 season=c.season,
@@ -97,9 +106,12 @@ class FeatureCache:
             view = PointInTimeView(self.ds, c.cutoff)
             ff = build_features(view, c.season, c.gw, self.horizon, load_ruleset(c.season))
             if path is not None:
+                # concurrent replays share this cache: the sidecar is published first and the
+                # parquet (whose existence readers test) last, each by an atomic rename
                 path.parent.mkdir(parents=True, exist_ok=True)
-                ff.frame.to_parquet(path, index=False)
-                path.with_suffix(".json").write_text(
+                tag = f".{os.getpid()}.tmp"
+                side, side_tmp = path.with_suffix(".json"), path.with_suffix(".json" + tag)
+                side_tmp.write_text(
                     json.dumps(
                         {
                             "feature_snapshot_id": ff.snapshot_id,
@@ -117,6 +129,10 @@ class FeatureCache:
                         indent=2,
                     )
                 )
+                os.replace(side_tmp, side)
+                frame_tmp = path.with_name(path.name + tag)
+                ff.frame.to_parquet(frame_tmp, index=False)
+                os.replace(frame_tmp, path)
         self._mem[key] = ff
         return ff
 

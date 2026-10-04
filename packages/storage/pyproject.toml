@@ -13,6 +13,7 @@ dependencies = [
   "pyarrow>=25.0",
   "numpy>=2.5",
   "joblib>=1.5",
+  "scipy>=1.15",
 ]
 
 [build-system]

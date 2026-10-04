@@ -21,9 +21,13 @@ optimiser on the engine's forecast), so differences come from weekly decisions.
 
 from __future__ import annotations
 
+import json
+import os
+import pickle
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any, Protocol
 
 import pandas as pd
@@ -42,6 +46,7 @@ from fpl_domain.state import (
     advance,
     apply_deadline,
     initial_chips,
+    with_current_clubs,
 )
 from fpl_features.labels import realized_player_fixture
 from fpl_forecasting.baselines import all_baselines
@@ -172,6 +177,7 @@ class StrategyOutput:
     expected_points: float | None = None  # strategy's own expectation for this GW (if any)
     planned_next: tuple[tuple[int, ...], tuple[int, ...]] | None = None  # (outs, ins) for t+1
     notes: list[str] = field(default_factory=list)
+    interval: tuple[float, float, float] | None = None  # (p10, p50, p90) of this GW's points
 
 
 class Strategy(Protocol):
@@ -332,7 +338,9 @@ class EngineStrategy:
                     decision = GameweekDecision(
                         transfers=decision.transfers, chip_id=pick.chip_id, lineup=lu
                     )
-        return StrategyOutput(decision, pkg.decision["expected_points"], nxt, notes)
+        d = pkg.decision
+        interval = (float(d["p10"]), float(d["p50"]), float(d["p90"]))
+        return StrategyOutput(decision, d["expected_points"], nxt, notes, interval)
 
 
 def _solution_for(prob: OptimizationProblem, sells: Sequence[int], buys: Sequence[int]) -> Solution:
@@ -367,6 +375,11 @@ class GwRecord:
     bench_points: int
     hindsight_lineup_points: int  # best lineup of the playing squad with actual outcomes
     expected_points: float | None
+    # engine only: simulated distribution of the chosen plan's points this GW (before any chip
+    # the chip planner adds afterwards; weeks with a chip are excluded from interval checks)
+    expected_p10: float | None
+    expected_p50: float | None
+    expected_p90: float | None
     valid: bool
     runtime_s: float
     data_age_hours: float | None
@@ -447,8 +460,14 @@ def run_season(
     cache_root: Any = None,
     progress: Callable[[str], None] | None = None,
     initial_cfg: OptimizerConfig | None = None,
+    checkpoint_dir: Path | None = None,
 ) -> pd.DataFrame:
-    """Replay ``season`` for every strategy; one record per strategy × gameweek."""
+    """Replay ``season`` for every strategy; one record per strategy × gameweek.
+
+    With ``checkpoint_dir`` the replay is durable: after every gameweek the records, manager
+    states, trained models and that gameweek's forecast distribution are written atomically, and
+    a rerun resumes after the last completed gameweek (refusing if the run parameters differ).
+    """
     sim = sim or SimulationConfig(n_sims=1000)
     cache = FeatureCache(ds, horizon, cache_root)
     hist = cutoffs(ds, [*history_seasons, season])
@@ -456,10 +475,29 @@ def run_season(
     if gameweeks is not None:
         season_cuts = [c for c in season_cuts if c.gw in set(gameweeks)]
     states: dict[str, ManagerState] = {}
-    records: list[GwRecord] = []
+    records: list[dict[str, Any]] = []
     models: ForecastModels | None = None
     trained_gw = -99
+    done_gw = 0
+    fingerprint = {
+        "snapshot_id": ds.snapshot_id,
+        "season": season,
+        "history_seasons": list(history_seasons),
+        "strategies": [s.name for s in strategies],
+        "horizon": horizon,
+        "retrain_every": retrain_every,
+        "n_sims": sim.n_sims,
+        "sim_seed": sim.seed,
+        "optimizer": (initial_cfg or OptimizerConfig()).config_ref,
+    }
+    ckpt = _Checkpoint(checkpoint_dir, fingerprint) if checkpoint_dir is not None else None
+    if ckpt is not None and (saved := ckpt.load()) is not None:
+        records, states, models, trained_gw, done_gw = saved
+        if progress:
+            progress(f"{season}: resumed after GW{done_gw} from {checkpoint_dir}")
     for cut in season_cuts:
+        if cut.gw <= done_gw:
+            continue
         if models is None or cut.gw - trained_gw >= retrain_every:
             models = train_forecast_models(cache, cut, hist)
             trained_gw = cut.gw
@@ -470,7 +508,8 @@ def run_season(
             states = {s.name: start for s in strategies}
         pts_map, min_map = _actual(ds, season, cut.gw)
         for strat in strategies:
-            state = states[strat.name]
+            # owned players count for their club at this cutoff (mid-season moves)
+            state = with_current_clubs(states[strat.name], info.teams)
             t0 = time.perf_counter()
             notes: list[str] = []
             try:
@@ -524,6 +563,9 @@ def run_season(
                     bench_points=sum(pts_map.get(c, 0) for c in lu.bench),
                     hindsight_lineup_points=best,
                     expected_points=out.expected_points,
+                    expected_p10=None if out.interval is None else out.interval[0],
+                    expected_p50=None if out.interval is None else out.interval[1],
+                    expected_p90=None if out.interval is None else out.interval[2],
                     valid=valid,
                     runtime_s=runtime,
                     data_age_hours=age,
@@ -533,14 +575,96 @@ def run_season(
                     if out.planned_next is None
                     else [list(out.planned_next[0]), list(out.planned_next[1])],
                     notes=notes + out.notes,
-                )
+                ).__dict__
             )
             if cut.gw < info.ruleset.num_gameweeks:
                 states[strat.name] = advance(res, info.ruleset)
+        if ckpt is not None:
+            assert models is not None
+            ckpt.save(records, states, models, trained_gw, cut.gw, _forecast_rows(info))
         if progress:
-            last = {r.strategy: r.points for r in records if r.gw == cut.gw}
+            last = {r["strategy"]: r["points"] for r in records if r["gw"] == cut.gw}
             progress(f"{season} GW{cut.gw}: {last}")
-    return pd.DataFrame([r.__dict__ for r in records])
+    return pd.DataFrame(records)
+
+
+def _forecast_rows(info: GwInfo) -> pd.DataFrame:
+    """The forecast distribution every strategy saw at this cutoff (for calibration checks)."""
+    f = info.forecast.summary.copy()
+    f.insert(0, "season", info.season)
+    f.insert(1, "decision_gw", info.gw)
+    f["cutoff"] = info.cutoff
+    f["prediction_run_id"] = info.forecast.run_id
+    return f
+
+
+class _Checkpoint:
+    """Atomic per-gameweek checkpoint of a season replay (resumable after interruption).
+
+    Layout: ``meta.json`` (run fingerprint + progress), ``state.pkl`` (records, manager states,
+    trained models — local, trusted files written by this process only) and
+    ``forecasts/gw{NN}.parquet`` (the forecast summary used at each cutoff).
+    """
+
+    def __init__(self, root: Path, fingerprint: dict[str, Any]) -> None:
+        self.root = Path(root)
+        self.fingerprint = fingerprint
+
+    def load(
+        self,
+    ) -> tuple[list[dict[str, Any]], dict[str, ManagerState], ForecastModels, int, int] | None:
+        meta_p = self.root / "meta.json"
+        if not meta_p.exists():
+            return None
+        meta = json.loads(meta_p.read_text())
+        if meta["fingerprint"] != self.fingerprint:
+            raise RuntimeError(
+                f"checkpoint {self.root} was written by a different run configuration: "
+                f"{meta['fingerprint']} != {self.fingerprint}; move it away to start over"
+            )
+        with (self.root / "state.pkl").open("rb") as fh:
+            st = pickle.load(fh)  # noqa: S301 — own checkpoint file, see class docstring
+        if st["done_gw"] != meta["done_gw"]:
+            raise RuntimeError(f"checkpoint {self.root} is inconsistent (meta vs state)")
+        return st["records"], st["states"], st["models"], st["trained_gw"], st["done_gw"]
+
+    def save(
+        self,
+        records: list[dict[str, Any]],
+        states: dict[str, ManagerState],
+        models: ForecastModels,
+        trained_gw: int,
+        done_gw: int,
+        forecast_rows: pd.DataFrame,
+    ) -> None:
+        (self.root / "forecasts").mkdir(parents=True, exist_ok=True)
+        _atomic(
+            self.root / "forecasts" / f"gw{done_gw:02d}.parquet",
+            lambda p: forecast_rows.to_parquet(p, index=False),
+        )
+        state = {
+            "records": records,
+            "states": states,
+            "models": models,
+            "trained_gw": trained_gw,
+            "done_gw": done_gw,
+        }
+        _atomic(self.root / "state.pkl", lambda p: p.write_bytes(pickle.dumps(state)))
+        meta = {
+            "fingerprint": self.fingerprint,
+            "done_gw": done_gw,
+            "records": len(records),
+            "updated_at": pd.Timestamp.now(tz="UTC").isoformat(),
+        }
+        _atomic(self.root / "meta.json", lambda p: p.write_text(json.dumps(meta, indent=2)))
+
+
+def _atomic(path: Path, write: Callable[[Path], object]) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    write(tmp)
+    with tmp.open("rb") as fh:
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
 
 
 def default_strategies(cfg: OptimizerConfig, horizon: int = 5) -> list[Strategy]:

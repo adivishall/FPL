@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
@@ -91,9 +93,14 @@ def test_scoring_recomputes_with_domain_rules(result: pd.DataFrame) -> None:
 
 
 def test_no_lookahead_future_perturbation_does_not_change_decisions() -> None:
-    """Corrupt everything after GW3's cutoff: decisions up to GW3 must be identical."""
+    """Corrupt everything after GW3's cutoff: decisions up to GW3 must be identical (the full
+    engine included: MC forecast, multi-GW MILP, paired thresholds)."""
     cut3 = next(c for c in cutoffs(DS, ["2025-26"]) if c.gw == 3).cutoff
-    strategies = [OptimizerStrategy("form", "recent_form", 1, CFG), HoldStrategy("hold", CFG)]
+    strategies = [
+        EngineStrategy("engine", CFG, use_chips=False, n_alternatives=1),
+        OptimizerStrategy("form", "recent_form", 1, CFG),
+        HoldStrategy("hold", CFG),
+    ]
     a = run_season(
         DS,
         "2025-26",
@@ -116,5 +123,51 @@ def test_no_lookahead_future_perturbation_does_not_change_decisions() -> None:
         gameweeks=[1, 2, 3],
         initial_cfg=CFG,
     )
-    cols = ["strategy", "gw", "transfers_out", "transfers_in", "captain", "chip"]
+    cols = [
+        "strategy",
+        "gw",
+        "transfers_out",
+        "transfers_in",
+        "starters",
+        "bench",
+        "captain",
+        "vice_captain",
+        "chip",
+        "expected_points",
+    ]
     pd.testing.assert_frame_equal(a[cols], b[cols])
+
+
+def test_interrupted_replay_resumes_to_identical_records(
+    result: pd.DataFrame, tmp_path: Path
+) -> None:
+    """A replay stopped after GW2 and resumed from its checkpoint equals an uninterrupted one."""
+    kw = {"horizon": 2, "retrain_every": 2, "sim": SIM, "initial_cfg": CFG}
+    ckpt = tmp_path / "ckpt"
+    first = run_season(
+        DS, "2025-26", _strategies(), ["2024-25"], gameweeks=[1, 2], checkpoint_dir=ckpt, **kw
+    )
+    assert sorted(first["gw"].unique()) == [1, 2]
+    assert sorted(p.name for p in (ckpt / "forecasts").iterdir()) == [
+        "gw01.parquet",
+        "gw02.parquet",
+    ]
+    resumed = run_season(
+        DS, "2025-26", _strategies(), ["2024-25"], gameweeks=[1, 2, 3, 4], checkpoint_dir=ckpt, **kw
+    )
+    cols = [c for c in result.columns if c != "runtime_s"]
+    pd.testing.assert_frame_equal(resumed[cols], result[cols])
+    fc = pd.read_parquet(ckpt / "forecasts" / "gw04.parquet")
+    assert {"mean", "p10", "p90", "prob_start", "decision_gw"} <= set(fc.columns)
+    assert (fc["decision_gw"] == 4).all() and (fc["gw"] >= 4).all()
+    # a checkpoint written by different run parameters is refused, never silently mixed
+    with pytest.raises(RuntimeError, match="different run configuration"):
+        run_season(
+            DS,
+            "2025-26",
+            _strategies(),
+            ["2024-25"],
+            gameweeks=[1, 2, 3, 4, 5],
+            checkpoint_dir=ckpt,
+            **{**kw, "horizon": 3},
+        )

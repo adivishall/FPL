@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pinned import pinned_snapshot
 
 from fpl_forecasting.direct import DirectPointsModel
 from fpl_forecasting.minutes import MinutesModel
@@ -48,11 +49,7 @@ def _gain(booster_model) -> pd.Series:  # type: ignore[no-untyped-def]
 
 
 def main() -> None:
-    snap = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
-        else sorted((ROOT / "data" / "snapshots").glob("snap_*"))[-1]
-    )
+    snap = Path(sys.argv[1]) if len(sys.argv) > 1 else pinned_snapshot()
     ds = load_snapshot(snap)
     cache = FeatureCache(ds, 5, ROOT / "data" / "feature-store")
     hist = cutoffs(ds, SEASONS)

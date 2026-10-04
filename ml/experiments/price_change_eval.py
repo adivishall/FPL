@@ -22,6 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from pinned import pinned_snapshot
 from sklearn.metrics import roc_auc_score
 
 from fpl_forecasting import metrics as fm
@@ -45,11 +46,7 @@ RETRAIN_EVERY = SPEC.retrain_every_gameweeks
 
 
 def main() -> None:
-    snap = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
-        else sorted((ROOT / "data" / "snapshots").glob("snap_*"))[-1]
-    )
+    snap = Path(sys.argv[1]) if len(sys.argv) > 1 else pinned_snapshot()
     ds = load_snapshot(snap)
     pm = ds["player_match"].sort_values("kickoff_at")
     price = pm.groupby(["season", "player_code", "gw"])["price"].last().astype(float)

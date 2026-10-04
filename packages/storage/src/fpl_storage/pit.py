@@ -9,7 +9,10 @@ Availability rules (see ADR-0004 for rationale):
 
 * match statistics / results ......... ``available_at`` (kickoff + provisional lag), or the
   gameweek ``finalized_at`` when ``label_policy == "finalized_only"``;
-* fixture schedule ................... ``schedule_available_at``;
+* fixture schedule ................... the schedule *as published* at ``as_of``
+  (``fpl_storage.schedule``: archived seasons hold only the final schedule, so moved fixtures
+  are shown in their original round until the move could have been known, then hidden until
+  the new date is announced; rule S1 in ADR-0004);
 * price & ownership observations ..... the fixture kickoff at which they were observed;
 * GW transfer counts ................. the deadline of that gameweek;
 * live snapshots / news .............. ``available_at`` (capture / publication time);
@@ -28,6 +31,7 @@ import pandas as pd
 
 from fpl_domain.errors import LeakageError
 from fpl_storage.dataset import CanonicalDataset
+from fpl_storage.schedule import believed_schedule
 
 LabelPolicy = Literal["provisional_ok", "finalized_only"]
 REGISTRATION_WINDOW_GWS = 3
@@ -89,6 +93,7 @@ class PointInTimeView:
         f = self.ds["fixtures"]
         if season is not None:
             f = f[f["season"] == season]
+        f = believed_schedule(f, self.ds["gameweeks"], self.as_of)
         f = self._guard("fixtures", f, "schedule_available_at")
         return f[
             [

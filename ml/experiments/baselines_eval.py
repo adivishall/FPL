@@ -16,6 +16,8 @@ import sys
 import time
 from pathlib import Path
 
+from pinned import pinned_snapshot
+
 from fpl_forecasting.baselines import all_baselines
 from fpl_forecasting.walkforward import cutoffs, evaluate_point_forecasters, summarize
 from fpl_storage.dataset import load_snapshot
@@ -27,11 +29,7 @@ HORIZON = 5
 
 
 def main() -> None:
-    snap = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
-        else sorted((ROOT / "data" / "snapshots").glob("snap_*"))[-1]
-    )
+    snap = Path(sys.argv[1]) if len(sys.argv) > 1 else pinned_snapshot()
     ds = load_snapshot(snap)
     t0 = time.time()
     res = evaluate_point_forecasters(
