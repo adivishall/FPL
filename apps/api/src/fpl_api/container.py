@@ -25,7 +25,7 @@ from fpl_api.watch import plan_watch
 from fpl_decision.engine import DecisionContext, RecommendationPackage, recommend
 from fpl_decision.inputs import player_table
 from fpl_decision.render import render_markdown
-from fpl_domain.state import ManagerState
+from fpl_domain.state import ManagerState, with_current_clubs
 from fpl_forecasting.pipeline import Forecast
 from fpl_notifications.store import NotificationStore
 from fpl_optimizer.pool import candidate_pool
@@ -120,6 +120,7 @@ def optimization_problem(
 ) -> OptimizationProblem:
     """The transfer-planning problem on the candidate pool (one definition for API + alerts)."""
     table = svc.table(ctx, fc, horizon, state)
+    state = with_current_clubs(state, table.teams_by_code())
     cfg = load_optimizer_config(profile)
     prefs = preferences or Preferences()
     pool = candidate_pool(
@@ -154,6 +155,7 @@ def build_recommendation(
     h = svc.horizon(horizon)
     fc = svc.forecast_for(ctx, h)
     table = svc.table(ctx, fc, h, state)
+    state = with_current_clubs(state, table.teams_by_code())
     names = svc.data.names(ctx.season)
     cfg = config or load_optimizer_config(profile)
     prices = svc.price_probs(ctx)

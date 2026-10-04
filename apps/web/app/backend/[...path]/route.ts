@@ -6,6 +6,7 @@ import { type NextRequest } from "next/server";
 
 const ORIGIN = process.env.FPL_API_INTERNAL_URL ?? "http://localhost:8000";
 const SAFE = /^[A-Za-z0-9_.\-]+$/;
+const TIMEOUT_MS = 120_000; // above the API's slowest synchronous route; long work runs as jobs
 
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }): Promise<Response> {
   const { path } = await ctx.params;
@@ -18,13 +19,24 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   if (process.env.FPL_API_KEY) headers["x-api-key"] = process.env.FPL_API_KEY;
   const rid = req.headers.get("x-request-id");
   if (rid) headers["x-request-id"] = rid;
-  const res = await fetch(url, {
-    method: req.method,
-    headers,
-    body: req.method === "GET" || req.method === "DELETE" ? undefined : await req.text(),
-    cache: "no-store",
-    redirect: "manual",
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: req.method,
+      headers,
+      body: req.method === "GET" || req.method === "DELETE" ? undefined : await req.text(),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (e) {
+    // the API is down, unreachable or too slow: a clear gateway error, not a bare 500
+    const timedOut = e instanceof DOMException && e.name === "TimeoutError";
+    return Response.json(
+      { detail: timedOut ? "API did not respond in time" : "API unreachable" },
+      { status: timedOut ? 504 : 502 },
+    );
+  }
   const out = new Headers({ "content-type": res.headers.get("content-type") ?? "application/json" });
   const retry = res.headers.get("retry-after");
   if (retry) out.set("retry-after", retry);

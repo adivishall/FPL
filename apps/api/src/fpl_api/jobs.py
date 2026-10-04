@@ -4,7 +4,12 @@
 backend: tests, single-process development) or enqueues ``fpl_api.jobs.run_job`` on Redis for
 the worker. Every job kind is a plain function of (services, params) → result reference, so both
 backends run the same code. Identical requests are de-duplicated by a request hash while queued
-or running.
+or running — but only within the kind's lease: a job whose worker died (OOM kill, container
+replaced) never blocks its request forever; it is marked failed ("abandoned") and the request is
+re-submitted as a new attempt. RQ's failure callback records failures RQ raises inside the work
+horse (e.g. job timeouts) immediately; a SIGKILLed horse (OOM) runs no callback in RQ 2.x and
+is recovered by the lease. Failed jobs are terminal and observable via
+``GET /jobs/{id}``; retrying means submitting again (the scheduler does so every bucket).
 """
 
 from __future__ import annotations
@@ -12,16 +17,19 @@ from __future__ import annotations
 import traceback
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from typing import Any
 
 import redis
-from rq import Queue
+from rq import Callback, Queue
+from rq.exceptions import NoSuchJobError
+from rq.job import Job
 from sqlalchemy import select
 
 from fpl_api.alerts import evaluate_alerts
 from fpl_api.container import AppServices, build_recommendation
+from fpl_api.services import mark_serving_ready
 from fpl_api.settings import Settings
 from fpl_backtest.runner import default_strategies, run_season
 from fpl_domain.hashing import content_hash
@@ -35,14 +43,14 @@ JobFn = Callable[[AppServices, dict[str, Any]], str]
 
 def _job_forecast(svc: AppServices, p: dict[str, Any]) -> str:
     ctx = svc.context()
-    fc = svc.forecasts.get(
-        p.get("season", ctx.season),
-        p.get("gameweek", ctx.gameweek),
-        svc.horizon(p.get("horizon")),
-        p.get("n_sims"),
-        compute=True,
-    )
-    return str(fc.provenance.get("forecast_key", fc.run_id))
+    snapshot = svc.data.snapshot_id
+    season, gw = p.get("season", ctx.season), p.get("gameweek", ctx.gameweek)
+    fc = svc.forecasts.get(season, gw, svc.horizon(p.get("horizon")), p.get("n_sims"), compute=True)
+    key = str(fc.provenance.get("forecast_key", fc.run_id))
+    serving = (season, gw) == (ctx.season, ctx.gameweek) and p.get("n_sims") is None
+    if serving and fc.provenance.get("data_snapshot_id") == snapshot:
+        mark_serving_ready(svc.settings, snapshot, key)  # the API may now promote it
+    return key
 
 
 def _job_recommendation(svc: AppServices, p: dict[str, Any]) -> str:
@@ -122,6 +130,20 @@ JOB_KINDS: dict[str, JobFn] = {
     "recommendation": _job_recommendation,
     "backtest": _job_backtest,
 }
+# Upper bound on a healthy run of each kind: RQ's job timeout and the de-duplication lease.
+JOB_LEASE: dict[str, timedelta] = {
+    "alerts": timedelta(minutes=15),
+    "forecast": timedelta(minutes=30),
+    "recommendation": timedelta(minutes=30),
+    "backtest": timedelta(hours=6),
+}
+ABANDONED = "abandoned: no result within the job lease (worker lost or killed)"
+RQ_GRACE = timedelta(minutes=2)
+
+
+def _expired(r: m.JobRow, now: datetime) -> bool:
+    since = r.started_at if r.status == "running" and r.started_at else r.created_at
+    return now - since > JOB_LEASE[r.kind]
 
 
 class JobBackend:
@@ -141,24 +163,64 @@ class JobBackend:
         if self.svc.engine is None:
             raise RuntimeError("database required for jobs")
         h = content_hash({"kind": kind, "params": params, "snap": self.svc.data.snapshot_id})
+        now = datetime.now(UTC)
         with session_scope(self.svc.engine) as s:
-            dup = s.scalars(
-                select(m.JobRow).where(
+            dups = s.scalars(
+                select(m.JobRow)
+                .where(
                     m.JobRow.request_hash == h,
                     m.JobRow.status.in_(("queued", "running", "succeeded")),
                 )
-            ).first()
-            if dup is not None:
-                return dup.id
+                .order_by(m.JobRow.created_at.desc())
+            ).all()
+            for dup in dups:
+                if dup.status == "succeeded" or not _expired(dup, now):
+                    return dup.id
+                dup.status, dup.error, dup.finished_at = "failed", ABANDONED, now
+                self.svc.metrics.job_failures.labels(dup.kind).inc()
             job_id = "job_" + uuid.uuid4().hex[:16]
             s.add(
                 m.JobRow(id=job_id, kind=kind, status="queued", request_hash=h, request_json=params)
             )
         if self._queue is not None:
-            self._queue.enqueue("fpl_api.jobs.run_job", job_id, job_timeout=6 * 3600)
+            self._queue.enqueue(
+                "fpl_api.jobs.run_job",
+                job_id,
+                job_id=job_id,  # same id in Redis: the reaper can ask RQ about this job
+                job_timeout=int(JOB_LEASE[kind].total_seconds()),
+                on_failure=Callback(on_rq_failure),
+            )
         else:
             execute(self.svc, job_id)
         return job_id
+
+    def reap_expired(self, now: datetime | None = None) -> int:
+        """Close every queued/running job past its lease (worker lost). Requests are keyed by
+        snapshot, so after a snapshot swap nobody re-submits them — the scheduler sweeps."""
+        if self.svc.engine is None:
+            return 0
+        now = now or datetime.now(UTC)
+        n = 0
+        with session_scope(self.svc.engine) as s:
+            for r in s.scalars(select(m.JobRow).where(m.JobRow.status.in_(("queued", "running")))):
+                lost = self._rq_lost(r, now)
+                if r.kind in JOB_LEASE and (lost or _expired(r, now)):
+                    r.status, r.finished_at = "failed", now
+                    r.error = f"abandoned: {lost}" if lost else ABANDONED
+                    self.svc.metrics.job_failures.labels(r.kind).inc()
+                    n += 1
+        return n
+
+    def _rq_lost(self, r: m.JobRow, now: datetime) -> str | None:
+        """Why RQ no longer runs this job (worker killed, container replaced), if it doesn't."""
+        if self._queue is None or now - r.created_at < RQ_GRACE:
+            return None  # inline backend, or just submitted (enqueue may still be in flight)
+        try:
+            status = Job.fetch(r.id, connection=self._queue.connection).get_status()
+        except NoSuchJobError:
+            return "unknown to the queue (lost from Redis)"
+        name = getattr(status, "value", status)
+        return f"queue reports {name}" if name in ("failed", "stopped", "canceled") else None
 
     def get(self, job_id: str) -> dict[str, Any] | None:
         if self.svc.engine is None:
@@ -210,3 +272,19 @@ def services() -> AppServices:
 def run_job(job_id: str) -> None:
     """RQ entry point (worker process)."""
     execute(services(), job_id)
+
+
+def on_rq_failure(job: Any, connection: Any, typ: Any, value: Any, tb: Any) -> None:
+    """RQ failure callback (e.g. job timeout inside the work horse) before ``execute`` recorded
+    an outcome — record it now so the failure is visible and the request can be re-submitted."""
+    job_id = job.args[0] if job.args else None
+    svc = services()
+    if job_id is None or svc.engine is None:
+        return
+    with session_scope(svc.engine) as s:
+        r = s.get(m.JobRow, job_id)
+        if r is None or r.status in ("succeeded", "failed"):
+            return
+        r.status, r.finished_at = "failed", datetime.now(UTC)
+        r.error = f"worker failure: {getattr(typ, '__name__', typ)}: {value}"
+        svc.metrics.job_failures.labels(r.kind).inc()

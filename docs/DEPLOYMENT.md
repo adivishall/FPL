@@ -8,9 +8,9 @@ Compose (or an equivalent orchestrator running the same images) is available.
 
 | Process | Image | Command | Notes |
 |---|---|---|---|
-| `api` | `infra/docker/python.Dockerfile` | `uvicorn fpl_api.main:app` | stateless; serves precomputed forecasts (`FPL_FORECAST_ON_DEMAND=false`) |
-| `worker` | same | `fpl-worker work` | RQ consumer: forecasts, recommendations, alert evaluations, backtests |
-| `scheduler` | same | `fpl-worker schedule` | submits idempotent tasks from `config/schedules/default.yaml` |
+| `api` | `infra/docker/python.Dockerfile` (`fpl-engine`) | `uvicorn fpl_api.main:app` | stateless; serves precomputed forecasts (`FPL_FORECAST_ON_DEMAND=false`) and promotes a snapshot only once its forecast exists (`FPL_SERVE_READY_SNAPSHOTS_ONLY=true`); health: HTTP `/api/v1/health` |
+| `worker` | same image | `fpl-worker work` | RQ consumer: forecasts, recommendations, alert evaluations, backtests; health: its own RQ heartbeat (`fpl-worker healthcheck work`) |
+| `scheduler` | same image | `fpl-worker schedule` | submits idempotent tasks from `config/schedules/default.yaml`, reaps abandoned jobs; health: tick heartbeat (`fpl-worker healthcheck schedule`) |
 | `web` | `infra/docker/web.Dockerfile` | `node server.js` | Next.js; proxies `/backend/*` to the API with the key held server-side |
 | `migrate` | python image | `alembic upgrade head` | one-shot before api/worker start |
 | `postgres` 16, `redis` 7 | upstream | — | application state; job queue |
@@ -19,7 +19,28 @@ All Python processes share the `/data` volume: `snapshots/` (canonical Parquet s
 verified against its manifest hash on load), `raw/` (content-addressed raw captures),
 `artifacts/` (forecasts and price models keyed by snapshot + model config), `feature-store/`.
 The API re-checks `/data/snapshots` every `FPL_SNAPSHOT_CHECK_SECONDS` and swaps in a newer
-snapshot without a restart; forecasts are keyed by snapshot id, so the swap invalidates them.
+snapshot without a restart — but only once the worker has precomputed that snapshot's serving
+forecast (marker `/data/artifacts/serving/<snapshot>.ready`), so a live refresh never opens a
+"forecast not ready" window. Each `live_refresh` exports a snapshot and immediately submits its
+forecast; the swap follows within the check interval. On a first deployment no snapshot is ready
+yet and forecast routes answer `503` with `Retry-After` until the first forecast completes.
+
+Resources (measured, `ml/reports/performance.md`): the worker computing the 8-gameweek,
+1,000-sample serving forecast peaks at ~2 GB RSS (container); give it ≥ 3 GB. The images run
+as the non-root `app` user and the image pre-creates `/data` owned by `app`, so an empty named
+volume is writable on first use.
+
+## Process configuration beyond `.env`
+
+| Variable | Process | Meaning |
+|---|---|---|
+| `FPL_FORECAST_ON_DEMAND=false` | api | never train/simulate on a request; serve precomputed forecasts |
+| `FPL_SERVE_READY_SNAPSHOTS_ONLY=true` | api | promote a newer snapshot only once its serving forecast exists |
+| `FPL_SNAPSHOT_CHECK_SECONDS` (300) | api, worker | how often to look for a newer snapshot |
+| `PROMETHEUS_MULTIPROC_DIR`, `FPL_WORKER_METRICS_PORT` (9101) | worker | aggregate metrics of forked job processes and serve them |
+| `FPL_SCHEDULER_HEARTBEAT` (temp dir) | scheduler | liveness marker read by `fpl-worker healthcheck schedule` |
+
+All other settings are `fpl_api.settings.Settings` fields with the `FPL_` prefix.
 
 ## First deployment
 
@@ -36,6 +57,14 @@ snapshot without a restart; forecasts are keyed by snapshot id, so the swap inva
    `ml/reports/performance.md`).
 5. `docker compose up -d` (api, worker, scheduler, web).
 6. `uv run python infra/scripts/smoke.py --api http://localhost:8000 --web http://localhost:3000`.
+7. Full production-topology browser suite (15 flows: proxy-only traffic, key enforcement, worker
+   jobs, alerts, settings, traceability, export/delete, error states, rate limiting):
+
+   ```bash
+   cd apps/web && E2E_BASE_URL=http://127.0.0.1:3000 E2E_API_URL=http://127.0.0.1:8000 \
+     E2E_OPS_KEY=<operator key> E2E_WEB_KEY=<FPL_WEB_API_KEY> \
+     npx playwright test -c playwright.prod.config.ts
+   ```
 
 Terminate TLS in front of `api` and `web` (reverse proxy or load balancer); both listen on
 loopback in the compose file. Set `FPL_CORS_ORIGINS` to the web origin when the browser calls
@@ -62,6 +91,12 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
   restores the previous model on the next forecast. Registered artifacts roll back with
   `ModelRegistry.rollback` (`fpl_storage.registry`), which re-promotes the previous version.
 * **Data**: snapshots are immutable and content-addressed; pin one with `FPL_SNAPSHOT_DIR`.
+
+## Retention
+
+Every live refresh exports a ~3 MB snapshot (hourly by default: ~70 MB/day). There is no automatic
+retention yet: prune old `snap_*` directories (keep the pinned evaluation snapshot and the one
+being served) and their `/data/artifacts/forecasts` entries periodically.
 
 ## Backups
 
@@ -117,6 +152,14 @@ saturated by a co-located worker. Move workers to separate hosts or reduce `FPL_
 `DataStale` / `DataExpired`. The live capture is failing (network policy, upstream outage) or the
 scheduler is down. Check `fpl-worker run-once live_refresh` output. The product keeps serving
 the last snapshot in degraded mode; no action can make data fresher than the source.
+
+### Abandoned jobs
+
+A job whose worker died (OOM kill, container replaced) is closed by the scheduler's reaper as
+`failed: abandoned …` — immediately when RQ reports the job failed or unknown, otherwise when its
+lease expires (forecast/recommendation 30 min, alerts 15 min, backtest 6 h) — and an identical
+request then starts a new attempt. Failed jobs are never retried automatically except by the
+scheduler's next bucket. `fpl_job_failures_total{kind}` counts them.
 
 ### Queue backlog
 

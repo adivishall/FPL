@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
 
 from fpl_worker.cli import Schedule, TaskSpec, bucket, due_tasks, load_schedule
 
@@ -30,3 +33,22 @@ def test_due_tasks_once_per_bucket_and_disabled_skipped() -> None:
     last = dict(due)
     assert due_tasks(s, last, t0 + timedelta(minutes=10)) == []  # same bucket: nothing
     assert due_tasks(s, last, t0 + timedelta(minutes=14)) == [("a", "2026-09-12T10:15")]
+
+
+def test_scheduler_liveness_follows_its_heartbeat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+    import time
+
+    from fpl_worker import cli
+
+    beat = tmp_path / "alive"
+    monkeypatch.setattr(cli, "SCHEDULER_HEARTBEAT", beat)
+    probe = ["healthcheck", "schedule"]
+    assert cli.main(probe) == 1  # never ticked
+    beat.touch()
+    assert cli.main(probe) == 0
+    old = time.time() - 3 * 60 * 60
+    os.utime(beat, (old, old))
+    assert cli.main(probe) == 1  # stuck scheduler is reported dead

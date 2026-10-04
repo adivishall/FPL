@@ -304,8 +304,12 @@ def table_hash(df: pd.DataFrame) -> str:
 
 @dataclass
 class CanonicalDataset:
+    """Normalised canonical tables. Treated as immutable after construction (derive a new
+    dataset instead of editing frames), so the content hashes are computed once, lazily."""
+
     frames: dict[str, pd.DataFrame]
     meta: dict[str, Any] = field(default_factory=dict)
+    _hashes: dict[str, str] | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         self.frames = {t: normalize(t, self.frames.get(t, pd.DataFrame())) for t in TABLES}
@@ -315,7 +319,10 @@ class CanonicalDataset:
 
     @property
     def table_hashes(self) -> dict[str, str]:
-        return {t: table_hash(df) for t, df in self.frames.items()}
+        # hashing ~150k rows costs seconds; the id is read on every API response and cache key
+        if self._hashes is None:
+            self._hashes = {t: table_hash(df) for t, df in self.frames.items()}
+        return self._hashes
 
     @property
     def snapshot_id(self) -> str:

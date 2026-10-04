@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from collections.abc import Callable
@@ -88,6 +89,23 @@ class CurrentContext:
         }
 
 
+def _ready_marker(settings: Settings, snapshot_id: str) -> Path:
+    return settings.artifact_dir / "serving" / f"{snapshot_id}.ready"
+
+
+def mark_serving_ready(settings: Settings, snapshot_id: str, forecast_key: str) -> None:
+    """Record that the serving forecast of ``snapshot_id`` is precomputed (snapshot promotion)."""
+    p = _ready_marker(settings, snapshot_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"forecast_key": forecast_key}))
+    os.replace(tmp, p)
+
+
+def is_serving_ready(settings: Settings, snapshot_id: str) -> bool:
+    return _ready_marker(settings, snapshot_id).exists()
+
+
 class DataService:
     """Serves the newest validated snapshot; picks up a newly exported one without a restart.
 
@@ -114,7 +132,15 @@ class DataService:
         )
         if not found:
             raise FileNotFoundError(f"no canonical snapshot under {root}")
+        if self.settings.serve_ready_snapshots_only:
+            ready = [p for p in found if is_serving_ready(self.settings, p.name)]
+            # first deployment: nothing is ready yet — serve the newest and compute on demand
+            return ready[-1] if ready else found[-1]
         return found[-1]
+
+    def refresh(self) -> None:
+        """Look for a newer snapshot on the next access (e.g. right after an export)."""
+        self._checked = 0.0
 
     @property
     def ds(self) -> CanonicalDataset:
@@ -178,6 +204,17 @@ class DataService:
             reasons.append(f"data {fr.status.value}: serving the last validated snapshot")
         if not self.settings.live_sync_enabled:
             reasons.append("live FPL source disabled by configuration")
+        # a fresh bootstrap does not make the match history fresh: finished gameweeks whose
+        # per-match results are not in the snapshot are reported, never silently skipped
+        finished = set(g.loc[g["status"].isin(["finalized", "provisional"]), "gw"].astype(int))
+        have = set(pm["gw"].astype(int)) if len(pm) else set()
+        missing = sorted(finished - have)
+        if missing:
+            reasons.append(
+                f"match results missing for finished GW{missing[0]}"
+                + (f"–GW{missing[-1]}" if len(missing) > 1 else "")
+                + f": forecasts use results through GW{max(have) if have else 0} only"
+            )
         return CurrentContext(
             season=season,
             gameweek=int(row["gw"]),
@@ -202,8 +239,12 @@ class DataService:
         return {int(c): str(n) for c, n in zip(t["team_code"], t["short_name"], strict=True)}
 
     def history_cutoffs(self, season: str) -> list[Cutoff]:
-        seasons = sorted(s for s in self.ds["gameweeks"]["season"].unique() if s <= season)
-        return cutoffs(self.ds, seasons)
+        return history_cutoffs(self.ds, season)
+
+
+def history_cutoffs(ds: CanonicalDataset, season: str) -> list[Cutoff]:
+    seasons = sorted(s for s in ds["gameweeks"]["season"].unique() if s <= season)
+    return cutoffs(ds, seasons)
 
 
 class ForecastService:
@@ -218,11 +259,19 @@ class ForecastService:
         self._mem: dict[str, Forecast] = {}
         self._lock = threading.Lock()
 
-    def key(self, season: str, gw: int, horizon: int, n_sims: int, seed: int) -> str:
+    def key(
+        self,
+        season: str,
+        gw: int,
+        horizon: int,
+        n_sims: int,
+        seed: int,
+        snapshot: str | None = None,
+    ) -> str:
         return short_id(
             "fc",
             {
-                "snapshot": self.data.snapshot_id,
+                "snapshot": snapshot or self.data.snapshot_id,
                 "features": FEATURE_VERSION,
                 "points": points_spec()[1].ref,
                 "minutes": minutes_spec()[1].ref,
@@ -249,7 +298,8 @@ class ForecastService:
         seed = points_spec()[0].simulation.seed
         # one canonical forecast per gameweek serves every shorter horizon (no recomputation)
         horizon = max(horizon, self.settings.forecast_horizon)
-        k = self.key(season, gw, horizon, n, seed)
+        ds = self.data.ds  # one dataset for the key and the computation (hot swap safe)
+        k = self.key(season, gw, horizon, n, seed, ds.snapshot_id)
         if k in self._mem:
             self.metrics.forecast_cache.labels("memory").inc()
             return self._mem[k]
@@ -269,9 +319,9 @@ class ForecastService:
                 return self._mem[k]
             t0 = time.perf_counter()
             try:
-                hist = self.data.history_cutoffs(season)
+                hist = history_cutoffs(ds, season)
                 cut = next(c for c in hist if c.season == season and c.gw == gw)
-                cache = FeatureCache(self.data.ds, horizon, self.settings.feature_store_dir)
+                cache = FeatureCache(ds, horizon, self.settings.feature_store_dir)
                 models = train_forecast_models(cache, cut, hist)
                 fc = forecast(cache, cut, models, SimulationConfig(n_sims=n, seed=seed))
             except Exception:

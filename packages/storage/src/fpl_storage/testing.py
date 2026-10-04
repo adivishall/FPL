@@ -40,7 +40,9 @@ def _free_port() -> int:
 def _run(cmd: list[str], as_postgres: bool) -> None:
     if as_postgres:
         cmd = ["runuser", "-u", "postgres", "--", *cmd]
-    subprocess.run(cmd, check=True, capture_output=True, text=True)  # noqa: S603
+    # initdb/postmaster refuse to start without a valid locale (e.g. macOS shells)
+    env = {**os.environ, "LC_ALL": os.environ.get("LC_ALL") or "C"}
+    subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)  # noqa: S603
 
 
 @contextlib.contextmanager
@@ -59,11 +61,22 @@ def ephemeral_postgres(db_name: str = "fpl") -> Iterator[str]:
     port = _free_port()
     try:
         _run(
-            [initdb, "-D", str(data), "-U", "fpl", "--auth=trust", "-E", "UTF8", "--no-sync"],
+            [
+                initdb,
+                "-D",
+                str(data),
+                "-U",
+                "fpl",
+                "--auth=trust",
+                "-E",
+                "UTF8",
+                "--locale=C",
+                "--no-sync",
+            ],
             as_postgres,
         )
         opts = (
-            f"-p {port} -k {sock} -c listen_addresses=127.0.0.1 -c fsync=off "
+            f"-p {port} -k '{sock}' -c listen_addresses=127.0.0.1 -c fsync=off "
             "-c synchronous_commit=off -c full_page_writes=off"
         )
         _run(

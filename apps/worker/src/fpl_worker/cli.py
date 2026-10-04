@@ -5,6 +5,8 @@
   ``config/schedules/default.yaml``. Each submission carries its time bucket, so a task is
   submitted at most once per bucket however many schedulers run or restart.
 * ``fpl-worker run-once <task>`` runs one task immediately (operations / smoke tests).
+* ``fpl-worker healthcheck work|schedule`` is the container liveness probe: the worker's own RQ
+  heartbeat in Redis must be recent; the scheduler must have ticked recently (heartbeat file).
 """
 
 from __future__ import annotations
@@ -12,13 +14,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socket
+import tempfile
 import time
+import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import redis
 import structlog
+from prometheus_client import CollectorRegistry, multiprocess, start_http_server
 from pydantic import BaseModel, ConfigDict
 from rq import Queue, Worker
 from sqlalchemy import select
@@ -33,6 +40,11 @@ from fpl_storage import models as m
 from fpl_storage.db import session_scope
 
 log = structlog.get_logger("fpl_worker")
+# liveness marker only (its mtime is read; contents are never trusted)
+SCHEDULER_HEARTBEAT = Path(
+    os.environ.get("FPL_SCHEDULER_HEARTBEAT") or Path(tempfile.gettempdir()) / "fpl-scheduler.alive"
+)
+WORKER_HEARTBEAT_MAX_AGE_S = 180.0  # RQ heartbeats every few seconds while idle or busy
 
 
 class TaskSpec(BaseModel):
@@ -105,7 +117,15 @@ def task_live_refresh(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, A
     if rc != 0:  # degraded mode: keep serving the last validated snapshot (ADR-0001 #5)
         return {"status": "degraded", "exit_code": rc}
     rc = ingest_cli.main(["export-snapshot"])
-    return {"status": "succeeded" if rc == 0 else "failed", "exit_code": rc}
+    if rc != 0:
+        return {"status": "failed", "exit_code": rc}
+    # precompute the new snapshot's serving forecast now, so the API can promote it
+    svc.data.refresh()
+    return {
+        "status": "succeeded",
+        "exit_code": rc,
+        "forecast": task_forecast_precompute(svc, jobs, b),
+    }
 
 
 TASKS: dict[str, Callable[[AppServices, JobBackend, str], dict[str, Any]]] = {
@@ -131,12 +151,45 @@ def run_task(name: str, svc: AppServices, jobs: JobBackend, b: str) -> dict[str,
 
 
 def _work(args: argparse.Namespace) -> int:
+    serve_worker_metrics()  # first: metric objects created below write into its directory
     svc = services()
     if not svc.settings.redis_url:
         raise SystemExit("FPL_REDIS_URL is required for the worker")
     conn = redis.Redis.from_url(svc.settings.redis_url)
-    Worker([Queue("fpl", connection=conn)], connection=conn).work(burst=args.burst)
+    Worker([Queue("fpl", connection=conn)], connection=conn, name=worker_name()).work(
+        burst=args.burst
+    )
     return 0
+
+
+def worker_name() -> str:
+    """Named after the container (hostname) so its liveness probe can find its own heartbeat,
+    and unique per start: after a crash the restarted container (same hostname, PID 1) must not
+    collide with its own stale registration, which lives in Redis until its heartbeat expires."""
+    return f"{socket.gethostname()}.{os.getpid()}.{uuid.uuid4().hex[:8]}"
+
+
+def serve_worker_metrics(port: int | None = None) -> bool:
+    """Expose the metrics of every job this worker ran (§76.1).
+
+    RQ runs each job in a forked work horse that exits afterwards, so in-process counters would
+    be lost. With ``PROMETHEUS_MULTIPROC_DIR`` set (compose sets it for the worker), every horse
+    writes its counters to memory-mapped files there and this parent process serves their
+    aggregate on ``FPL_WORKER_METRICS_PORT`` (default 9101) for Prometheus to scrape.
+    """
+    path = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
+    if not path:
+        return False
+    d = Path(path)
+    d.mkdir(parents=True, exist_ok=True)
+    for f in d.glob("*.db"):  # counters of a previous container run
+        f.unlink()
+    registry = CollectorRegistry()
+    multiprocess.MultiProcessCollector(registry)
+    start_http_server(
+        port or int(os.environ.get("FPL_WORKER_METRICS_PORT", "9101")), registry=registry
+    )
+    return True
 
 
 def _schedule(args: argparse.Namespace) -> int:
@@ -146,12 +199,40 @@ def _schedule(args: argparse.Namespace) -> int:
     last: dict[str, str] = {}
     while True:
         now = datetime.now(UTC)
+        reaped = jobs.reap_expired(now)
+        if reaped:
+            log.warning("jobs_abandoned", count=reaped)
         for name, b in due_tasks(sched, last, now):
             run_task(name, svc, jobs, b)
             last[name] = b
+        SCHEDULER_HEARTBEAT.touch()
         if args.once:
             return 0
         time.sleep(sched.tick_seconds)
+
+
+def _healthcheck(args: argparse.Namespace) -> int:
+    """Exit 0 when this container's process is alive and making progress."""
+    if args.role == "schedule":
+        sched = load_schedule("default")
+        try:
+            age = time.time() - SCHEDULER_HEARTBEAT.stat().st_mtime
+        except FileNotFoundError:
+            return 1
+        # a tick can include a long task (live refresh); allow a few ticks plus slack
+        return 0 if age <= 3 * sched.tick_seconds + 600 else 1
+    url = os.environ.get("FPL_REDIS_URL")
+    if not url:
+        return 1
+    conn = redis.Redis.from_url(url, socket_timeout=3)
+    prefix = f"{socket.gethostname()}."
+    for w in Worker.all(connection=conn):
+        beat = w.last_heartbeat
+        if w.name.startswith(prefix) and beat is not None:
+            age = (datetime.now(UTC) - beat.replace(tzinfo=beat.tzinfo or UTC)).total_seconds()
+            if age <= WORKER_HEARTBEAT_MAX_AGE_S:
+                return 0
+    return 1
 
 
 def _run_once(args: argparse.Namespace) -> int:
@@ -174,6 +255,9 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("run-once", help="run one scheduled task now")
     r.add_argument("task", choices=sorted(TASKS))
     r.set_defaults(func=_run_once)
+    hc = sub.add_parser("healthcheck", help="container liveness probe")
+    hc.add_argument("role", choices=["work", "schedule"])
+    hc.set_defaults(func=_healthcheck)
     args = p.parse_args(argv)
     configure_logging(os.environ.get("FPL_LOG_LEVEL", "INFO"))
     return int(args.func(args))

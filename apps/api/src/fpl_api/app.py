@@ -23,7 +23,8 @@ from fastapi import Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from sqlalchemy import select, text
+from pydantic import ValidationError
+from sqlalchemy import func, select, text
 
 from fpl_api import schemas as s
 from fpl_api.container import AppServices, build_recommendation, optimization_problem
@@ -44,6 +45,7 @@ from fpl_domain.squad import SquadPick, squad_violations
 from fpl_domain.state import ChipStatus, ManagerState, initial_chips
 from fpl_forecasting.model_config import price_spec
 from fpl_forecasting.price_change import official_signal
+from fpl_ingestion.http import SourceUnavailableError
 from fpl_ingestion.manager_sync import reconstruct_state
 from fpl_ingestion.sources.fpl_api import FplApiClient
 from fpl_notifications.rules import load_notification_config
@@ -167,6 +169,40 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     def fresh() -> dict[str, Any]:
         return svc.context().block(svc.data.snapshot_id)
 
+    def live_source_status() -> dict[str, Any]:
+        """Outcome of the latest live FPL capture (data_jobs), not an assumption (§82)."""
+        if not settings.live_sync_enabled:
+            return {"ok": False, "enabled": False, "note": "live FPL source disabled by config"}
+        if svc.engine is None:
+            return {"ok": False, "enabled": True, "note": "no database: capture history unknown"}
+        try:
+            with session_scope(svc.engine) as ses:
+                last = ses.scalars(
+                    select(m.DataJob)
+                    .where(m.DataJob.job_type == "live_bootstrap")
+                    .order_by(m.DataJob.started_at.desc())
+                    .limit(1)
+                ).first()
+                ok_at = ses.scalar(
+                    select(func.max(m.DataJob.completed_at)).where(
+                        m.DataJob.job_type == "live_bootstrap", m.DataJob.status == "succeeded"
+                    )
+                )
+        except Exception as exc:
+            return {"ok": False, "enabled": True, "error": type(exc).__name__}
+        if last is None:
+            return {"ok": False, "enabled": True, "note": "no live capture attempted yet"}
+        return {
+            "ok": last.status == "succeeded",
+            "enabled": True,
+            "last_attempt_at": _jsonable(last.started_at),
+            "last_status": last.status,
+            "last_success_at": _jsonable(ok_at),
+            "note": "latest live capture succeeded"
+            if last.status == "succeeded"
+            else "latest live capture failed; serving the last validated snapshot",
+        }
+
     def need_db() -> None:
         if svc.states is None:
             raise HTTPException(503, "database not configured (FPL_DATABASE_URL)")
@@ -198,11 +234,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         else:
             checks["database"] = {"ok": False, "error": "not configured"}
         checks["jobs"] = {"ok": True, "mode": jobs.mode}
-        checks["live_source"] = {
-            "ok": False,
-            "note": "fantasy.premierleague.com is not reachable from this deployment's network "
-            "policy; serving the last validated snapshot (degraded mode, ADR-0001 #5)",
-        }
+        checks["live_source"] = live_source_status()
         ctx = svc.context()
         status = (
             "ok"
@@ -459,7 +491,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                 ctx.gameweek,
                 datetime.now(UTC),
             )
-        except Exception as exc:  # network policy, upstream outage, schema drift …
+        except SourceUnavailableError as exc:  # network policy, upstream outage, HTTP error
             return JSONResponse(
                 {
                     "detail": "live FPL API unavailable from this deployment; serving degraded "
@@ -468,6 +500,17 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                     "degraded": True,
                 },
                 status_code=503,
+            )
+        except ValidationError as exc:  # the upstream payload broke its typed contract
+            log.warning("fpl_api_contract_violation", errors=exc.error_count())
+            return JSONResponse(
+                {
+                    "detail": "the FPL API answered, but its payload failed contract validation "
+                    "(upstream schema change?); enter the squad manually meanwhile",
+                    "error": "ValidationError",
+                    "degraded": True,
+                },
+                status_code=502,
             )
         sid = svc.states.save(body.manager_key, report.state, "fpl_api")
         return JSONResponse(

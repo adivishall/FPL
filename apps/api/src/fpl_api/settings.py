@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     snapshot_dir: Path | None = Field(None, description="pin one canonical snapshot to serve")
     snapshots_root: Path | None = Field(None, description="directory of exported snapshots")
     snapshot_check_seconds: float = Field(300.0, description="how often to look for a newer one")
+    serve_ready_snapshots_only: bool = Field(
+        False,
+        description="API: swap to a newer snapshot only once its serving forecast is "
+        "precomputed (no 'forecast not ready' window after each live refresh)",
+    )
     artifact_dir: Path = Path("data/artifacts")
     reports_dir: Path | None = Field(None, description="published experiment reports (ml/reports)")
     feature_store_dir: Path | None = None

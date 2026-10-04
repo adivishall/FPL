@@ -57,3 +57,31 @@ def test_env_example_names_map_to_settings() -> None:
         if line.startswith("FPL_"):
             name = line.split("=", 1)[0]
             assert name in fields | extra, name
+
+
+def test_compose_restarts_services_and_scrapes_worker_metrics() -> None:
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())["services"]
+    for name in ("postgres", "redis", "api", "worker", "scheduler", "web"):
+        assert compose[name].get("restart") == "unless-stopped", name
+        assert "healthcheck" in compose[name] or name in ("api", "web"), name  # image probes
+    assert compose["worker"]["environment"]["PROMETHEUS_MULTIPROC_DIR"]
+    assert compose["api"]["environment"]["FPL_SERVE_READY_SNAPSHOTS_ONLY"] == "true"
+    prom = yaml.safe_load((ROOT / "infra/deployment/prometheus/prometheus.yml").read_text())
+    targets = {
+        t for job in prom["scrape_configs"] for sc in job["static_configs"] for t in sc["targets"]
+    }
+    port = compose["worker"]["environment"]["FPL_WORKER_METRICS_PORT"]
+    assert {"api:8000", f"worker:{port}"} <= targets
+
+
+def test_schema_diagram_is_generated_from_the_models() -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "schema_diagram", ROOT / "infra/scripts/schema_diagram.py"
+    )
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    doc = (ROOT / "docs/architecture/database-schema.md").read_text()
+    assert doc == mod.render(), "regenerate with infra/scripts/schema_diagram.py"

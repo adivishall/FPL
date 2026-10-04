@@ -19,18 +19,25 @@ handler (ADR-0001 #3).
   `succeeded`/`failed`; `result_ref` points at the stored result (recommendation id, backtest id,
   forecast key). Identical queued/finished requests are de-duplicated.
 * **Security** (§35, §75): optional API keys (`X-API-Key`, stored as SHA-256 only) for all
-  non-GET routes and for reads of manager-linked personal data (`/managers/*`); token-bucket
+  non-GET routes and for every read of manager-linked data — any GET carrying `manager_key`, and
+  `/squad`, `/settings`, `/notifications`, `/decisions`, `/recommendations/*`, `/jobs/*`,
+  `/managers/*` (401 without a key, 403 with a wrong one); reference data (players, fixtures,
+  gameweeks, reports, models, health, metrics) stays public. Token-bucket
   rate limits per client (stricter for optimisation/simulation routes), applied before
   authentication; body-size limit; CORS allow-list; request ids (`x-request-id`). Rejections are
   logged as `security_event` (no key material) and counted in `fpl_security_events_total`. No
   FPL account credentials are ever accepted — sync uses the public entry id. The web UI calls
-  the API through its server-side proxy (`/backend/*`), so the key never reaches a browser.
+  the API through its server-side proxy (`/backend/*`), so the key never reaches a browser; the
+  proxy answers `502` (`API unreachable`) or `504` (no response in 120 s) as JSON. Behind the
+  proxy all browser users share the proxy's key and therefore one rate-limit bucket.
+  The manager key is an identifier, not a credential: any holder of an API key (including every
+  user of the web UI) can read or erase any manager's data by key — a single-tenant design.
 
 ## Endpoints
 
 | Method & path | Purpose | Notes |
 |---|---|---|
-| `GET /health`, `GET /system/health` | Service, database, job backend, dataset and live-source status + freshness | `status` = ok / degraded |
+| `GET /health`, `GET /system/health` | Service, database, job backend, dataset; `live_source` = outcome and time of the latest recorded live capture (not an assumption); freshness incl. finished gameweeks whose results are missing | `status` = ok / degraded |
 | `GET /data-quality` | Recent data-quality incidents + freshness | |
 | `GET /gameweeks/current` | Season, gameweek, deadline, decision cutoff, freshness | |
 | `GET /players` | Player pool with forecast summary | filters `position`, `team`, `max_price`, `q`; `sort` xp/xp_next/price/start; `horizon`; `limit` |

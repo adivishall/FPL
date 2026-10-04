@@ -92,6 +92,46 @@ def test_health_reports_degraded_mode_honestly(client: TestClient) -> None:
     assert "x-request-id" in r.headers
 
 
+def test_health_live_source_reflects_the_latest_capture(client: TestClient) -> None:
+    """The live-source check reports recorded capture outcomes, never a hard-coded claim."""
+    from datetime import UTC, datetime, timedelta
+
+    from fpl_storage import models as m
+    from fpl_storage.db import session_scope
+
+    engine = client.app.state.services.engine  # type: ignore[attr-defined]
+    t0 = datetime.now(UTC)
+
+    def record(job_id: str, status: str, at: datetime) -> None:
+        with session_scope(engine) as s:
+            s.add(
+                m.DataJob(
+                    id=job_id,
+                    job_type="live_bootstrap",
+                    source="fpl_api",
+                    params={},
+                    status=status,
+                    started_at=at,
+                    completed_at=at,
+                )
+            )
+
+    try:
+        record("job_live_test_ok", "succeeded", t0 - timedelta(minutes=5))
+        live = client.get("/api/v1/health").json()["checks"]["live_source"]
+        assert live["ok"] is True and live["last_status"] == "succeeded"
+        record("job_live_test_fail", "failed", t0)
+        live = client.get("/api/v1/health").json()["checks"]["live_source"]
+        assert live["ok"] is False and live["last_status"] == "failed"
+        assert live["last_success_at"] is not None  # the last good capture is still reported
+    finally:
+        with session_scope(engine) as s:
+            for j in ("job_live_test_ok", "job_live_test_fail"):
+                row = s.get(m.DataJob, j)
+                if row is not None:
+                    s.delete(row)
+
+
 def test_current_gameweek_and_players(client: TestClient) -> None:
     gw = client.get("/api/v1/gameweeks/current").json()
     assert gw["gameweek"] == 2 and gw["decision_cutoff"] < gw["deadline"]
@@ -230,13 +270,28 @@ def test_sync_degrades_when_live_source_is_unreachable(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import fpl_api.app as app_mod
+    from fpl_ingestion.http import SourceUnavailableError
+    from fpl_ingestion.sources import fpl_api_schemas as fs
 
-    def boom(*_a, **_k):  # type: ignore[no-untyped-def]
-        raise ConnectionError("egress denied")
+    def fail(exc: Exception):  # type: ignore[no-untyped-def]
+        def boom(*_a, **_k):  # type: ignore[no-untyped-def]
+            raise exc
 
-    monkeypatch.setattr(app_mod.FplApiClient, "from_config", classmethod(lambda cls, cfg: boom()))
-    r = client.post("/api/v1/squad/sync", json={"manager_key": "demo", "manager_id": 123})
+        monkeypatch.setattr(app_mod.FplApiClient, "from_config", classmethod(lambda c, f: boom()))
+
+    body = {"manager_key": "demo", "manager_id": 123}
+    fail(SourceUnavailableError("egress denied"))  # what the HTTP layer raises on outages
+    r = client.post("/api/v1/squad/sync", json=body)
     assert r.status_code == 503 and r.json()["degraded"] is True
+    try:  # upstream schema drift: reported as such, not as an outage
+        fs.ApiEntry.model_validate({})
+    except Exception as exc:
+        fail(exc)
+    r = client.post("/api/v1/squad/sync", json=body)
+    assert r.status_code == 502 and "contract validation" in r.json()["detail"]
+    fail(RuntimeError("reconstruction bug"))  # a genuine bug is not disguised as an outage
+    with pytest.raises(RuntimeError, match="reconstruction bug"):
+        client.post("/api/v1/squad/sync", json=body)
 
 
 def test_reports_models_settings(client: TestClient) -> None:
@@ -296,6 +351,30 @@ def test_api_key_and_rate_limit(tmp_path: Path) -> None:
         sec = c.get("/metrics").text
         assert 'fpl_security_events_total{kind="auth_missing"} 2.0' in sec
         assert 'fpl_security_events_total{kind="rate_limited"}' in sec
+
+
+def test_manager_linked_reads_need_a_key_reference_reads_do_not(tmp_path: Path) -> None:
+    key = "s3cret-key"
+    st = _settings(None, tmp_path, require_api_key=True, api_keys_sha256=[hash_key(key)])
+    app = create_app(st, AppServices.build(st, DS))
+    private = [
+        "/api/v1/squad?manager_key=demo",
+        "/api/v1/settings?manager_key=demo",
+        "/api/v1/notifications?manager_key=demo",
+        "/api/v1/decisions?manager_key=demo",
+        "/api/v1/recommendations/current?manager_key=demo",
+        "/api/v1/recommendations/rec_x",
+        "/api/v1/recommendations/rec_x/trace",
+        "/api/v1/jobs/job_x",
+        "/api/v1/managers/demo/export",
+    ]
+    with TestClient(app) as c:
+        for path in private:
+            assert c.get(path).status_code == 401, path
+            assert c.get(path, headers={"X-API-Key": "wrong"}).status_code == 403, path
+            assert c.get(path, headers={"X-API-Key": key}).status_code not in (401, 403), path
+        for path in ("/api/v1/health", "/api/v1/gameweeks/current", "/api/v1/reports"):
+            assert c.get(path).status_code == 200, path
 
 
 # ----------------------------------------------------------------------------- M13: §74–§76

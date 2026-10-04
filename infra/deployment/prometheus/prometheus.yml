@@ -9,3 +9,8 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["api:8000"]
+  # recommendation / optimisation / job metrics of work done by the RQ worker (multiprocess)
+  - job_name: fpl-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["worker:9101"]

@@ -38,3 +38,7 @@ apps/web/playwright-report/
 apps/web/test-results/
 apps/web/next-env.d.ts
 apps/web/tsconfig.tsbuildinfo
+data/artifacts/
+data/snapshots-live/
+apps/web/playwright-report-prod/
+apps/web/prod-results.json

@@ -43,6 +43,10 @@ def _ts(v: Any, default: datetime) -> datetime:
     return (t.tz_localize(UTC) if t.tzinfo is None else t).to_pydatetime()
 
 
+def feature_lineage_id(feature_snapshot_id: str, data_snapshot_id: str) -> str:
+    return f"{feature_snapshot_id}@{data_snapshot_id}"
+
+
 class LineageStore:
     def __init__(self, engine: Engine, settings: Settings) -> None:
         self.engine = engine
@@ -57,8 +61,8 @@ class LineageStore:
         p = fc.provenance
         return (
             Path(root)
-            / ds.snapshot_id
-            / FEATURE_VERSION
+            / str(p["data_snapshot_id"])
+            / str(p.get("feature_version", FEATURE_VERSION))
             / f"{p['season']}_gw{int(p['decision_gw']):02d}_h{horizon}.parquet"
         )
 
@@ -73,7 +77,9 @@ class LineageStore:
             season_id = ensure_season(s, p["season"])
             cutoff = _ts(p["cutoff"], datetime.now(UTC))
             snap = p["data_snapshot_id"]
-            if s.get(m.DataSnapshot, snap) is None:
+            # metadata can only come from the dataset the forecast was built on (exported
+            # snapshots are registered by `fpl-ingest export-snapshot` already)
+            if s.get(m.DataSnapshot, snap) is None and ds.snapshot_id == snap:
                 meta = ds.meta or {}
                 src = sources_config()["historical_repo"]
                 s.add(
@@ -93,7 +99,10 @@ class LineageStore:
                     )
                 )
                 s.flush()
-            fid = p["feature_snapshot_id"]
+            # Feature ids are content hashes: identical features can be built from several data
+            # snapshots (e.g. hourly live captures). The lineage row is "this feature content as
+            # materialised from this data snapshot", so the walk back finds the right snapshot.
+            fid = feature_lineage_id(p["feature_snapshot_id"], snap)
             if s.get(m.FeatureSnapshotRow, fid) is None:
                 fp = self.feature_path(fc, ds, horizon)
                 exists = fp is not None and fp.exists()
@@ -219,7 +228,6 @@ def trace(engine: Engine, rec_id: str) -> dict[str, Any] | None:
                 "model_versions_match",
                 all(pred.model_versions.get(k) == v for k, v in rec_models.items()),
             )
-            check("cutoff_before_recommendation", pred.cutoff_at <= rec.created_at)
             feat = s.get(m.FeatureSnapshotRow, pred.feature_snapshot_id)
         check("feature_snapshot_exists", feat is not None)
         snap = None
@@ -237,6 +245,13 @@ def trace(engine: Engine, rec_id: str) -> dict[str, Any] | None:
                 "no_future_sources",
                 feat.max_source_available_at <= feat.cutoff_at,
                 "max_source_available_at <= cutoff_at",
+            )
+            # a live recommendation precedes its (future) decision cutoff; what must hold is that
+            # nothing it used was published after it was made
+            check(
+                "sources_before_recommendation",
+                feat.max_source_available_at <= rec.created_at,
+                "max_source_available_at <= recommendation created_at",
             )
             snap = s.get(m.DataSnapshot, feat.data_snapshot_id) if feat.data_snapshot_id else None
         check("data_snapshot_exists", snap is not None)

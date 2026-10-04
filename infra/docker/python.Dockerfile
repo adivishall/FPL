@@ -39,7 +39,9 @@ RUN mkdir -p /opt/runtime-libs && cp -L "$(find /usr/lib -name 'libgomp.so.1' | 
 
 FROM python:3.12-slim AS runtime
 COPY --from=builder /opt/runtime-libs/ /usr/local/lib/
-RUN ldconfig && groupadd --system app && useradd --system --gid app --home /app app
+RUN ldconfig && groupadd --system app && useradd --system --gid app --home /app app \
+    # an empty named volume mounted at /data inherits this ownership (non-root writes)
+    && mkdir -p /data && chown app:app /data
 WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app config config
@@ -54,4 +56,6 @@ USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=4).status == 200 else 1)"]
-CMD ["uvicorn", "fpl_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# uvicorn's access log prints raw URLs (manager keys in paths/queries); the app logs every
+# request itself with the route template and a request id instead (§75: no identifiers in logs)
+CMD ["uvicorn", "fpl_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
