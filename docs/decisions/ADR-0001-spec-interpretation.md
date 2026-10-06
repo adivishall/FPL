@@ -2,9 +2,9 @@
 
 - Status: Accepted
 - Date: 2026-10-02
-- Context: `FPL Decision Engine — Complete Claude Build Specification` (54 pages) is the
+- Context: the FPL Decision Engine build specification (54 pages) is the
   authoritative contract. Sections 1–48 are the product blueprint; sections 49–94 are the
-  implementation-level "Claude Build Pack". Where they disagree, the Build Pack wins because
+  implementation-level "Build Pack". Where they disagree, the Build Pack wins because
   §49 states it exists to remove ambiguity from the blueprint.
 
 This ADR records every place where the specification is ambiguous, internally inconsistent,
@@ -43,3 +43,13 @@ isolate/label the degraded path.**
   "implemented / blocked-in-environment" in `docs/BUILD_STATUS.md` and `docs/FINAL_AUDIT.md`.
 - Every resolution above is either a configuration value (versioned and stored with runs) or a
   documented limitation; none is hidden in code.
+
+
+## Addendum (2026-10-05, local development machine)
+
+The egress block described above applied to the earlier cloud build environment only. On the
+local machine `fantasy.premierleague.com` and `premierleague.com` are reachable: live bootstrap
+and fixture captures, live squad sync (verified against official picks) and the hourly scheduled
+refresh run against the real API, and `tests/integration/test_live_rules.py` (marker `network`)
+checks the 2026-27 ruleset against the official `game_settings`, chip windows and scoring table
+(all pass). Degraded mode remains the behaviour whenever the source is unreachable.
