@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Badge, Card, State, useApi } from "@/components/ui";
-import { type Job, type Notification, post, waitForJob } from "@/lib/api";
+import { type Job, jobFailureMessage, type Notification, post, waitForJob } from "@/lib/api";
 import { when } from "@/lib/format";
 import { loadSettings } from "@/lib/settings";
 
@@ -19,7 +19,7 @@ export default function Alerts() {
     try {
       const r = await post<{ job_id: string }>("/notifications/evaluate", { manager_key: settings.managerKey });
       const j: Job = await waitForJob(r.job_id);
-      setMsg(j.status === "succeeded" ? `Evaluated (${j.result_ref ?? ""} new/total).` : `Failed: ${j.error ?? ""}`);
+      setMsg(j.status === "succeeded" ? `Evaluated (${j.result_ref ?? ""} new/total).` : jobFailureMessage(j));
       await n.reload();
     } catch (e) {
       setMsg(String(e));

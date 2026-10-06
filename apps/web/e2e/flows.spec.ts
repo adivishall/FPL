@@ -16,8 +16,12 @@ test("overview shows degraded freshness and a recommendation with evidence", asy
   await page.goto("/");
   await expect(page.getByTestId("freshness")).toContainText("Degraded mode");
   const generate = page.getByTestId("generate");
-  if (await generate.isVisible()) await generate.click();
-  await expect(page.getByTestId("decision-text")).toBeVisible();
+  const decision = page.getByTestId("decision-text");
+  // wait for the page to settle on one of the two states; a one-shot isVisible() raced the
+  // API under load and skipped the click (flaky: later tests then had no recommendation)
+  await expect(generate.or(decision).first()).toBeVisible();
+  if (!(await decision.isVisible())) await generate.click(); // waits until it is enabled
+  await expect(decision).toBeVisible();
   await expect(page.getByTestId("decision")).toContainText(/HOLD|TRANSFER|HIT|CHIP/);
   await expect(page.getByTestId("why")).toBeVisible();
   await expect(page.getByTestId("downside")).toBeVisible();
@@ -41,8 +45,15 @@ test("future planner, player lab, backtest lab and data health render real data"
   await firstPlayer.click();
   await expect(page.getByTestId("forecast").locator("tbody tr").first()).toBeVisible();
   await page.goto("/backtests");
+  const report = page.getByTestId("report");
+  await expect(report.locator("table").first()).toBeVisible(); // rendered, not raw Markdown
+  await expect(report).not.toContainText("|---");
+  for (const f of ["backtest_cumulative_2023-24.svg", "backtest_cumulative_difference.svg"]) {
+    const img = report.locator(`img[data-figure="${f}"]`);
+    await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth), { message: f }).toBeGreaterThan(0);
+  }
   await page.getByRole("button", { name: "Forecast evaluation & calibration" }).click();
-  await expect(page.getByTestId("report")).toContainText("Forecast evaluation");
+  await expect(report).toContainText("Forecast evaluation");
   await page.goto("/health");
   await expect(page.getByTestId("services")).toContainText("live_source");
   await expect(page.getByTestId("models")).toContainText("passed");

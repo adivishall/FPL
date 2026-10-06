@@ -9,6 +9,8 @@ import { defineConfig } from "@playwright/test";
 // E2E_WEB_KEY is only used to assert that the proxy's key never reaches the browser.
 export default defineConfig({
   testDir: "./e2e-prod",
+  // screenshots.spec.ts only captures docs/images (SCREENSHOTS=1); it is not a test
+  testIgnore: process.env.SCREENSHOTS ? [] : ["**/screenshots.spec.ts"],
   timeout: 600_000,
   expect: { timeout: 180_000 },
   fullyParallel: false,

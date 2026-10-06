@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Badge, Card, DistBar, FreshnessBanner, PlayerName, Prob, State, confidenceTone, useApi } from "@/components/ui";
-import { ApiError, post, type Gameweek, type Recommendation, type SquadState, waitForJob } from "@/lib/api";
+import { ApiError, jobFailureMessage, post, type Gameweek, type Recommendation, type SquadState, waitForJob } from "@/lib/api";
 import { pct, pts, signed, when } from "@/lib/format";
 import { loadSettings } from "@/lib/settings";
 
@@ -37,7 +37,7 @@ export default function Overview() {
         manager_key: settings.managerKey, profile: settings.profile, horizon: settings.horizon,
       });
       const job = await waitForJob(r.job_id, (j) => setBusy(j.status));
-      if (job.status === "failed") throw new Error(job.error ?? "job failed");
+      if (job.status === "failed") throw new Error(jobFailureMessage(job));
       await rec.reload();
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
@@ -139,7 +139,7 @@ export default function Overview() {
                   {r.alternatives.map((a) => (
                     <tr key={a.label}>
                       <td>{a.label}</td>
-                      <td>{a.sells.length ? <>{a.sells.map((c) => <PlayerName key={c} code={c} names={names} />)} → {a.buys.map((c) => <PlayerName key={c} code={c} />)}</> : a.action}</td>
+                      <td>{a.sells.length ? <>{a.sells.map((c) => <PlayerName key={c} code={c} names={{ ...names, ...r.names }} />)} → {a.buys.map((c) => <PlayerName key={c} code={c} names={r.names} />)}</> : a.action}</td>
                       <td>{signed(a.gain_horizon.mean)}</td>
                       <td><Badge tone={confidenceTone(a.gain_horizon.probability_positive)}>{pct(a.gain_horizon.probability_positive)}</Badge></td>
                     </tr>

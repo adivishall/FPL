@@ -164,6 +164,8 @@ export interface ChipPlan {
 
 export interface Recommendation {
   id: string;
+  /** names of every player an alternative sells or buys (not all are in the squad) */
+  names?: Record<string, string | null>;
   status: string;
   decision_id: string;
   gameweek: number;
@@ -230,6 +232,15 @@ export interface Job {
   status: "queued" | "running" | "succeeded" | "failed";
   result_ref: string | null;
   error: string | null;
+  /** why a failed job failed: its own code raised, or its worker was killed / lost / timed out */
+  failure?: "error" | "interrupted" | null;
+}
+
+/** A failed job's message, telling an environmental interruption apart from a code error. */
+export function jobFailureMessage(j: Job): string {
+  if (j.failure === "interrupted")
+    return `Interrupted before it finished (worker restarted, killed or timed out); nothing was saved — safe to run again. ${j.error ?? ""}`.trim();
+  return `Failed: ${j.error ?? "job failed"}`;
 }
 
 export async function waitForJob(id: string, onTick?: (j: Job) => void): Promise<Job> {

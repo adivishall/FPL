@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { Markdown } from "@/components/markdown";
 import { Card, State, useApi } from "@/components/ui";
 import { apiUrl } from "@/lib/api";
 
@@ -22,12 +23,6 @@ const TABS: [string, string][] = [
   ["ensemble_conformal", "Ensemble & conformal (P1)"],
 ];
 
-const FIGS: Record<string, string[]> = {
-  forecast_eval: ["forecast_reliability_6plus.svg", "forecast_reliability_start.svg", "forecast_pit.svg"],
-  price_change: ["price_reliability.svg"],
-  backtest: ["backtest_cumulative_2024-25.svg", "backtest_cumulative_2025-26.svg"],
-};
-
 export default function BacktestLab() {
   const [tab, setTab] = useState("backtest");
   const rep = useApi<Report>(`/reports/${tab}`, [tab]);
@@ -42,13 +37,8 @@ export default function BacktestLab() {
       </div>
       <Card testId="report" wide>
         <State loading={rep.loading} error={rep.error} />
-        <div className="row">
-          {(FIGS[tab] ?? []).map((f) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={f} src={apiUrl(`/reports/figures/${f}`)} alt={f} style={{ background: "#fff", borderRadius: 6, maxWidth: 420 }} />
-          ))}
-        </div>
-        {rep.data ? <pre className="md">{rep.data.markdown}</pre> : null}
+        {/* figures are shown where the report references them (no separate list to drift) */}
+        {rep.data ? <Markdown text={rep.data.markdown} figure={(f) => apiUrl(`/reports/figures/${encodeURIComponent(f)}`)} /> : null}
       </Card>
     </>
   );

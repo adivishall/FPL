@@ -2,6 +2,7 @@
 
 import { use } from "react";
 
+import { Markdown } from "@/components/markdown";
 import { Badge, Card, State, useApi } from "@/components/ui";
 import type { Recommendation, Trace } from "@/lib/api";
 
@@ -77,7 +78,7 @@ export default function JournalEntry({ params }: { params: Promise<{ id: string 
       )}
       {rec.data ? (
         <Card title="Explanation (rendered from stored evidence; immutable record)">
-          <pre className="md">{rec.data.markdown}</pre>
+          <Markdown text={rec.data.markdown} figure={() => null} />
         </Card>
       ) : null}
     </>
