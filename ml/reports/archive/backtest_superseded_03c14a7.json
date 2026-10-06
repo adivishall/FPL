@@ -1,0 +1,10043 @@
+{
+  "snapshot_id": "snap_b64560a8c4f434ad984e",
+  "optimizer_config": "optimizer/default@1.0.0#19ba5141",
+  "seasons": [
+    "2024-25",
+    "2025-26"
+  ],
+  "summary": [
+    {
+      "season": "2024-25",
+      "strategy": "engine",
+      "total_points": 2371,
+      "gameweeks": 38,
+      "hits": 8,
+      "transfers": 57,
+      "captain_points": 359,
+      "bench_points": 368,
+      "lineup_regret": 378,
+      "validity": 1.0,
+      "runtime_s": 31.259907334973736,
+      "data_age_h": 170.36184210526315,
+      "chips": "wildcard_1, bench_boost_1, free_hit_1, triple_captain_1, wildcard_2"
+    },
+    {
+      "season": "2024-25",
+      "strategy": "engine_no_chips",
+      "total_points": 2313,
+      "gameweeks": 38,
+      "hits": 4,
+      "transfers": 32,
+      "captain_points": 351,
+      "bench_points": 415,
+      "lineup_regret": 409,
+      "validity": 1.0,
+      "runtime_s": 26.891408437236684,
+      "data_age_h": 170.36184210526315,
+      "chips": ""
+    },
+    {
+      "season": "2024-25",
+      "strategy": "form",
+      "total_points": 2119,
+      "gameweeks": 38,
+      "hits": 64,
+      "transfers": 63,
+      "captain_points": 301,
+      "bench_points": 352,
+      "lineup_regret": 414,
+      "validity": 1.0,
+      "runtime_s": 0.09016524899987799,
+      "data_age_h": 170.36184210526315,
+      "chips": ""
+    },
+    {
+      "season": "2024-25",
+      "strategy": "fpl_style_heuristic",
+      "total_points": 2203,
+      "gameweeks": 38,
+      "hits": 72,
+      "transfers": 64,
+      "captain_points": 334,
+      "bench_points": 301,
+      "lineup_regret": 342,
+      "validity": 1.0,
+      "runtime_s": 0.09207074597366284,
+      "data_age_h": 170.36184210526315,
+      "chips": ""
+    },
+    {
+      "season": "2024-25",
+      "strategy": "hold",
+      "total_points": 2109,
+      "gameweeks": 38,
+      "hits": 0,
+      "transfers": 0,
+      "captain_points": 339,
+      "bench_points": 245,
+      "lineup_regret": 236,
+      "validity": 1.0,
+      "runtime_s": 0.005970081973828201,
+      "data_age_h": 170.36184210526315,
+      "chips": ""
+    },
+    {
+      "season": "2024-25",
+      "strategy": "simple_xp",
+      "total_points": 2135,
+      "gameweeks": 38,
+      "hits": 60,
+      "transfers": 58,
+      "captain_points": 325,
+      "bench_points": 155,
+      "lineup_regret": 237,
+      "validity": 1.0,
+      "runtime_s": 0.12575942192099893,
+      "data_age_h": 170.36184210526315,
+      "chips": ""
+    },
+    {
+      "season": "2024-25",
+      "strategy": "single_gw_mc",
+      "total_points": 2336,
+      "gameweeks": 38,
+      "hits": 20,
+      "transfers": 50,
+      "captain_points": 335,
+      "bench_points": 432,
+      "lineup_regret": 449,
+      "validity": 1.0,
+      "runtime_s": 0.09498863618409814,
+      "data_age_h": 170.36184210526315,
+      "chips": ""
+    },
+    {
+      "season": "2025-26",
+      "strategy": "engine",
+      "total_points": 2257,
+      "gameweeks": 38,
+      "hits": 0,
+      "transfers": 71,
+      "captain_points": 247,
+      "bench_points": 419,
+      "lineup_regret": 417,
+      "validity": 1.0,
+      "runtime_s": 39.98842240576323,
+      "data_age_h": 168.14473684210526,
+      "chips": "bench_boost_1, wildcard_1, free_hit_1, triple_captain_1, bench_boost_2, wildcard_2, triple_captain_2, free_hit_2"
+    },
+    {
+      "season": "2025-26",
+      "strategy": "engine_no_chips",
+      "total_points": 2189,
+      "gameweeks": 38,
+      "hits": 8,
+      "transfers": 36,
+      "captain_points": 275,
+      "bench_points": 330,
+      "lineup_regret": 365,
+      "validity": 1.0,
+      "runtime_s": 17.911022722105326,
+      "data_age_h": 168.14473684210526,
+      "chips": ""
+    },
+    {
+      "season": "2025-26",
+      "strategy": "form",
+      "total_points": 1853,
+      "gameweeks": 38,
+      "hits": 72,
+      "transfers": 67,
+      "captain_points": 174,
+      "bench_points": 439,
+      "lineup_regret": 450,
+      "validity": 1.0,
+      "runtime_s": 0.06562991744732771,
+      "data_age_h": 168.14473684210526,
+      "chips": ""
+    },
+    {
+      "season": "2025-26",
+      "strategy": "fpl_style_heuristic",
+      "total_points": 1867,
+      "gameweeks": 38,
+      "hits": 56,
+      "transfers": 64,
+      "captain_points": 158,
+      "bench_points": 463,
+      "lineup_regret": 494,
+      "validity": 1.0,
+      "runtime_s": 0.06738388673669474,
+      "data_age_h": 168.14473684210526,
+      "chips": ""
+    },
+    {
+      "season": "2025-26",
+      "strategy": "hold",
+      "total_points": 1614,
+      "gameweeks": 38,
+      "hits": 0,
+      "transfers": 0,
+      "captain_points": 204,
+      "bench_points": 149,
+      "lineup_regret": 248,
+      "validity": 1.0,
+      "runtime_s": 0.00604796055263011,
+      "data_age_h": 168.14473684210526,
+      "chips": ""
+    },
+    {
+      "season": "2025-26",
+      "strategy": "simple_xp",
+      "total_points": 1913,
+      "gameweeks": 38,
+      "hits": 48,
+      "transfers": 59,
+      "captain_points": 219,
+      "bench_points": 445,
+      "lineup_regret": 462,
+      "validity": 1.0,
+      "runtime_s": 0.16532899181574498,
+      "data_age_h": 168.14473684210526,
+      "chips": ""
+    },
+    {
+      "season": "2025-26",
+      "strategy": "single_gw_mc",
+      "total_points": 1965,
+      "gameweeks": 38,
+      "hits": 52,
+      "transfers": 58,
+      "captain_points": 235,
+      "bench_points": 332,
+      "lineup_regret": 336,
+      "validity": 1.0,
+      "runtime_s": 0.10968971665797174,
+      "data_age_h": 168.14473684210526,
+      "chips": ""
+    }
+  ],
+  "engine_vs": [
+    {
+      "season": "2024-25",
+      "vs": "engine_no_chips",
+      "difference": 58.0,
+      "ci_low": -80.0,
+      "ci_high": 201.0,
+      "gws_better": 21,
+      "gws_worse": 16
+    },
+    {
+      "season": "2024-25",
+      "vs": "form",
+      "difference": 252.0,
+      "ci_low": 91.0,
+      "ci_high": 432.0,
+      "gws_better": 24,
+      "gws_worse": 14
+    },
+    {
+      "season": "2024-25",
+      "vs": "fpl_style_heuristic",
+      "difference": 168.0,
+      "ci_low": 6.0,
+      "ci_high": 332.0,
+      "gws_better": 22,
+      "gws_worse": 15
+    },
+    {
+      "season": "2024-25",
+      "vs": "hold",
+      "difference": 262.0,
+      "ci_low": -5.0,
+      "ci_high": 536.0,
+      "gws_better": 24,
+      "gws_worse": 13
+    },
+    {
+      "season": "2024-25",
+      "vs": "simple_xp",
+      "difference": 236.0,
+      "ci_low": 48.0,
+      "ci_high": 431.0,
+      "gws_better": 25,
+      "gws_worse": 12
+    },
+    {
+      "season": "2024-25",
+      "vs": "single_gw_mc",
+      "difference": 35.0,
+      "ci_low": -118.02499999999999,
+      "ci_high": 195.0,
+      "gws_better": 20,
+      "gws_worse": 17
+    },
+    {
+      "season": "2025-26",
+      "vs": "engine_no_chips",
+      "difference": 68.0,
+      "ci_low": -79.02499999999999,
+      "ci_high": 222.0,
+      "gws_better": 24,
+      "gws_worse": 13
+    },
+    {
+      "season": "2025-26",
+      "vs": "form",
+      "difference": 404.0,
+      "ci_low": 159.0,
+      "ci_high": 641.0,
+      "gws_better": 26,
+      "gws_worse": 12
+    },
+    {
+      "season": "2025-26",
+      "vs": "fpl_style_heuristic",
+      "difference": 390.0,
+      "ci_low": 177.0,
+      "ci_high": 602.0,
+      "gws_better": 29,
+      "gws_worse": 7
+    },
+    {
+      "season": "2025-26",
+      "vs": "hold",
+      "difference": 643.0,
+      "ci_low": 406.975,
+      "ci_high": 870.0250000000001,
+      "gws_better": 29,
+      "gws_worse": 8
+    },
+    {
+      "season": "2025-26",
+      "vs": "simple_xp",
+      "difference": 344.0,
+      "ci_low": 150.97500000000002,
+      "ci_high": 543.0250000000001,
+      "gws_better": 26,
+      "gws_worse": 10
+    },
+    {
+      "season": "2025-26",
+      "vs": "single_gw_mc",
+      "difference": 292.0,
+      "ci_low": 122.97500000000001,
+      "ci_high": 472.0250000000001,
+      "gws_better": 25,
+      "gws_worse": 13
+    }
+  ],
+  "transfers_1gw": [
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 1,
+      "sold": [
+        "149065",
+        "154561",
+        "247348",
+        "477424",
+        "232826",
+        "178301",
+        "231747",
+        "433979"
+      ],
+      "bought": [
+        "111234",
+        "118342",
+        "198869",
+        "480455",
+        "141746",
+        "60689",
+        "177815",
+        "219168"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 1,
+      "sold": [
+        "149065",
+        "154561",
+        "169187",
+        "226597",
+        "118748",
+        "184029",
+        "204814",
+        "232826",
+        "178301",
+        "433979"
+      ],
+      "bought": [
+        "111234",
+        "207270",
+        "94147",
+        "198869",
+        "209244",
+        "223340",
+        "244851",
+        "496221",
+        "219168",
+        "219847"
+      ],
+      "hit": 0,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 1,
+      "sold": [
+        "149065",
+        "154561",
+        "169187",
+        "226597",
+        "118748",
+        "184029",
+        "204814",
+        "232826",
+        "178301",
+        "433979"
+      ],
+      "bought": [
+        "111234",
+        "232917",
+        "198869",
+        "441428",
+        "116216",
+        "209244",
+        "232413",
+        "244851",
+        "219168",
+        "219847"
+      ],
+      "hit": 0,
+      "gain_1gw": -17
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 1,
+      "sold": [
+        "149065",
+        "154561",
+        "169187",
+        "226597",
+        "118748",
+        "204814",
+        "232826",
+        "178301",
+        "433979"
+      ],
+      "bought": [
+        "111234",
+        "232917",
+        "198869",
+        "441428",
+        "114243",
+        "209244",
+        "244851",
+        "219168",
+        "219847"
+      ],
+      "hit": 0,
+      "gain_1gw": -16
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 2,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 2,
+      "sold": [
+        "111234",
+        "218218",
+        "209244",
+        "244851",
+        "496221",
+        "219168",
+        "231747"
+      ],
+      "bought": [
+        "116535",
+        "441164",
+        "91651",
+        "118748",
+        "449871",
+        "50175",
+        "216646"
+      ],
+      "hit": 24,
+      "gain_1gw": -20
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 2,
+      "sold": [
+        "441428"
+      ],
+      "bought": [
+        "230001"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 2,
+      "sold": [
+        "114243"
+      ],
+      "bought": [
+        "531442"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 3,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "244851"
+      ],
+      "hit": 0,
+      "gain_1gw": -11
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 3,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "248857"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 3,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "248857"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 3,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "222531"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 4,
+      "sold": [
+        "480455"
+      ],
+      "bought": [
+        "83299"
+      ],
+      "hit": 0,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 4,
+      "sold": [
+        "223340",
+        "219847"
+      ],
+      "bought": [
+        "244731",
+        "223094"
+      ],
+      "hit": 4,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 4,
+      "sold": [
+        "116216"
+      ],
+      "bought": [
+        "244731"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 4,
+      "sold": [
+        "184029",
+        "222531"
+      ],
+      "bought": [
+        "118748",
+        "159533"
+      ],
+      "hit": 4,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 5,
+      "sold": [
+        "184029"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_1gw": 8
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 5,
+      "sold": [
+        "477424"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 5,
+      "sold": [
+        "244851",
+        "219168"
+      ],
+      "bought": [
+        "433154",
+        "223094"
+      ],
+      "hit": 4,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 5,
+      "sold": [
+        "247348"
+      ],
+      "bought": [
+        "209365"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "61366",
+        "194634",
+        "523700"
+      ],
+      "bought": [
+        "141746",
+        "446008",
+        "476344"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "118748",
+        "184029",
+        "204814",
+        "232826",
+        "231747"
+      ],
+      "bought": [
+        "201658",
+        "232413",
+        "433154",
+        "446008",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_1gw": 10
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "204814"
+      ],
+      "bought": [
+        "437730"
+      ],
+      "hit": 0,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "116535"
+      ],
+      "bought": [
+        "154561"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "477424"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": -8
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "531442",
+        "219168"
+      ],
+      "bought": [
+        "244731",
+        "60689"
+      ],
+      "hit": 4,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 7,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "223340"
+      ],
+      "hit": 0,
+      "gain_1gw": 14
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 7,
+      "sold": [
+        "91651"
+      ],
+      "bought": [
+        "433154"
+      ],
+      "hit": 0,
+      "gain_1gw": -13
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 7,
+      "sold": [
+        "208706",
+        "219847"
+      ],
+      "bought": [
+        "244851",
+        "230348"
+      ],
+      "hit": 4,
+      "gain_1gw": -8
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 7,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "433154"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "245719",
+        "219168"
+      ],
+      "bought": [
+        "169528",
+        "154566"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "219168"
+      ],
+      "bought": [
+        "154566"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "216051"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "441428"
+      ],
+      "bought": [
+        "216051"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 9,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "477424"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 9,
+      "sold": [
+        "216646"
+      ],
+      "bought": [
+        "60689"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 9,
+      "sold": [
+        "247348"
+      ],
+      "bought": [
+        "477424"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 9,
+      "sold": [
+        "231747"
+      ],
+      "bought": [
+        "50175"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 10,
+      "sold": [
+        "201658",
+        "208706",
+        "178301",
+        "223094"
+      ],
+      "bought": [
+        "118748",
+        "244851",
+        "60689",
+        "102057"
+      ],
+      "hit": 0,
+      "gain_1gw": 12
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 10,
+      "sold": [
+        "223340"
+      ],
+      "bought": [
+        "118748"
+      ],
+      "hit": 0,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 10,
+      "sold": [
+        "244731"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 10,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 11,
+      "sold": [
+        "226597"
+      ],
+      "bought": [
+        "441164"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 11,
+      "sold": [
+        "154561",
+        "441164"
+      ],
+      "bought": [
+        "85633",
+        "477424"
+      ],
+      "hit": 0,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 11,
+      "sold": [
+        "232413",
+        "223094"
+      ],
+      "bought": [
+        "118748",
+        "60689"
+      ],
+      "hit": 4,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 11,
+      "sold": [
+        "219847"
+      ],
+      "bought": [
+        "154566"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 12,
+      "sold": [
+        "232413",
+        "154566",
+        "476344"
+      ],
+      "bought": [
+        "437730",
+        "219168",
+        "444102"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 12,
+      "sold": [
+        "441164"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_1gw": -13
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 12,
+      "sold": [
+        "248857"
+      ],
+      "bought": [
+        "141746"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 12,
+      "sold": [
+        "244731"
+      ],
+      "bought": [
+        "141746"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "169187",
+        "102057",
+        "433979"
+      ],
+      "bought": [
+        "227444",
+        "154566",
+        "475168"
+      ],
+      "hit": 0,
+      "gain_1gw": -4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "169187"
+      ],
+      "bought": [
+        "227444"
+      ],
+      "hit": 0,
+      "gain_1gw": -2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "449871",
+        "223094"
+      ],
+      "bought": [
+        "244851",
+        "430871"
+      ],
+      "hit": 0,
+      "gain_1gw": 14
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "231747"
+      ],
+      "bought": [
+        "430871"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "159533",
+        "154566"
+      ],
+      "bought": [
+        "172780",
+        "430871"
+      ],
+      "hit": 4,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 14,
+      "sold": [
+        "437730"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 14,
+      "sold": [
+        "433154"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 14,
+      "sold": [
+        "433154"
+      ],
+      "bought": [
+        "222683"
+      ],
+      "hit": 0,
+      "gain_1gw": -6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 14,
+      "sold": [
+        "433154"
+      ],
+      "bought": [
+        "222683"
+      ],
+      "hit": 0,
+      "gain_1gw": -6
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "226597",
+        "433154"
+      ],
+      "bought": [
+        "544877",
+        "178186"
+      ],
+      "hit": 0,
+      "gain_1gw": 14
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "177815"
+      ],
+      "bought": [
+        "475168"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "223340"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "223340"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "223340"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "58376",
+        "226597",
+        "141746",
+        "444102"
+      ],
+      "bought": [
+        "154561",
+        "462424",
+        "153133",
+        "154566"
+      ],
+      "hit": 0,
+      "gain_1gw": -2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "462424"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "244851"
+      ],
+      "bought": [
+        "118748"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "216051",
+        "141746"
+      ],
+      "bought": [
+        "18892",
+        "118748"
+      ],
+      "hit": 4,
+      "gain_1gw": -5
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "209365",
+        "223340"
+      ],
+      "bought": [
+        "18892",
+        "118748"
+      ],
+      "hit": 4,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "218218",
+        "232413"
+      ],
+      "bought": [
+        "169528",
+        "153133"
+      ],
+      "hit": 0,
+      "gain_1gw": 8
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "83299"
+      ],
+      "bought": [
+        "169528"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "247348"
+      ],
+      "bought": [
+        "18892"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "477424"
+      ],
+      "bought": [
+        "462424"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "462424"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 18,
+      "sold": [
+        "223340",
+        "230348"
+      ],
+      "bought": [
+        "114243",
+        "219168"
+      ],
+      "hit": 4,
+      "gain_1gw": 10
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 18,
+      "sold": [
+        "216051"
+      ],
+      "bought": [
+        "159506"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 19,
+      "sold": [
+        "218218",
+        "446008"
+      ],
+      "bought": [
+        "247348",
+        "232185"
+      ],
+      "hit": 0,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 19,
+      "sold": [
+        "477424",
+        "223340"
+      ],
+      "bought": [
+        "159506",
+        "244851"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 19,
+      "sold": [
+        "218218"
+      ],
+      "bought": [
+        "554605"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 19,
+      "sold": [
+        "141746",
+        "60689"
+      ],
+      "bought": [
+        "232185",
+        "219168"
+      ],
+      "hit": 4,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 20,
+      "sold": [
+        "178186"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_1gw": 19
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 20,
+      "sold": [
+        "230001"
+      ],
+      "bought": [
+        "487838"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 20,
+      "sold": [
+        "222683"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "477424",
+        "178186",
+        "154566"
+      ],
+      "bought": [
+        "78916",
+        "141746",
+        "219168"
+      ],
+      "hit": 0,
+      "gain_1gw": 25
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "227444"
+      ],
+      "bought": [
+        "216051"
+      ],
+      "hit": 0,
+      "gain_1gw": -2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "50175"
+      ],
+      "bought": [
+        "475168"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "18892"
+      ],
+      "bought": [
+        "159506"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "172780"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 22,
+      "sold": [
+        "216051"
+      ],
+      "bought": [
+        "227444"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 22,
+      "sold": [
+        "97032",
+        "430871"
+      ],
+      "bought": [
+        "463981",
+        "219168"
+      ],
+      "hit": 0,
+      "gain_1gw": -6
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 22,
+      "sold": [
+        "222683"
+      ],
+      "bought": [
+        "493250"
+      ],
+      "hit": 0,
+      "gain_1gw": -20
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 22,
+      "sold": [
+        "244850",
+        "430871"
+      ],
+      "bought": [
+        "493250",
+        "60689"
+      ],
+      "hit": 4,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 23,
+      "sold": [
+        "227444",
+        "462424",
+        "232185"
+      ],
+      "bought": [
+        "17761",
+        "169187",
+        "244850"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 23,
+      "sold": [
+        "462424"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 23,
+      "sold": [
+        "244851"
+      ],
+      "bought": [
+        "209244"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 23,
+      "sold": [
+        "462424"
+      ],
+      "bought": [
+        "487838"
+      ],
+      "hit": 0,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "489639",
+        "78916",
+        "178301"
+      ],
+      "bought": [
+        "111234",
+        "97032",
+        "216646"
+      ],
+      "hit": 0,
+      "gain_1gw": 18
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "78916",
+        "227444",
+        "141746",
+        "60689"
+      ],
+      "bought": [
+        "97032",
+        "169187",
+        "533463",
+        "440993"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "477424",
+        "154566"
+      ],
+      "bought": [
+        "169187",
+        "440993"
+      ],
+      "hit": 4,
+      "gain_1gw": 12
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "226597",
+        "248857"
+      ],
+      "bought": [
+        "169187",
+        "606921"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "226597",
+        "430871"
+      ],
+      "bought": [
+        "169187",
+        "243298"
+      ],
+      "hit": 4,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "218218",
+        "244851",
+        "50175"
+      ],
+      "bought": [
+        "169187",
+        "222683",
+        "243298"
+      ],
+      "hit": 8,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 25,
+      "sold": [
+        "232185"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 25,
+      "sold": [
+        "219168"
+      ],
+      "bought": [
+        "178301"
+      ],
+      "hit": 0,
+      "gain_1gw": 13
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 25,
+      "sold": [
+        "446008"
+      ],
+      "bought": [
+        "222683"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 25,
+      "sold": [
+        "219168"
+      ],
+      "bought": [
+        "178301"
+      ],
+      "hit": 0,
+      "gain_1gw": 13
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 26,
+      "sold": [
+        "169187"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": -4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 26,
+      "sold": [
+        "94147"
+      ],
+      "bought": [
+        "135720"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 26,
+      "sold": [
+        "243298"
+      ],
+      "bought": [
+        "438234"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 26,
+      "sold": [
+        "243298"
+      ],
+      "bought": [
+        "438234"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 27,
+      "sold": [
+        "244850"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 27,
+      "sold": [
+        "244731"
+      ],
+      "bought": [
+        "174292"
+      ],
+      "hit": 0,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 27,
+      "sold": [
+        "554605"
+      ],
+      "bought": [
+        "247348"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 27,
+      "sold": [
+        "18892"
+      ],
+      "bought": [
+        "247348"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 28,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_1gw": -10
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 28,
+      "sold": [
+        "493250"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 28,
+      "sold": [
+        "493250"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "169187",
+        "153133",
+        "244850",
+        "219168",
+        "463034"
+      ],
+      "bought": [
+        "227444",
+        "141746",
+        "222683",
+        "60689",
+        "475168"
+      ],
+      "hit": 0,
+      "gain_1gw": 28
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "169187",
+        "153133",
+        "533463",
+        "219168",
+        "440993"
+      ],
+      "bought": [
+        "227444",
+        "141746",
+        "222683",
+        "60689",
+        "486385"
+      ],
+      "hit": 0,
+      "gain_1gw": 30
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "118748",
+        "424876"
+      ],
+      "bought": [
+        "141746",
+        "222531"
+      ],
+      "hit": 4,
+      "gain_1gw": 18
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "118748",
+        "178301"
+      ],
+      "bought": [
+        "222683",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_1gw": 9
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "169187",
+        "114243",
+        "424876",
+        "219168"
+      ],
+      "bought": [
+        "179268",
+        "141746",
+        "446008",
+        "475168"
+      ],
+      "hit": 12,
+      "gain_1gw": 14
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "487838",
+        "118748",
+        "232185",
+        "424876"
+      ],
+      "bought": [
+        "179268",
+        "141746",
+        "222531",
+        "433312"
+      ],
+      "hit": 12,
+      "gain_1gw": 15
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 30,
+      "sold": [
+        "178186"
+      ],
+      "bought": [
+        "232185"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 30,
+      "sold": [
+        "244851"
+      ],
+      "bought": [
+        "118748"
+      ],
+      "hit": 0,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 30,
+      "sold": [
+        "232917"
+      ],
+      "bought": [
+        "172649"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 30,
+      "sold": [
+        "446008"
+      ],
+      "bought": [
+        "118748"
+      ],
+      "hit": 0,
+      "gain_1gw": -5
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "222683",
+        "60689"
+      ],
+      "bought": [
+        "201666",
+        "231747"
+      ],
+      "hit": 0,
+      "gain_1gw": 16
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "440993"
+      ],
+      "bought": [
+        "219168"
+      ],
+      "hit": 0,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "223094"
+      ],
+      "bought": [
+        "219168"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "449434"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "222683"
+      ],
+      "bought": [
+        "232185"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "477580",
+        "222683",
+        "244851",
+        "60689",
+        "475168"
+      ],
+      "bought": [
+        "247348",
+        "201666",
+        "232185",
+        "219168",
+        "231747"
+      ],
+      "hit": 8,
+      "gain_1gw": 18
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "244851",
+        "486385"
+      ],
+      "bought": [
+        "232185",
+        "219168"
+      ],
+      "hit": 4,
+      "gain_1gw": 9
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "222531"
+      ],
+      "bought": [
+        "201666"
+      ],
+      "hit": 0,
+      "gain_1gw": 25
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "135720",
+        "463981",
+        "606921",
+        "60689"
+      ],
+      "bought": [
+        "247348",
+        "437499",
+        "114243",
+        "231747"
+      ],
+      "hit": 12,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "487838",
+        "222683",
+        "60689",
+        "475168"
+      ],
+      "bought": [
+        "441191",
+        "114243",
+        "219168",
+        "231747"
+      ],
+      "hit": 12,
+      "gain_1gw": 13
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "232917",
+        "169187",
+        "433312",
+        "60689"
+      ],
+      "bought": [
+        "172649",
+        "441191",
+        "114243",
+        "219168"
+      ],
+      "hit": 12,
+      "gain_1gw": 21
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 33,
+      "sold": [
+        "111234",
+        "226597",
+        "244851"
+      ],
+      "bought": [
+        "154561",
+        "462424",
+        "223340"
+      ],
+      "hit": 8,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 33,
+      "sold": [
+        "169187",
+        "222683",
+        "475168"
+      ],
+      "bought": [
+        "477424",
+        "244850",
+        "438234"
+      ],
+      "hit": 8,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 33,
+      "sold": [
+        "446008",
+        "219168"
+      ],
+      "bought": [
+        "244850",
+        "178301"
+      ],
+      "hit": 4,
+      "gain_1gw": -5
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 33,
+      "sold": [
+        "159506",
+        "222531"
+      ],
+      "bought": [
+        "445122",
+        "244850"
+      ],
+      "hit": 4,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 34,
+      "sold": [
+        "462424",
+        "223340"
+      ],
+      "bought": [
+        "448514",
+        "118748"
+      ],
+      "hit": 4,
+      "gain_1gw": 15
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 34,
+      "sold": [
+        "437499",
+        "244850",
+        "231747",
+        "438234"
+      ],
+      "bought": [
+        "227444",
+        "244851",
+        "216646",
+        "475168"
+      ],
+      "hit": 12,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 34,
+      "sold": [
+        "247348",
+        "462424",
+        "244850",
+        "231747"
+      ],
+      "bought": [
+        "119471",
+        "448514",
+        "446008",
+        "216646"
+      ],
+      "hit": 12,
+      "gain_1gw": 14
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 34,
+      "sold": [
+        "477424",
+        "232185",
+        "244850",
+        "178301"
+      ],
+      "bought": [
+        "448514",
+        "244731",
+        "446008",
+        "216646"
+      ],
+      "hit": 12,
+      "gain_1gw": 15
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 35,
+      "sold": [
+        "169528"
+      ],
+      "bought": [
+        "224967"
+      ],
+      "hit": 0,
+      "gain_1gw": -2
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 35,
+      "sold": [
+        "159506"
+      ],
+      "bought": [
+        "184349"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 35,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "116216"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 36,
+      "sold": [
+        "475168"
+      ],
+      "bought": [
+        "216646"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 36,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 36,
+      "sold": [
+        "244731"
+      ],
+      "bought": [
+        "513418"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 37,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 37,
+      "sold": [
+        "449434"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 37,
+      "sold": [
+        "114243"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 38,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_1gw": 10
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 38,
+      "sold": [
+        "184349"
+      ],
+      "bought": [
+        "199798"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 38,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 1,
+      "sold": [
+        "247348",
+        "516939",
+        "437730",
+        "611975"
+      ],
+      "bought": [
+        "214048",
+        "226182",
+        "222531",
+        "435973"
+      ],
+      "hit": 0,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 1,
+      "sold": [
+        "489639",
+        "224967",
+        "249231",
+        "516939",
+        "232185",
+        "244851",
+        "449434",
+        "611975"
+      ],
+      "bought": [
+        "109745",
+        "179268",
+        "199798",
+        "477424",
+        "114243",
+        "232413",
+        "446008",
+        "596047"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 1,
+      "sold": [
+        "489639",
+        "247348",
+        "249231",
+        "516939",
+        "232185",
+        "244851",
+        "449434",
+        "611975"
+      ],
+      "bought": [
+        "215059",
+        "179268",
+        "199798",
+        "460028",
+        "232413",
+        "446008",
+        "532529",
+        "247412"
+      ],
+      "hit": 0,
+      "gain_1gw": 9
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 1,
+      "sold": [
+        "489639",
+        "214590",
+        "247348",
+        "249231",
+        "516939",
+        "232185",
+        "244851",
+        "449434",
+        "611975"
+      ],
+      "bought": [
+        "215059",
+        "171314",
+        "179268",
+        "199798",
+        "460028",
+        "232413",
+        "446008",
+        "532529",
+        "486385"
+      ],
+      "hit": 0,
+      "gain_1gw": 14
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 2,
+      "sold": [
+        "222531"
+      ],
+      "bought": [
+        "437730"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 2,
+      "sold": [
+        "111234",
+        "199798",
+        "214590",
+        "114243",
+        "446008",
+        "178186",
+        "216646",
+        "596047"
+      ],
+      "bought": [
+        "154561",
+        "223827",
+        "243526",
+        "433036",
+        "460842",
+        "60689",
+        "212319",
+        "510663"
+      ],
+      "hit": 28,
+      "gain_1gw": -21
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 2,
+      "sold": [
+        "214590",
+        "224967",
+        "532529",
+        "216646"
+      ],
+      "bought": [
+        "223827",
+        "243526",
+        "433036",
+        "510663"
+      ],
+      "hit": 12,
+      "gain_1gw": -2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 2,
+      "sold": [
+        "215059",
+        "460028",
+        "532529",
+        "216646"
+      ],
+      "bought": [
+        "498016",
+        "223827",
+        "433036",
+        "510663"
+      ],
+      "hit": 12,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "244851",
+        "216646"
+      ],
+      "bought": [
+        "446008",
+        "510663"
+      ],
+      "hit": 0,
+      "gain_1gw": 12
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "224967"
+      ],
+      "bought": [
+        "119471"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "172567"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "456512"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "456512"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 4,
+      "sold": [
+        "244851"
+      ],
+      "bought": [
+        "243298"
+      ],
+      "hit": 0,
+      "gain_1gw": -4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 4,
+      "sold": [
+        "433036"
+      ],
+      "bought": [
+        "448047"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 4,
+      "sold": [
+        "460028"
+      ],
+      "bought": [
+        "242882"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 4,
+      "sold": [
+        "224967"
+      ],
+      "bought": [
+        "242882"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 5,
+      "sold": [
+        "216646"
+      ],
+      "bought": [
+        "231747"
+      ],
+      "hit": 0,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 5,
+      "sold": [
+        "60689"
+      ],
+      "bought": [
+        "470313"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 5,
+      "sold": [
+        "247412"
+      ],
+      "bought": [
+        "470313"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 5,
+      "sold": [
+        "486385"
+      ],
+      "bought": [
+        "470313"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "448514",
+        "232185",
+        "232413",
+        "60689"
+      ],
+      "bought": [
+        "180736",
+        "141746",
+        "444180",
+        "231747"
+      ],
+      "hit": 0,
+      "gain_1gw": -11
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "232185",
+        "449434",
+        "178186"
+      ],
+      "bought": [
+        "141746",
+        "444180",
+        "231747"
+      ],
+      "hit": 0,
+      "gain_1gw": -14
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "232185"
+      ],
+      "bought": [
+        "513418"
+      ],
+      "hit": 0,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "477424"
+      ],
+      "bought": [
+        "180736"
+      ],
+      "hit": 0,
+      "gain_1gw": -5
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "456512"
+      ],
+      "bought": [
+        "466525"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "223827"
+      ],
+      "bought": [
+        "494521"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "214590"
+      ],
+      "bought": [
+        "201895"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "214590"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": 8
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "118748",
+        "510663"
+      ],
+      "bought": [
+        "441266",
+        "223094"
+      ],
+      "hit": 4,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "223827"
+      ],
+      "bought": [
+        "201895"
+      ],
+      "hit": 0,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "171314"
+      ],
+      "bought": [
+        "201895"
+      ],
+      "hit": 0,
+      "gain_1gw": -9
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 8,
+      "sold": [
+        "449434"
+      ],
+      "bought": [
+        "232185"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 8,
+      "sold": [
+        "243526"
+      ],
+      "bought": [
+        "78916"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 8,
+      "sold": [
+        "243526"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": 11
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 8,
+      "sold": [
+        "456512"
+      ],
+      "bought": [
+        "460842"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 9,
+      "sold": [
+        "119471"
+      ],
+      "bought": [
+        "179268"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 9,
+      "sold": [
+        "179268"
+      ],
+      "bought": [
+        "200834"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 9,
+      "sold": [
+        "199798",
+        "118748",
+        "510663"
+      ],
+      "bought": [
+        "200834",
+        "204480",
+        "223094"
+      ],
+      "hit": 8,
+      "gain_1gw": -13
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 9,
+      "sold": [
+        "199798"
+      ],
+      "bought": [
+        "200834"
+      ],
+      "hit": 0,
+      "gain_1gw": -6
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "249231",
+        "118748",
+        "510663"
+      ],
+      "bought": [
+        "226597",
+        "232185",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_1gw": 15
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "249231"
+      ],
+      "bought": [
+        "200834"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "180736"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "242882"
+      ],
+      "bought": [
+        "491279"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "179268"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "119471",
+        "433036",
+        "444102"
+      ],
+      "bought": [
+        "226597",
+        "232185",
+        "560262"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "226182"
+      ],
+      "bought": [
+        "225796"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "223827"
+      ],
+      "bought": [
+        "209036"
+      ],
+      "hit": 0,
+      "gain_1gw": -10
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "433036"
+      ],
+      "bought": [
+        "61256"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "118748",
+        "510663"
+      ],
+      "bought": [
+        "204480",
+        "223094"
+      ],
+      "hit": 4,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 12,
+      "sold": [
+        "243298"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 12,
+      "sold": [
+        "460842"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 12,
+      "sold": [
+        "201895"
+      ],
+      "bought": [
+        "472769"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 12,
+      "sold": [
+        "433036"
+      ],
+      "bought": [
+        "247632"
+      ],
+      "hit": 0,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "226597",
+        "118748",
+        "231747"
+      ],
+      "bought": [
+        "437499",
+        "446008",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "226597",
+        "444180",
+        "231747"
+      ],
+      "bought": [
+        "437499",
+        "513418",
+        "502500"
+      ],
+      "hit": 0,
+      "gain_1gw": 9
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "231747"
+      ],
+      "bought": [
+        "502500"
+      ],
+      "hit": 0,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "437730"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "242882",
+        "437730"
+      ],
+      "bought": [
+        "247348",
+        "244850"
+      ],
+      "hit": 4,
+      "gain_1gw": -2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 14,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "141746"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 14,
+      "sold": [
+        "212319"
+      ],
+      "bought": [
+        "502500"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 14,
+      "sold": [
+        "178186"
+      ],
+      "bought": [
+        "502500"
+      ],
+      "hit": 0,
+      "gain_1gw": -4
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 14,
+      "sold": [
+        "226597"
+      ],
+      "bought": [
+        "437499"
+      ],
+      "hit": 0,
+      "gain_1gw": 8
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "179268",
+        "180736"
+      ],
+      "bought": [
+        "198869",
+        "465642"
+      ],
+      "hit": 0,
+      "gain_1gw": -14
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "226597"
+      ],
+      "bought": [
+        "465642"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "226597",
+        "172567"
+      ],
+      "bought": [
+        "437499",
+        "204480"
+      ],
+      "hit": 0,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "491279"
+      ],
+      "bought": [
+        "247348"
+      ],
+      "hit": 0,
+      "gain_1gw": -6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "446008"
+      ],
+      "bought": [
+        "209244"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "78916",
+        "232185",
+        "444180"
+      ],
+      "bought": [
+        "209036",
+        "424876",
+        "533463"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "224967",
+        "516939",
+        "232185"
+      ],
+      "bought": [
+        "198869",
+        "445122",
+        "533463"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "200834",
+        "214048",
+        "232185"
+      ],
+      "bought": [
+        "198869",
+        "445122",
+        "223340"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "448047"
+      ],
+      "bought": [
+        "209244"
+      ],
+      "hit": 0,
+      "gain_1gw": 8
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "200834",
+        "226597",
+        "61256",
+        "232413",
+        "446008"
+      ],
+      "bought": [
+        "17761",
+        "209036",
+        "141746",
+        "209244",
+        "215413"
+      ],
+      "hit": 0,
+      "gain_1gw": 10
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "201895",
+        "244850",
+        "247632",
+        "460842"
+      ],
+      "bought": [
+        "180736",
+        "141746",
+        "208706",
+        "215413"
+      ],
+      "hit": 0,
+      "gain_1gw": -6
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 17,
+      "sold": [
+        "223340",
+        "513418",
+        "178186"
+      ],
+      "bought": [
+        "201658",
+        "533463",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_1gw": 11
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 17,
+      "sold": [
+        "247348",
+        "446008"
+      ],
+      "bought": [
+        "180736",
+        "141746"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 17,
+      "sold": [
+        "204480"
+      ],
+      "bought": [
+        "153682"
+      ],
+      "hit": 0,
+      "gain_1gw": -9
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 17,
+      "sold": [
+        "247348",
+        "204480"
+      ],
+      "bought": [
+        "171314",
+        "153682"
+      ],
+      "hit": 0,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "198869",
+        "247348",
+        "446008",
+        "533463"
+      ],
+      "bought": [
+        "97032",
+        "445122",
+        "430871",
+        "466525"
+      ],
+      "hit": 0,
+      "gain_1gw": 8
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "198869",
+        "247348",
+        "446008",
+        "533463"
+      ],
+      "bought": [
+        "97032",
+        "209036",
+        "430871",
+        "466525"
+      ],
+      "hit": 0,
+      "gain_1gw": 10
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "437499"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "502500"
+      ],
+      "bought": [
+        "177815"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 19,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "430871"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 19,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 19,
+      "sold": [
+        "215413"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 19,
+      "sold": [
+        "178186"
+      ],
+      "bought": [
+        "510663"
+      ],
+      "hit": 0,
+      "gain_1gw": -5
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 20,
+      "sold": [
+        "533463"
+      ],
+      "bought": [
+        "466525"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 20,
+      "sold": [
+        "78916"
+      ],
+      "bought": [
+        "465351"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 20,
+      "sold": [
+        "472769"
+      ],
+      "bought": [
+        "465351"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 20,
+      "sold": [
+        "215413"
+      ],
+      "bought": [
+        "232928"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "215059",
+        "141746",
+        "424876"
+      ],
+      "bought": [
+        "498016",
+        "204480",
+        "448047"
+      ],
+      "hit": 0,
+      "gain_1gw": -6
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "201895",
+        "141746",
+        "513418"
+      ],
+      "bought": [
+        "465642",
+        "204480",
+        "448047"
+      ],
+      "hit": 0,
+      "gain_1gw": -11
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "179268"
+      ],
+      "bought": [
+        "432830"
+      ],
+      "hit": 0,
+      "gain_1gw": 16
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "109745"
+      ],
+      "bought": [
+        "498016"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "204480"
+      ],
+      "hit": 0,
+      "gain_1gw": -4
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "510663"
+      ],
+      "bought": [
+        "502500"
+      ],
+      "hit": 0,
+      "gain_1gw": 12
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 22,
+      "sold": [
+        "430871"
+      ],
+      "bought": [
+        "494595"
+      ],
+      "hit": 0,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 22,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "208706"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 22,
+      "sold": [
+        "179268"
+      ],
+      "bought": [
+        "432830"
+      ],
+      "hit": 0,
+      "gain_1gw": -4
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 22,
+      "sold": [
+        "494521"
+      ],
+      "bought": [
+        "432830"
+      ],
+      "hit": 0,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "209036",
+        "430871"
+      ],
+      "bought": [
+        "226597",
+        "141746"
+      ],
+      "hit": 0,
+      "gain_1gw": -9
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "466525"
+      ],
+      "bought": [
+        "204480"
+      ],
+      "hit": 0,
+      "gain_1gw": -7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "465351"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": -10
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "209036"
+      ],
+      "bought": [
+        "596777"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "208706"
+      ],
+      "hit": 0,
+      "gain_1gw": -5
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 24,
+      "sold": [
+        "424876"
+      ],
+      "bought": [
+        "448047"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 24,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "153682"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 24,
+      "sold": [
+        "247348"
+      ],
+      "bought": [
+        "221632"
+      ],
+      "hit": 0,
+      "gain_1gw": -2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 24,
+      "sold": [
+        "171314"
+      ],
+      "bought": [
+        "596777"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 25,
+      "sold": [
+        "225796"
+      ],
+      "bought": [
+        "462424"
+      ],
+      "hit": 0,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 25,
+      "sold": [
+        "441266"
+      ],
+      "bought": [
+        "448047"
+      ],
+      "hit": 0,
+      "gain_1gw": -3
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 25,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "494595"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 25,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "494595"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "111234",
+        "466525",
+        "611975"
+      ],
+      "bought": [
+        "172649",
+        "448089",
+        "647671"
+      ],
+      "hit": 0,
+      "gain_1gw": 9
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "201658"
+      ],
+      "bought": [
+        "448089"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "448047"
+      ],
+      "bought": [
+        "499604"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "221632",
+        "466525"
+      ],
+      "bought": [
+        "226597",
+        "481655"
+      ],
+      "hit": 4,
+      "gain_1gw": 9
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "498016",
+        "432830",
+        "208706"
+      ],
+      "bought": [
+        "154561",
+        "226597",
+        "481655"
+      ],
+      "hit": 8,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 27,
+      "sold": [
+        "432830"
+      ],
+      "bought": [
+        "427623"
+      ],
+      "hit": 0,
+      "gain_1gw": 5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 27,
+      "sold": [
+        "244850"
+      ],
+      "bought": [
+        "141746"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 27,
+      "sold": [
+        "470313"
+      ],
+      "bought": [
+        "475168"
+      ],
+      "hit": 0,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 27,
+      "sold": [
+        "470313"
+      ],
+      "bought": [
+        "475168"
+      ],
+      "hit": 0,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 28,
+      "sold": [
+        "437499"
+      ],
+      "bought": [
+        "221466"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 28,
+      "sold": [
+        "154561"
+      ],
+      "bought": [
+        "111234"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 28,
+      "sold": [
+        "432830"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 28,
+      "sold": [
+        "596777"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "200834",
+        "208706",
+        "448047"
+      ],
+      "bought": [
+        "97032",
+        "232928",
+        "424876"
+      ],
+      "hit": 0,
+      "gain_1gw": 12
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "221466"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_1gw": -10
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "437499"
+      ],
+      "bought": [
+        "221466"
+      ],
+      "hit": 0,
+      "gain_1gw": 11
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "596777"
+      ],
+      "bought": [
+        "472769"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "200834"
+      ],
+      "bought": [
+        "472769"
+      ],
+      "hit": 0,
+      "gain_1gw": 0
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 30,
+      "sold": [
+        "494595"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_1gw": 8
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 30,
+      "sold": [
+        "153682",
+        "470313"
+      ],
+      "bought": [
+        "61256",
+        "475168"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 30,
+      "sold": [
+        "494595"
+      ],
+      "bought": [
+        "215379"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 30,
+      "sold": [
+        "494595"
+      ],
+      "bought": [
+        "437730"
+      ],
+      "hit": 0,
+      "gain_1gw": -1
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "445122",
+        "437730",
+        "223094",
+        "647671"
+      ],
+      "bought": [
+        "444765",
+        "244850",
+        "178186",
+        "510663"
+      ],
+      "hit": 0,
+      "gain_1gw": 15
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "445122",
+        "437730",
+        "448089",
+        "223094",
+        "647671"
+      ],
+      "bought": [
+        "199798",
+        "244850",
+        "424876",
+        "178186",
+        "510663"
+      ],
+      "hit": 0,
+      "gain_1gw": 18
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "462424",
+        "204480",
+        "437730",
+        "448089"
+      ],
+      "bought": [
+        "487838",
+        "141746",
+        "153682",
+        "466525"
+      ],
+      "hit": 12,
+      "gain_1gw": 14
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "209036",
+        "204480",
+        "223094"
+      ],
+      "bought": [
+        "223827",
+        "244851",
+        "178186"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "226597",
+        "465351",
+        "481655"
+      ],
+      "bought": [
+        "221466",
+        "494521",
+        "141746"
+      ],
+      "hit": 8,
+      "gain_1gw": 10
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "226597",
+        "437499",
+        "437730"
+      ],
+      "bought": [
+        "221466",
+        "494521",
+        "141746"
+      ],
+      "hit": 8,
+      "gain_1gw": 10
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 32,
+      "sold": [
+        "445122"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": 4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 32,
+      "sold": [
+        "200834"
+      ],
+      "bought": [
+        "445122"
+      ],
+      "hit": 0,
+      "gain_1gw": -14
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 32,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": -5
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 32,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_1gw": -5
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "199798",
+        "244850",
+        "448047",
+        "510663"
+      ],
+      "bought": [
+        "209036",
+        "244851",
+        "437730",
+        "177815"
+      ],
+      "hit": 8,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "97032",
+        "226597",
+        "153682",
+        "424876",
+        "448047"
+      ],
+      "bought": [
+        "209036",
+        "222694",
+        "244851",
+        "437730",
+        "503139"
+      ],
+      "hit": 16,
+      "gain_1gw": -6
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "223827",
+        "445122"
+      ],
+      "bought": [
+        "209036",
+        "465351"
+      ],
+      "hit": 0,
+      "gain_1gw": 19
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "111234",
+        "17761",
+        "204480",
+        "244850"
+      ],
+      "bought": [
+        "489639",
+        "209036",
+        "467779",
+        "503139"
+      ],
+      "hit": 12,
+      "gain_1gw": -2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "111234",
+        "180736",
+        "481655"
+      ],
+      "bought": [
+        "489639",
+        "209036",
+        "503139"
+      ],
+      "hit": 8,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 34,
+      "sold": [
+        "209036",
+        "222694",
+        "244851",
+        "437730",
+        "223094"
+      ],
+      "bought": [
+        "97032",
+        "226597",
+        "118748",
+        "204480",
+        "178186"
+      ],
+      "hit": 16,
+      "gain_1gw": 9
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 34,
+      "sold": [
+        "209036",
+        "221466",
+        "244851",
+        "437730",
+        "499604"
+      ],
+      "bought": [
+        "97032",
+        "427623",
+        "204480",
+        "215413",
+        "222531"
+      ],
+      "hit": 16,
+      "gain_1gw": 12
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 34,
+      "sold": [
+        "489639",
+        "209036",
+        "472769",
+        "494521",
+        "467779",
+        "177815",
+        "475168"
+      ],
+      "bought": [
+        "467189",
+        "97032",
+        "215136",
+        "233963",
+        "222531",
+        "178301",
+        "486385"
+      ],
+      "hit": 24,
+      "gain_1gw": 6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 34,
+      "sold": [
+        "472769",
+        "494521",
+        "503139",
+        "475168"
+      ],
+      "bought": [
+        "97032",
+        "233963",
+        "222531",
+        "486385"
+      ],
+      "hit": 12,
+      "gain_1gw": 9
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 35,
+      "sold": [
+        "487838"
+      ],
+      "bought": [
+        "220627"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 35,
+      "sold": [
+        "153682"
+      ],
+      "bought": [
+        "61256"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 35,
+      "sold": [
+        "153682"
+      ],
+      "bought": [
+        "61256"
+      ],
+      "hit": 0,
+      "gain_1gw": 2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 36,
+      "sold": [
+        "220627",
+        "118748",
+        "178186"
+      ],
+      "bought": [
+        "472769",
+        "466052",
+        "223094"
+      ],
+      "hit": 8,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 36,
+      "sold": [
+        "97032",
+        "178186"
+      ],
+      "bought": [
+        "209036",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_1gw": 22
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 36,
+      "sold": [
+        "215136",
+        "503139"
+      ],
+      "bought": [
+        "472769",
+        "248875"
+      ],
+      "hit": 4,
+      "gain_1gw": 7
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 36,
+      "sold": [
+        "244850"
+      ],
+      "bought": [
+        "466052"
+      ],
+      "hit": 0,
+      "gain_1gw": 3
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 37,
+      "sold": [
+        "472769"
+      ],
+      "bought": [
+        "17761"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 37,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "494521"
+      ],
+      "hit": 0,
+      "gain_1gw": -10
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 37,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "494521"
+      ],
+      "hit": 0,
+      "gain_1gw": -10
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 38,
+      "sold": [
+        "466052"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_1gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 38,
+      "sold": [
+        "215059"
+      ],
+      "bought": [
+        "154561"
+      ],
+      "hit": 0,
+      "gain_1gw": -2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 38,
+      "sold": [
+        "232928"
+      ],
+      "bought": [
+        "215379"
+      ],
+      "hit": 0,
+      "gain_1gw": -2
+    }
+  ],
+  "transfers_4gw": [
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 1,
+      "sold": [
+        "149065",
+        "154561",
+        "247348",
+        "477424",
+        "232826",
+        "178301",
+        "231747",
+        "433979"
+      ],
+      "bought": [
+        "111234",
+        "118342",
+        "198869",
+        "480455",
+        "141746",
+        "60689",
+        "177815",
+        "219168"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 1,
+      "sold": [
+        "149065",
+        "154561",
+        "169187",
+        "226597",
+        "118748",
+        "184029",
+        "204814",
+        "232826",
+        "178301",
+        "433979"
+      ],
+      "bought": [
+        "111234",
+        "207270",
+        "94147",
+        "198869",
+        "209244",
+        "223340",
+        "244851",
+        "496221",
+        "219168",
+        "219847"
+      ],
+      "hit": 0,
+      "gain_4gw": -44
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 1,
+      "sold": [
+        "149065",
+        "154561",
+        "169187",
+        "226597",
+        "118748",
+        "184029",
+        "204814",
+        "232826",
+        "178301",
+        "433979"
+      ],
+      "bought": [
+        "111234",
+        "232917",
+        "198869",
+        "441428",
+        "116216",
+        "209244",
+        "232413",
+        "244851",
+        "219168",
+        "219847"
+      ],
+      "hit": 0,
+      "gain_4gw": -40
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 1,
+      "sold": [
+        "149065",
+        "154561",
+        "169187",
+        "226597",
+        "118748",
+        "204814",
+        "232826",
+        "178301",
+        "433979"
+      ],
+      "bought": [
+        "111234",
+        "232917",
+        "198869",
+        "441428",
+        "114243",
+        "209244",
+        "244851",
+        "219168",
+        "219847"
+      ],
+      "hit": 0,
+      "gain_4gw": -54
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 2,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 2,
+      "sold": [
+        "111234",
+        "218218",
+        "209244",
+        "244851",
+        "496221",
+        "219168",
+        "231747"
+      ],
+      "bought": [
+        "116535",
+        "441164",
+        "91651",
+        "118748",
+        "449871",
+        "50175",
+        "216646"
+      ],
+      "hit": 24,
+      "gain_4gw": 4
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 2,
+      "sold": [
+        "441428"
+      ],
+      "bought": [
+        "230001"
+      ],
+      "hit": 0,
+      "gain_4gw": 17
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 2,
+      "sold": [
+        "114243"
+      ],
+      "bought": [
+        "531442"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 3,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "244851"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 3,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "248857"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 3,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "248857"
+      ],
+      "hit": 0,
+      "gain_4gw": 11
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 3,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "222531"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 4,
+      "sold": [
+        "480455"
+      ],
+      "bought": [
+        "83299"
+      ],
+      "hit": 0,
+      "gain_4gw": 4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 4,
+      "sold": [
+        "223340",
+        "219847"
+      ],
+      "bought": [
+        "244731",
+        "223094"
+      ],
+      "hit": 4,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 4,
+      "sold": [
+        "116216"
+      ],
+      "bought": [
+        "244731"
+      ],
+      "hit": 0,
+      "gain_4gw": 8
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 4,
+      "sold": [
+        "184029",
+        "222531"
+      ],
+      "bought": [
+        "118748",
+        "159533"
+      ],
+      "hit": 4,
+      "gain_4gw": 24
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 5,
+      "sold": [
+        "184029"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_4gw": 27
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 5,
+      "sold": [
+        "477424"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": -10
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 5,
+      "sold": [
+        "244851",
+        "219168"
+      ],
+      "bought": [
+        "433154",
+        "223094"
+      ],
+      "hit": 4,
+      "gain_4gw": -9
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 5,
+      "sold": [
+        "247348"
+      ],
+      "bought": [
+        "209365"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "61366",
+        "194634",
+        "523700"
+      ],
+      "bought": [
+        "141746",
+        "446008",
+        "476344"
+      ],
+      "hit": 0,
+      "gain_4gw": 29
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "118748",
+        "184029",
+        "204814",
+        "232826",
+        "231747"
+      ],
+      "bought": [
+        "201658",
+        "232413",
+        "433154",
+        "446008",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_4gw": 35
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "204814"
+      ],
+      "bought": [
+        "437730"
+      ],
+      "hit": 0,
+      "gain_4gw": 11
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "116535"
+      ],
+      "bought": [
+        "154561"
+      ],
+      "hit": 0,
+      "gain_4gw": -8
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "477424"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": -24
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 6,
+      "sold": [
+        "531442",
+        "219168"
+      ],
+      "bought": [
+        "244731",
+        "60689"
+      ],
+      "hit": 4,
+      "gain_4gw": 19
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 7,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "223340"
+      ],
+      "hit": 0,
+      "gain_4gw": 17
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 7,
+      "sold": [
+        "91651"
+      ],
+      "bought": [
+        "433154"
+      ],
+      "hit": 0,
+      "gain_4gw": -9
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 7,
+      "sold": [
+        "208706",
+        "219847"
+      ],
+      "bought": [
+        "244851",
+        "230348"
+      ],
+      "hit": 4,
+      "gain_4gw": -5
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 7,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "433154"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "245719",
+        "219168"
+      ],
+      "bought": [
+        "169528",
+        "154566"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "219168"
+      ],
+      "bought": [
+        "154566"
+      ],
+      "hit": 0,
+      "gain_4gw": -6
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "216051"
+      ],
+      "hit": 0,
+      "gain_4gw": -2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 8,
+      "sold": [
+        "441428"
+      ],
+      "bought": [
+        "216051"
+      ],
+      "hit": 0,
+      "gain_4gw": 4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 9,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "477424"
+      ],
+      "hit": 0,
+      "gain_4gw": 11
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 9,
+      "sold": [
+        "216646"
+      ],
+      "bought": [
+        "60689"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 9,
+      "sold": [
+        "247348"
+      ],
+      "bought": [
+        "477424"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 9,
+      "sold": [
+        "231747"
+      ],
+      "bought": [
+        "50175"
+      ],
+      "hit": 0,
+      "gain_4gw": -1
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 10,
+      "sold": [
+        "201658",
+        "208706",
+        "178301",
+        "223094"
+      ],
+      "bought": [
+        "118748",
+        "244851",
+        "60689",
+        "102057"
+      ],
+      "hit": 0,
+      "gain_4gw": 57
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 10,
+      "sold": [
+        "223340"
+      ],
+      "bought": [
+        "118748"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 10,
+      "sold": [
+        "244731"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 10,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_4gw": 16
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 11,
+      "sold": [
+        "226597"
+      ],
+      "bought": [
+        "441164"
+      ],
+      "hit": 0,
+      "gain_4gw": 4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 11,
+      "sold": [
+        "154561",
+        "441164"
+      ],
+      "bought": [
+        "85633",
+        "477424"
+      ],
+      "hit": 0,
+      "gain_4gw": -18
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 11,
+      "sold": [
+        "232413",
+        "223094"
+      ],
+      "bought": [
+        "118748",
+        "60689"
+      ],
+      "hit": 4,
+      "gain_4gw": 46
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 11,
+      "sold": [
+        "219847"
+      ],
+      "bought": [
+        "154566"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 12,
+      "sold": [
+        "232413",
+        "154566",
+        "476344"
+      ],
+      "bought": [
+        "437730",
+        "219168",
+        "444102"
+      ],
+      "hit": 0,
+      "gain_4gw": 13
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 12,
+      "sold": [
+        "441164"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_4gw": -12
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 12,
+      "sold": [
+        "248857"
+      ],
+      "bought": [
+        "141746"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 12,
+      "sold": [
+        "244731"
+      ],
+      "bought": [
+        "141746"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "169187",
+        "102057",
+        "433979"
+      ],
+      "bought": [
+        "227444",
+        "154566",
+        "475168"
+      ],
+      "hit": 0,
+      "gain_4gw": 11
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "169187"
+      ],
+      "bought": [
+        "227444"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "449871",
+        "223094"
+      ],
+      "bought": [
+        "244851",
+        "430871"
+      ],
+      "hit": 0,
+      "gain_4gw": 39
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "231747"
+      ],
+      "bought": [
+        "430871"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 13,
+      "sold": [
+        "159533",
+        "154566"
+      ],
+      "bought": [
+        "172780",
+        "430871"
+      ],
+      "hit": 4,
+      "gain_4gw": 17
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 14,
+      "sold": [
+        "437730"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_4gw": 6
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 14,
+      "sold": [
+        "433154"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_4gw": 17
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 14,
+      "sold": [
+        "433154"
+      ],
+      "bought": [
+        "222683"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 14,
+      "sold": [
+        "433154"
+      ],
+      "bought": [
+        "222683"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "226597",
+        "433154"
+      ],
+      "bought": [
+        "544877",
+        "178186"
+      ],
+      "hit": 0,
+      "gain_4gw": 25
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "177815"
+      ],
+      "bought": [
+        "475168"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "223340"
+      ],
+      "hit": 0,
+      "gain_4gw": -29
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "223340"
+      ],
+      "hit": 0,
+      "gain_4gw": -29
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 15,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "223340"
+      ],
+      "hit": 0,
+      "gain_4gw": -29
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "58376",
+        "226597",
+        "141746",
+        "444102"
+      ],
+      "bought": [
+        "154561",
+        "462424",
+        "153133",
+        "154566"
+      ],
+      "hit": 0,
+      "gain_4gw": 17
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "462424"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "244851"
+      ],
+      "bought": [
+        "118748"
+      ],
+      "hit": 0,
+      "gain_4gw": 33
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "216051",
+        "141746"
+      ],
+      "bought": [
+        "18892",
+        "118748"
+      ],
+      "hit": 4,
+      "gain_4gw": 44
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 16,
+      "sold": [
+        "209365",
+        "223340"
+      ],
+      "bought": [
+        "18892",
+        "118748"
+      ],
+      "hit": 4,
+      "gain_4gw": 51
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "218218",
+        "232413"
+      ],
+      "bought": [
+        "169528",
+        "153133"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "83299"
+      ],
+      "bought": [
+        "169528"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "247348"
+      ],
+      "bought": [
+        "18892"
+      ],
+      "hit": 0,
+      "gain_4gw": -2
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "477424"
+      ],
+      "bought": [
+        "462424"
+      ],
+      "hit": 0,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 17,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "462424"
+      ],
+      "hit": 0,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 18,
+      "sold": [
+        "223340",
+        "230348"
+      ],
+      "bought": [
+        "114243",
+        "219168"
+      ],
+      "hit": 4,
+      "gain_4gw": 51
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 18,
+      "sold": [
+        "216051"
+      ],
+      "bought": [
+        "159506"
+      ],
+      "hit": 0,
+      "gain_4gw": 20
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 19,
+      "sold": [
+        "218218",
+        "446008"
+      ],
+      "bought": [
+        "247348",
+        "232185"
+      ],
+      "hit": 0,
+      "gain_4gw": -3
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 19,
+      "sold": [
+        "477424",
+        "223340"
+      ],
+      "bought": [
+        "159506",
+        "244851"
+      ],
+      "hit": 0,
+      "gain_4gw": 29
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 19,
+      "sold": [
+        "218218"
+      ],
+      "bought": [
+        "554605"
+      ],
+      "hit": 0,
+      "gain_4gw": 9
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 19,
+      "sold": [
+        "141746",
+        "60689"
+      ],
+      "bought": [
+        "232185",
+        "219168"
+      ],
+      "hit": 4,
+      "gain_4gw": -19
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 20,
+      "sold": [
+        "178186"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_4gw": 30
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 20,
+      "sold": [
+        "230001"
+      ],
+      "bought": [
+        "487838"
+      ],
+      "hit": 0,
+      "gain_4gw": 4
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 20,
+      "sold": [
+        "222683"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_4gw": -38
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "477424",
+        "178186",
+        "154566"
+      ],
+      "bought": [
+        "78916",
+        "141746",
+        "219168"
+      ],
+      "hit": 0,
+      "gain_4gw": 32
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "227444"
+      ],
+      "bought": [
+        "216051"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "50175"
+      ],
+      "bought": [
+        "475168"
+      ],
+      "hit": 0,
+      "gain_4gw": -1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "18892"
+      ],
+      "bought": [
+        "159506"
+      ],
+      "hit": 0,
+      "gain_4gw": 8
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 21,
+      "sold": [
+        "172780"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_4gw": 10
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 22,
+      "sold": [
+        "216051"
+      ],
+      "bought": [
+        "227444"
+      ],
+      "hit": 0,
+      "gain_4gw": -3
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 22,
+      "sold": [
+        "97032",
+        "430871"
+      ],
+      "bought": [
+        "463981",
+        "219168"
+      ],
+      "hit": 0,
+      "gain_4gw": -17
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 22,
+      "sold": [
+        "222683"
+      ],
+      "bought": [
+        "493250"
+      ],
+      "hit": 0,
+      "gain_4gw": -35
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 22,
+      "sold": [
+        "244850",
+        "430871"
+      ],
+      "bought": [
+        "493250",
+        "60689"
+      ],
+      "hit": 4,
+      "gain_4gw": 16
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 23,
+      "sold": [
+        "227444",
+        "462424",
+        "232185"
+      ],
+      "bought": [
+        "17761",
+        "169187",
+        "244850"
+      ],
+      "hit": 0,
+      "gain_4gw": 25
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 23,
+      "sold": [
+        "462424"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_4gw": -3
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 23,
+      "sold": [
+        "244851"
+      ],
+      "bought": [
+        "209244"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 23,
+      "sold": [
+        "462424"
+      ],
+      "bought": [
+        "487838"
+      ],
+      "hit": 0,
+      "gain_4gw": -7
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "489639",
+        "78916",
+        "178301"
+      ],
+      "bought": [
+        "111234",
+        "97032",
+        "216646"
+      ],
+      "hit": 0,
+      "gain_4gw": 15
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "78916",
+        "227444",
+        "141746",
+        "60689"
+      ],
+      "bought": [
+        "97032",
+        "169187",
+        "533463",
+        "440993"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "477424",
+        "154566"
+      ],
+      "bought": [
+        "169187",
+        "440993"
+      ],
+      "hit": 4,
+      "gain_4gw": 23
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "226597",
+        "248857"
+      ],
+      "bought": [
+        "169187",
+        "606921"
+      ],
+      "hit": 0,
+      "gain_4gw": 12
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "226597",
+        "430871"
+      ],
+      "bought": [
+        "169187",
+        "243298"
+      ],
+      "hit": 4,
+      "gain_4gw": -7
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 24,
+      "sold": [
+        "218218",
+        "244851",
+        "50175"
+      ],
+      "bought": [
+        "169187",
+        "222683",
+        "243298"
+      ],
+      "hit": 8,
+      "gain_4gw": 21
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 25,
+      "sold": [
+        "232185"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_4gw": -15
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 25,
+      "sold": [
+        "219168"
+      ],
+      "bought": [
+        "178301"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 25,
+      "sold": [
+        "446008"
+      ],
+      "bought": [
+        "222683"
+      ],
+      "hit": 0,
+      "gain_4gw": -2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 25,
+      "sold": [
+        "219168"
+      ],
+      "bought": [
+        "178301"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 26,
+      "sold": [
+        "169187"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 26,
+      "sold": [
+        "94147"
+      ],
+      "bought": [
+        "135720"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 26,
+      "sold": [
+        "243298"
+      ],
+      "bought": [
+        "438234"
+      ],
+      "hit": 0,
+      "gain_4gw": 15
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 26,
+      "sold": [
+        "243298"
+      ],
+      "bought": [
+        "438234"
+      ],
+      "hit": 0,
+      "gain_4gw": 15
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 27,
+      "sold": [
+        "244850"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_4gw": -5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 27,
+      "sold": [
+        "244731"
+      ],
+      "bought": [
+        "174292"
+      ],
+      "hit": 0,
+      "gain_4gw": -10
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 27,
+      "sold": [
+        "554605"
+      ],
+      "bought": [
+        "247348"
+      ],
+      "hit": 0,
+      "gain_4gw": 10
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 27,
+      "sold": [
+        "18892"
+      ],
+      "bought": [
+        "247348"
+      ],
+      "hit": 0,
+      "gain_4gw": 9
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 28,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_4gw": -11
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 28,
+      "sold": [
+        "493250"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 28,
+      "sold": [
+        "493250"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "169187",
+        "153133",
+        "244850",
+        "219168",
+        "463034"
+      ],
+      "bought": [
+        "227444",
+        "141746",
+        "222683",
+        "60689",
+        "475168"
+      ],
+      "hit": 0,
+      "gain_4gw": -18
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "169187",
+        "153133",
+        "533463",
+        "219168",
+        "440993"
+      ],
+      "bought": [
+        "227444",
+        "141746",
+        "222683",
+        "60689",
+        "486385"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "118748",
+        "424876"
+      ],
+      "bought": [
+        "141746",
+        "222531"
+      ],
+      "hit": 4,
+      "gain_4gw": 16
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "118748",
+        "178301"
+      ],
+      "bought": [
+        "222683",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_4gw": -11
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "169187",
+        "114243",
+        "424876",
+        "219168"
+      ],
+      "bought": [
+        "179268",
+        "141746",
+        "446008",
+        "475168"
+      ],
+      "hit": 12,
+      "gain_4gw": -9
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 29,
+      "sold": [
+        "487838",
+        "118748",
+        "232185",
+        "424876"
+      ],
+      "bought": [
+        "179268",
+        "141746",
+        "222531",
+        "433312"
+      ],
+      "hit": 12,
+      "gain_4gw": 19
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 30,
+      "sold": [
+        "178186"
+      ],
+      "bought": [
+        "232185"
+      ],
+      "hit": 0,
+      "gain_4gw": -6
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 30,
+      "sold": [
+        "244851"
+      ],
+      "bought": [
+        "118748"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 30,
+      "sold": [
+        "232917"
+      ],
+      "bought": [
+        "172649"
+      ],
+      "hit": 0,
+      "gain_4gw": 17
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 30,
+      "sold": [
+        "446008"
+      ],
+      "bought": [
+        "118748"
+      ],
+      "hit": 0,
+      "gain_4gw": -17
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "222683",
+        "60689"
+      ],
+      "bought": [
+        "201666",
+        "231747"
+      ],
+      "hit": 0,
+      "gain_4gw": 47
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "440993"
+      ],
+      "bought": [
+        "219168"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "223094"
+      ],
+      "bought": [
+        "219168"
+      ],
+      "hit": 0,
+      "gain_4gw": 21
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "449434"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 31,
+      "sold": [
+        "222683"
+      ],
+      "bought": [
+        "232185"
+      ],
+      "hit": 0,
+      "gain_4gw": 8
+    },
+    {
+      "strategy": "engine",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "477580",
+        "222683",
+        "244851",
+        "60689",
+        "475168"
+      ],
+      "bought": [
+        "247348",
+        "201666",
+        "232185",
+        "219168",
+        "231747"
+      ],
+      "hit": 8,
+      "gain_4gw": 24
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "244851",
+        "486385"
+      ],
+      "bought": [
+        "232185",
+        "219168"
+      ],
+      "hit": 4,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "222531"
+      ],
+      "bought": [
+        "201666"
+      ],
+      "hit": 0,
+      "gain_4gw": 32
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "135720",
+        "463981",
+        "606921",
+        "60689"
+      ],
+      "bought": [
+        "247348",
+        "437499",
+        "114243",
+        "231747"
+      ],
+      "hit": 12,
+      "gain_4gw": 25
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "487838",
+        "222683",
+        "60689",
+        "475168"
+      ],
+      "bought": [
+        "441191",
+        "114243",
+        "219168",
+        "231747"
+      ],
+      "hit": 12,
+      "gain_4gw": 42
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 32,
+      "sold": [
+        "232917",
+        "169187",
+        "433312",
+        "60689"
+      ],
+      "bought": [
+        "172649",
+        "441191",
+        "114243",
+        "219168"
+      ],
+      "hit": 12,
+      "gain_4gw": 37
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 33,
+      "sold": [
+        "111234",
+        "226597",
+        "244851"
+      ],
+      "bought": [
+        "154561",
+        "462424",
+        "223340"
+      ],
+      "hit": 8,
+      "gain_4gw": -10
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 33,
+      "sold": [
+        "169187",
+        "222683",
+        "475168"
+      ],
+      "bought": [
+        "477424",
+        "244850",
+        "438234"
+      ],
+      "hit": 8,
+      "gain_4gw": 18
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 33,
+      "sold": [
+        "446008",
+        "219168"
+      ],
+      "bought": [
+        "244850",
+        "178301"
+      ],
+      "hit": 4,
+      "gain_4gw": -15
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 33,
+      "sold": [
+        "159506",
+        "222531"
+      ],
+      "bought": [
+        "445122",
+        "244850"
+      ],
+      "hit": 4,
+      "gain_4gw": -2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 34,
+      "sold": [
+        "462424",
+        "223340"
+      ],
+      "bought": [
+        "448514",
+        "118748"
+      ],
+      "hit": 4,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2024-25",
+      "gw": 34,
+      "sold": [
+        "437499",
+        "244850",
+        "231747",
+        "438234"
+      ],
+      "bought": [
+        "227444",
+        "244851",
+        "216646",
+        "475168"
+      ],
+      "hit": 12,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 34,
+      "sold": [
+        "247348",
+        "462424",
+        "244850",
+        "231747"
+      ],
+      "bought": [
+        "119471",
+        "448514",
+        "446008",
+        "216646"
+      ],
+      "hit": 12,
+      "gain_4gw": 29
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 34,
+      "sold": [
+        "477424",
+        "232185",
+        "244850",
+        "178301"
+      ],
+      "bought": [
+        "448514",
+        "244731",
+        "446008",
+        "216646"
+      ],
+      "hit": 12,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 35,
+      "sold": [
+        "169528"
+      ],
+      "bought": [
+        "224967"
+      ],
+      "hit": 0,
+      "gain_4gw": 21
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 35,
+      "sold": [
+        "159506"
+      ],
+      "bought": [
+        "184349"
+      ],
+      "hit": 0,
+      "gain_4gw": -1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 35,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "116216"
+      ],
+      "hit": 0,
+      "gain_4gw": 6
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 36,
+      "sold": [
+        "475168"
+      ],
+      "bought": [
+        "216646"
+      ],
+      "hit": 0,
+      "gain_4gw": 12
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 36,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_4gw": 19
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 36,
+      "sold": [
+        "244731"
+      ],
+      "bought": [
+        "513418"
+      ],
+      "hit": 0,
+      "gain_4gw": 4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 37,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 37,
+      "sold": [
+        "449434"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 37,
+      "sold": [
+        "114243"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2024-25",
+      "gw": 38,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_4gw": 10
+    },
+    {
+      "strategy": "form",
+      "season": "2024-25",
+      "gw": 38,
+      "sold": [
+        "184349"
+      ],
+      "bought": [
+        "199798"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2024-25",
+      "gw": 38,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "178186"
+      ],
+      "hit": 0,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 1,
+      "sold": [
+        "247348",
+        "516939",
+        "437730",
+        "611975"
+      ],
+      "bought": [
+        "214048",
+        "226182",
+        "222531",
+        "435973"
+      ],
+      "hit": 0,
+      "gain_4gw": -26
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 1,
+      "sold": [
+        "489639",
+        "224967",
+        "249231",
+        "516939",
+        "232185",
+        "244851",
+        "449434",
+        "611975"
+      ],
+      "bought": [
+        "109745",
+        "179268",
+        "199798",
+        "477424",
+        "114243",
+        "232413",
+        "446008",
+        "596047"
+      ],
+      "hit": 0,
+      "gain_4gw": 6
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 1,
+      "sold": [
+        "489639",
+        "247348",
+        "249231",
+        "516939",
+        "232185",
+        "244851",
+        "449434",
+        "611975"
+      ],
+      "bought": [
+        "215059",
+        "179268",
+        "199798",
+        "460028",
+        "232413",
+        "446008",
+        "532529",
+        "247412"
+      ],
+      "hit": 0,
+      "gain_4gw": -6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 1,
+      "sold": [
+        "489639",
+        "214590",
+        "247348",
+        "249231",
+        "516939",
+        "232185",
+        "244851",
+        "449434",
+        "611975"
+      ],
+      "bought": [
+        "215059",
+        "171314",
+        "179268",
+        "199798",
+        "460028",
+        "232413",
+        "446008",
+        "532529",
+        "486385"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 2,
+      "sold": [
+        "222531"
+      ],
+      "bought": [
+        "437730"
+      ],
+      "hit": 0,
+      "gain_4gw": 18
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 2,
+      "sold": [
+        "111234",
+        "199798",
+        "214590",
+        "114243",
+        "446008",
+        "178186",
+        "216646",
+        "596047"
+      ],
+      "bought": [
+        "154561",
+        "223827",
+        "243526",
+        "433036",
+        "460842",
+        "60689",
+        "212319",
+        "510663"
+      ],
+      "hit": 28,
+      "gain_4gw": -6
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 2,
+      "sold": [
+        "214590",
+        "224967",
+        "532529",
+        "216646"
+      ],
+      "bought": [
+        "223827",
+        "243526",
+        "433036",
+        "510663"
+      ],
+      "hit": 12,
+      "gain_4gw": 33
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 2,
+      "sold": [
+        "215059",
+        "460028",
+        "532529",
+        "216646"
+      ],
+      "bought": [
+        "498016",
+        "223827",
+        "433036",
+        "510663"
+      ],
+      "hit": 12,
+      "gain_4gw": 36
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "244851",
+        "216646"
+      ],
+      "bought": [
+        "446008",
+        "510663"
+      ],
+      "hit": 0,
+      "gain_4gw": 21
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "224967"
+      ],
+      "bought": [
+        "119471"
+      ],
+      "hit": 0,
+      "gain_4gw": 11
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "172567"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "456512"
+      ],
+      "hit": 0,
+      "gain_4gw": -7
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 3,
+      "sold": [
+        "232413"
+      ],
+      "bought": [
+        "456512"
+      ],
+      "hit": 0,
+      "gain_4gw": -7
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 4,
+      "sold": [
+        "244851"
+      ],
+      "bought": [
+        "243298"
+      ],
+      "hit": 0,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 4,
+      "sold": [
+        "433036"
+      ],
+      "bought": [
+        "448047"
+      ],
+      "hit": 0,
+      "gain_4gw": -1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 4,
+      "sold": [
+        "460028"
+      ],
+      "bought": [
+        "242882"
+      ],
+      "hit": 0,
+      "gain_4gw": 10
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 4,
+      "sold": [
+        "224967"
+      ],
+      "bought": [
+        "242882"
+      ],
+      "hit": 0,
+      "gain_4gw": 4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 5,
+      "sold": [
+        "216646"
+      ],
+      "bought": [
+        "231747"
+      ],
+      "hit": 0,
+      "gain_4gw": 27
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 5,
+      "sold": [
+        "60689"
+      ],
+      "bought": [
+        "470313"
+      ],
+      "hit": 0,
+      "gain_4gw": 16
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 5,
+      "sold": [
+        "247412"
+      ],
+      "bought": [
+        "470313"
+      ],
+      "hit": 0,
+      "gain_4gw": 16
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 5,
+      "sold": [
+        "486385"
+      ],
+      "bought": [
+        "470313"
+      ],
+      "hit": 0,
+      "gain_4gw": 17
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "448514",
+        "232185",
+        "232413",
+        "60689"
+      ],
+      "bought": [
+        "180736",
+        "141746",
+        "444180",
+        "231747"
+      ],
+      "hit": 0,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "232185",
+        "449434",
+        "178186"
+      ],
+      "bought": [
+        "141746",
+        "444180",
+        "231747"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "232185"
+      ],
+      "bought": [
+        "513418"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "477424"
+      ],
+      "bought": [
+        "180736"
+      ],
+      "hit": 0,
+      "gain_4gw": -12
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "456512"
+      ],
+      "bought": [
+        "466525"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 6,
+      "sold": [
+        "223827"
+      ],
+      "bought": [
+        "494521"
+      ],
+      "hit": 0,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "214590"
+      ],
+      "bought": [
+        "201895"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "214590"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": 32
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "118748",
+        "510663"
+      ],
+      "bought": [
+        "441266",
+        "223094"
+      ],
+      "hit": 4,
+      "gain_4gw": 21
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "223827"
+      ],
+      "bought": [
+        "201895"
+      ],
+      "hit": 0,
+      "gain_4gw": -13
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 7,
+      "sold": [
+        "171314"
+      ],
+      "bought": [
+        "201895"
+      ],
+      "hit": 0,
+      "gain_4gw": -15
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 8,
+      "sold": [
+        "449434"
+      ],
+      "bought": [
+        "232185"
+      ],
+      "hit": 0,
+      "gain_4gw": 6
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 8,
+      "sold": [
+        "243526"
+      ],
+      "bought": [
+        "78916"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 8,
+      "sold": [
+        "243526"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": 30
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 8,
+      "sold": [
+        "456512"
+      ],
+      "bought": [
+        "460842"
+      ],
+      "hit": 0,
+      "gain_4gw": -2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 9,
+      "sold": [
+        "119471"
+      ],
+      "bought": [
+        "179268"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 9,
+      "sold": [
+        "179268"
+      ],
+      "bought": [
+        "200834"
+      ],
+      "hit": 0,
+      "gain_4gw": -9
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 9,
+      "sold": [
+        "199798",
+        "118748",
+        "510663"
+      ],
+      "bought": [
+        "200834",
+        "204480",
+        "223094"
+      ],
+      "hit": 8,
+      "gain_4gw": 9
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 9,
+      "sold": [
+        "199798"
+      ],
+      "bought": [
+        "200834"
+      ],
+      "hit": 0,
+      "gain_4gw": -6
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "249231",
+        "118748",
+        "510663"
+      ],
+      "bought": [
+        "226597",
+        "232185",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_4gw": 23
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "249231"
+      ],
+      "bought": [
+        "200834"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "180736"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": -15
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "242882"
+      ],
+      "bought": [
+        "491279"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 10,
+      "sold": [
+        "179268"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": -7
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "119471",
+        "433036",
+        "444102"
+      ],
+      "bought": [
+        "226597",
+        "232185",
+        "560262"
+      ],
+      "hit": 0,
+      "gain_4gw": -16
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "226182"
+      ],
+      "bought": [
+        "225796"
+      ],
+      "hit": 0,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "223827"
+      ],
+      "bought": [
+        "209036"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "433036"
+      ],
+      "bought": [
+        "61256"
+      ],
+      "hit": 0,
+      "gain_4gw": 6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 11,
+      "sold": [
+        "118748",
+        "510663"
+      ],
+      "bought": [
+        "204480",
+        "223094"
+      ],
+      "hit": 4,
+      "gain_4gw": 24
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 12,
+      "sold": [
+        "243298"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 12,
+      "sold": [
+        "460842"
+      ],
+      "bought": [
+        "446008"
+      ],
+      "hit": 0,
+      "gain_4gw": -8
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 12,
+      "sold": [
+        "201895"
+      ],
+      "bought": [
+        "472769"
+      ],
+      "hit": 0,
+      "gain_4gw": 6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 12,
+      "sold": [
+        "433036"
+      ],
+      "bought": [
+        "247632"
+      ],
+      "hit": 0,
+      "gain_4gw": 6
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "226597",
+        "118748",
+        "231747"
+      ],
+      "bought": [
+        "437499",
+        "446008",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_4gw": 38
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "226597",
+        "444180",
+        "231747"
+      ],
+      "bought": [
+        "437499",
+        "513418",
+        "502500"
+      ],
+      "hit": 0,
+      "gain_4gw": 18
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "231747"
+      ],
+      "bought": [
+        "502500"
+      ],
+      "hit": 0,
+      "gain_4gw": 6
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "437730"
+      ],
+      "bought": [
+        "232413"
+      ],
+      "hit": 0,
+      "gain_4gw": -9
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 13,
+      "sold": [
+        "242882",
+        "437730"
+      ],
+      "bought": [
+        "247348",
+        "244850"
+      ],
+      "hit": 4,
+      "gain_4gw": 12
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 14,
+      "sold": [
+        "118748"
+      ],
+      "bought": [
+        "141746"
+      ],
+      "hit": 0,
+      "gain_4gw": 28
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 14,
+      "sold": [
+        "212319"
+      ],
+      "bought": [
+        "502500"
+      ],
+      "hit": 0,
+      "gain_4gw": -7
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 14,
+      "sold": [
+        "178186"
+      ],
+      "bought": [
+        "502500"
+      ],
+      "hit": 0,
+      "gain_4gw": -16
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 14,
+      "sold": [
+        "226597"
+      ],
+      "bought": [
+        "437499"
+      ],
+      "hit": 0,
+      "gain_4gw": 12
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "179268",
+        "180736"
+      ],
+      "bought": [
+        "198869",
+        "465642"
+      ],
+      "hit": 0,
+      "gain_4gw": -28
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "226597"
+      ],
+      "bought": [
+        "465642"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "226597",
+        "172567"
+      ],
+      "bought": [
+        "437499",
+        "204480"
+      ],
+      "hit": 0,
+      "gain_4gw": 21
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "491279"
+      ],
+      "bought": [
+        "247348"
+      ],
+      "hit": 0,
+      "gain_4gw": -18
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 15,
+      "sold": [
+        "446008"
+      ],
+      "bought": [
+        "209244"
+      ],
+      "hit": 0,
+      "gain_4gw": 18
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "78916",
+        "232185",
+        "444180"
+      ],
+      "bought": [
+        "209036",
+        "424876",
+        "533463"
+      ],
+      "hit": 0,
+      "gain_4gw": 8
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "224967",
+        "516939",
+        "232185"
+      ],
+      "bought": [
+        "198869",
+        "445122",
+        "533463"
+      ],
+      "hit": 0,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "200834",
+        "214048",
+        "232185"
+      ],
+      "bought": [
+        "198869",
+        "445122",
+        "223340"
+      ],
+      "hit": 0,
+      "gain_4gw": 10
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "448047"
+      ],
+      "bought": [
+        "209244"
+      ],
+      "hit": 0,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "200834",
+        "226597",
+        "61256",
+        "232413",
+        "446008"
+      ],
+      "bought": [
+        "17761",
+        "209036",
+        "141746",
+        "209244",
+        "215413"
+      ],
+      "hit": 0,
+      "gain_4gw": -2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 16,
+      "sold": [
+        "201895",
+        "244850",
+        "247632",
+        "460842"
+      ],
+      "bought": [
+        "180736",
+        "141746",
+        "208706",
+        "215413"
+      ],
+      "hit": 0,
+      "gain_4gw": -34
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 17,
+      "sold": [
+        "223340",
+        "513418",
+        "178186"
+      ],
+      "bought": [
+        "201658",
+        "533463",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_4gw": -36
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 17,
+      "sold": [
+        "247348",
+        "446008"
+      ],
+      "bought": [
+        "180736",
+        "141746"
+      ],
+      "hit": 0,
+      "gain_4gw": 9
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 17,
+      "sold": [
+        "204480"
+      ],
+      "bought": [
+        "153682"
+      ],
+      "hit": 0,
+      "gain_4gw": -18
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 17,
+      "sold": [
+        "247348",
+        "204480"
+      ],
+      "bought": [
+        "171314",
+        "153682"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "198869",
+        "247348",
+        "446008",
+        "533463"
+      ],
+      "bought": [
+        "97032",
+        "445122",
+        "430871",
+        "466525"
+      ],
+      "hit": 0,
+      "gain_4gw": 62
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "198869",
+        "247348",
+        "446008",
+        "533463"
+      ],
+      "bought": [
+        "97032",
+        "209036",
+        "430871",
+        "466525"
+      ],
+      "hit": 0,
+      "gain_4gw": 56
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "198869"
+      ],
+      "bought": [
+        "437499"
+      ],
+      "hit": 0,
+      "gain_4gw": 15
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "502500"
+      ],
+      "bought": [
+        "177815"
+      ],
+      "hit": 0,
+      "gain_4gw": -17
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 18,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_4gw": -23
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 19,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "430871"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 19,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_4gw": -6
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 19,
+      "sold": [
+        "215413"
+      ],
+      "bought": [
+        "244850"
+      ],
+      "hit": 0,
+      "gain_4gw": 11
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 19,
+      "sold": [
+        "178186"
+      ],
+      "bought": [
+        "510663"
+      ],
+      "hit": 0,
+      "gain_4gw": -12
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 20,
+      "sold": [
+        "533463"
+      ],
+      "bought": [
+        "466525"
+      ],
+      "hit": 0,
+      "gain_4gw": 12
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 20,
+      "sold": [
+        "78916"
+      ],
+      "bought": [
+        "465351"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 20,
+      "sold": [
+        "472769"
+      ],
+      "bought": [
+        "465351"
+      ],
+      "hit": 0,
+      "gain_4gw": 6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 20,
+      "sold": [
+        "215413"
+      ],
+      "bought": [
+        "232928"
+      ],
+      "hit": 0,
+      "gain_4gw": 15
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "215059",
+        "141746",
+        "424876"
+      ],
+      "bought": [
+        "498016",
+        "204480",
+        "448047"
+      ],
+      "hit": 0,
+      "gain_4gw": -27
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "201895",
+        "141746",
+        "513418"
+      ],
+      "bought": [
+        "465642",
+        "204480",
+        "448047"
+      ],
+      "hit": 0,
+      "gain_4gw": -6
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "179268"
+      ],
+      "bought": [
+        "432830"
+      ],
+      "hit": 0,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "109745"
+      ],
+      "bought": [
+        "498016"
+      ],
+      "hit": 0,
+      "gain_4gw": 11
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "204480"
+      ],
+      "hit": 0,
+      "gain_4gw": -22
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 21,
+      "sold": [
+        "510663"
+      ],
+      "bought": [
+        "502500"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 22,
+      "sold": [
+        "430871"
+      ],
+      "bought": [
+        "494595"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 22,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "208706"
+      ],
+      "hit": 0,
+      "gain_4gw": 11
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 22,
+      "sold": [
+        "179268"
+      ],
+      "bought": [
+        "432830"
+      ],
+      "hit": 0,
+      "gain_4gw": -17
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 22,
+      "sold": [
+        "494521"
+      ],
+      "bought": [
+        "432830"
+      ],
+      "hit": 0,
+      "gain_4gw": -12
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "209036",
+        "430871"
+      ],
+      "bought": [
+        "226597",
+        "141746"
+      ],
+      "hit": 0,
+      "gain_4gw": 7
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "466525"
+      ],
+      "bought": [
+        "204480"
+      ],
+      "hit": 0,
+      "gain_4gw": 13
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "465351"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "209036"
+      ],
+      "bought": [
+        "596777"
+      ],
+      "hit": 0,
+      "gain_4gw": -11
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 23,
+      "sold": [
+        "141746"
+      ],
+      "bought": [
+        "208706"
+      ],
+      "hit": 0,
+      "gain_4gw": -13
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 24,
+      "sold": [
+        "424876"
+      ],
+      "bought": [
+        "448047"
+      ],
+      "hit": 0,
+      "gain_4gw": -2
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 24,
+      "sold": [
+        "208706"
+      ],
+      "bought": [
+        "153682"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 24,
+      "sold": [
+        "247348"
+      ],
+      "bought": [
+        "221632"
+      ],
+      "hit": 0,
+      "gain_4gw": -20
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 24,
+      "sold": [
+        "171314"
+      ],
+      "bought": [
+        "596777"
+      ],
+      "hit": 0,
+      "gain_4gw": -7
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 25,
+      "sold": [
+        "225796"
+      ],
+      "bought": [
+        "462424"
+      ],
+      "hit": 0,
+      "gain_4gw": 8
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 25,
+      "sold": [
+        "441266"
+      ],
+      "bought": [
+        "448047"
+      ],
+      "hit": 0,
+      "gain_4gw": -11
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 25,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "494595"
+      ],
+      "hit": 0,
+      "gain_4gw": -1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 25,
+      "sold": [
+        "209244"
+      ],
+      "bought": [
+        "494595"
+      ],
+      "hit": 0,
+      "gain_4gw": -1
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "111234",
+        "466525",
+        "611975"
+      ],
+      "bought": [
+        "172649",
+        "448089",
+        "647671"
+      ],
+      "hit": 0,
+      "gain_4gw": 29
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "201658"
+      ],
+      "bought": [
+        "448089"
+      ],
+      "hit": 0,
+      "gain_4gw": 13
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "448047"
+      ],
+      "bought": [
+        "499604"
+      ],
+      "hit": 0,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "221632",
+        "466525"
+      ],
+      "bought": [
+        "226597",
+        "481655"
+      ],
+      "hit": 4,
+      "gain_4gw": 21
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 26,
+      "sold": [
+        "498016",
+        "432830",
+        "208706"
+      ],
+      "bought": [
+        "154561",
+        "226597",
+        "481655"
+      ],
+      "hit": 8,
+      "gain_4gw": 35
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 27,
+      "sold": [
+        "432830"
+      ],
+      "bought": [
+        "427623"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 27,
+      "sold": [
+        "244850"
+      ],
+      "bought": [
+        "141746"
+      ],
+      "hit": 0,
+      "gain_4gw": 26
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 27,
+      "sold": [
+        "470313"
+      ],
+      "bought": [
+        "475168"
+      ],
+      "hit": 0,
+      "gain_4gw": 26
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 27,
+      "sold": [
+        "470313"
+      ],
+      "bought": [
+        "475168"
+      ],
+      "hit": 0,
+      "gain_4gw": 26
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 28,
+      "sold": [
+        "437499"
+      ],
+      "bought": [
+        "221466"
+      ],
+      "hit": 0,
+      "gain_4gw": 14
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 28,
+      "sold": [
+        "154561"
+      ],
+      "bought": [
+        "111234"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 28,
+      "sold": [
+        "432830"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 28,
+      "sold": [
+        "596777"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_4gw": 13
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "200834",
+        "208706",
+        "448047"
+      ],
+      "bought": [
+        "97032",
+        "232928",
+        "424876"
+      ],
+      "hit": 0,
+      "gain_4gw": 40
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "221466"
+      ],
+      "bought": [
+        "97032"
+      ],
+      "hit": 0,
+      "gain_4gw": -11
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "437499"
+      ],
+      "bought": [
+        "221466"
+      ],
+      "hit": 0,
+      "gain_4gw": 13
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "596777"
+      ],
+      "bought": [
+        "472769"
+      ],
+      "hit": 0,
+      "gain_4gw": 16
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 29,
+      "sold": [
+        "200834"
+      ],
+      "bought": [
+        "472769"
+      ],
+      "hit": 0,
+      "gain_4gw": 2
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 30,
+      "sold": [
+        "494595"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_4gw": 11
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 30,
+      "sold": [
+        "153682",
+        "470313"
+      ],
+      "bought": [
+        "61256",
+        "475168"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 30,
+      "sold": [
+        "494595"
+      ],
+      "bought": [
+        "215379"
+      ],
+      "hit": 0,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 30,
+      "sold": [
+        "494595"
+      ],
+      "bought": [
+        "437730"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "engine",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "445122",
+        "437730",
+        "223094",
+        "647671"
+      ],
+      "bought": [
+        "444765",
+        "244850",
+        "178186",
+        "510663"
+      ],
+      "hit": 0,
+      "gain_4gw": 40
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "445122",
+        "437730",
+        "448089",
+        "223094",
+        "647671"
+      ],
+      "bought": [
+        "199798",
+        "244850",
+        "424876",
+        "178186",
+        "510663"
+      ],
+      "hit": 0,
+      "gain_4gw": 41
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "462424",
+        "204480",
+        "437730",
+        "448089"
+      ],
+      "bought": [
+        "487838",
+        "141746",
+        "153682",
+        "466525"
+      ],
+      "hit": 12,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "209036",
+        "204480",
+        "223094"
+      ],
+      "bought": [
+        "223827",
+        "244851",
+        "178186"
+      ],
+      "hit": 0,
+      "gain_4gw": -10
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "226597",
+        "465351",
+        "481655"
+      ],
+      "bought": [
+        "221466",
+        "494521",
+        "141746"
+      ],
+      "hit": 8,
+      "gain_4gw": 12
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 31,
+      "sold": [
+        "226597",
+        "437499",
+        "437730"
+      ],
+      "bought": [
+        "221466",
+        "494521",
+        "141746"
+      ],
+      "hit": 8,
+      "gain_4gw": 15
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 32,
+      "sold": [
+        "445122"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": 18
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 32,
+      "sold": [
+        "200834"
+      ],
+      "bought": [
+        "445122"
+      ],
+      "hit": 0,
+      "gain_4gw": -24
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 32,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 32,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "226597"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "engine_no_chips",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "199798",
+        "244850",
+        "448047",
+        "510663"
+      ],
+      "bought": [
+        "209036",
+        "244851",
+        "437730",
+        "177815"
+      ],
+      "hit": 8,
+      "gain_4gw": 31
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "97032",
+        "226597",
+        "153682",
+        "424876",
+        "448047"
+      ],
+      "bought": [
+        "209036",
+        "222694",
+        "244851",
+        "437730",
+        "503139"
+      ],
+      "hit": 16,
+      "gain_4gw": -26
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "223827",
+        "445122"
+      ],
+      "bought": [
+        "209036",
+        "465351"
+      ],
+      "hit": 0,
+      "gain_4gw": 47
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "111234",
+        "17761",
+        "204480",
+        "244850"
+      ],
+      "bought": [
+        "489639",
+        "209036",
+        "467779",
+        "503139"
+      ],
+      "hit": 12,
+      "gain_4gw": -5
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 33,
+      "sold": [
+        "111234",
+        "180736",
+        "481655"
+      ],
+      "bought": [
+        "489639",
+        "209036",
+        "503139"
+      ],
+      "hit": 8,
+      "gain_4gw": 27
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 34,
+      "sold": [
+        "209036",
+        "222694",
+        "244851",
+        "437730",
+        "223094"
+      ],
+      "bought": [
+        "97032",
+        "226597",
+        "118748",
+        "204480",
+        "178186"
+      ],
+      "hit": 16,
+      "gain_4gw": 0
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 34,
+      "sold": [
+        "209036",
+        "221466",
+        "244851",
+        "437730",
+        "499604"
+      ],
+      "bought": [
+        "97032",
+        "427623",
+        "204480",
+        "215413",
+        "222531"
+      ],
+      "hit": 16,
+      "gain_4gw": -19
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 34,
+      "sold": [
+        "489639",
+        "209036",
+        "472769",
+        "494521",
+        "467779",
+        "177815",
+        "475168"
+      ],
+      "bought": [
+        "467189",
+        "97032",
+        "215136",
+        "233963",
+        "222531",
+        "178301",
+        "486385"
+      ],
+      "hit": 24,
+      "gain_4gw": -1
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 34,
+      "sold": [
+        "472769",
+        "494521",
+        "503139",
+        "475168"
+      ],
+      "bought": [
+        "97032",
+        "233963",
+        "222531",
+        "486385"
+      ],
+      "hit": 12,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 35,
+      "sold": [
+        "487838"
+      ],
+      "bought": [
+        "220627"
+      ],
+      "hit": 0,
+      "gain_4gw": 8
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 35,
+      "sold": [
+        "153682"
+      ],
+      "bought": [
+        "61256"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 35,
+      "sold": [
+        "153682"
+      ],
+      "bought": [
+        "61256"
+      ],
+      "hit": 0,
+      "gain_4gw": -4
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 36,
+      "sold": [
+        "220627",
+        "118748",
+        "178186"
+      ],
+      "bought": [
+        "472769",
+        "466052",
+        "223094"
+      ],
+      "hit": 8,
+      "gain_4gw": -8
+    },
+    {
+      "strategy": "simple_xp",
+      "season": "2025-26",
+      "gw": 36,
+      "sold": [
+        "97032",
+        "178186"
+      ],
+      "bought": [
+        "209036",
+        "223094"
+      ],
+      "hit": 0,
+      "gain_4gw": 3
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 36,
+      "sold": [
+        "215136",
+        "503139"
+      ],
+      "bought": [
+        "472769",
+        "248875"
+      ],
+      "hit": 4,
+      "gain_4gw": 5
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 36,
+      "sold": [
+        "244850"
+      ],
+      "bought": [
+        "466052"
+      ],
+      "hit": 0,
+      "gain_4gw": -7
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 37,
+      "sold": [
+        "472769"
+      ],
+      "bought": [
+        "17761"
+      ],
+      "hit": 0,
+      "gain_4gw": 4
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 37,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "494521"
+      ],
+      "hit": 0,
+      "gain_4gw": -6
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 37,
+      "sold": [
+        "97032"
+      ],
+      "bought": [
+        "494521"
+      ],
+      "hit": 0,
+      "gain_4gw": -6
+    },
+    {
+      "strategy": "single_gw_mc",
+      "season": "2025-26",
+      "gw": 38,
+      "sold": [
+        "466052"
+      ],
+      "bought": [
+        "424876"
+      ],
+      "hit": 0,
+      "gain_4gw": 1
+    },
+    {
+      "strategy": "form",
+      "season": "2025-26",
+      "gw": 38,
+      "sold": [
+        "215059"
+      ],
+      "bought": [
+        "154561"
+      ],
+      "hit": 0,
+      "gain_4gw": -2
+    },
+    {
+      "strategy": "fpl_style_heuristic",
+      "season": "2025-26",
+      "gw": 38,
+      "sold": [
+        "232928"
+      ],
+      "bought": [
+        "215379"
+      ],
+      "hit": 0,
+      "gain_4gw": -2
+    }
+  ],
+  "plan_churn_rate": 0.972972972972973,
+  "planned_vs_actual_overlap": 0.10245700245700246,
+  "round_trips": [
+    {
+      "season": "2024-25",
+      "strategy": "engine",
+      "round_trips": 5
+    },
+    {
+      "season": "2024-25",
+      "strategy": "engine_no_chips",
+      "round_trips": 6
+    },
+    {
+      "season": "2024-25",
+      "strategy": "form",
+      "round_trips": 11
+    },
+    {
+      "season": "2024-25",
+      "strategy": "fpl_style_heuristic",
+      "round_trips": 12
+    },
+    {
+      "season": "2024-25",
+      "strategy": "hold",
+      "round_trips": 0
+    },
+    {
+      "season": "2024-25",
+      "strategy": "simple_xp",
+      "round_trips": 14
+    },
+    {
+      "season": "2024-25",
+      "strategy": "single_gw_mc",
+      "round_trips": 13
+    },
+    {
+      "season": "2025-26",
+      "strategy": "engine",
+      "round_trips": 3
+    },
+    {
+      "season": "2025-26",
+      "strategy": "engine_no_chips",
+      "round_trips": 6
+    },
+    {
+      "season": "2025-26",
+      "strategy": "form",
+      "round_trips": 14
+    },
+    {
+      "season": "2025-26",
+      "strategy": "fpl_style_heuristic",
+      "round_trips": 12
+    },
+    {
+      "season": "2025-26",
+      "strategy": "hold",
+      "round_trips": 0
+    },
+    {
+      "season": "2025-26",
+      "strategy": "simple_xp",
+      "round_trips": 16
+    },
+    {
+      "season": "2025-26",
+      "strategy": "single_gw_mc",
+      "round_trips": 19
+    }
+  ],
+  "planned_hold_kept": 0.5,
+  "planned_move_executed": 0.0,
+  "engine_expected_vs_actual": {
+    "mean_expected": 57.56460526315788,
+    "mean_actual": 61.0,
+    "corr": 0.37586327170283584
+  },
+  "lookahead_violations": 0,
+  "validity_rate": 1.0
+}

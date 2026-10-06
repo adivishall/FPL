@@ -34,6 +34,15 @@ OUT = ROOT / "data" / "eval"
 REP = ROOT / "ml" / "reports"
 ENGINE = "engine"
 BT = load_versioned_config("backtest", "default")
+# planning horizon (gameweeks) of each strategy's optimiser; hold never optimises transfers
+PLAN_HORIZON = {
+    "engine": int(BT.data["horizon"]),
+    "engine_no_chips": int(BT.data["horizon"]),
+    "single_gw_mc": 1,
+    "simple_xp": 1,
+    "form": 1,
+    "fpl_style_heuristic": 1,
+}
 
 
 def _dataset():  # type: ignore[no-untyped-def]
@@ -171,11 +180,16 @@ def _reproducibility(baseline: Path, ds) -> dict | None:  # type: ignore[no-unty
             status = "identical in all 38 gameweeks"
             if first is not None:
                 moved = _club_moves(ds, season, a, first)
+                reach = first + PLAN_HORIZON.get(strat, 0) - 1 >= 38
+                causes = []
+                if moved:
+                    causes.append(f"owned player(s) who had changed club: {', '.join(moved)}")
+                if reach:
+                    causes.append("the plan horizon reaches GW38 (season-end valuation fix)")
                 why = (
-                    f"; owned player(s) who had changed club: {', '.join(moved)} — the club-move "
-                    "rule changed between the runs"
-                    if moved
-                    else "; no club move involved — unexplained"
+                    "; " + "; ".join(causes) + " — rules changed between the runs"
+                    if causes
+                    else "; no rule change applies here — unexplained"
                 )
                 status = (
                     f"diverges from GW{first} (points {int(a['points'].sum())} vs "

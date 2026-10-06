@@ -1,0 +1,2085 @@
+{
+  "squads": "engine_no_chips",
+  "seasons": [
+    "2023-24",
+    "2024-25",
+    "2025-26"
+  ],
+  "counts": {
+    "role_change": 119,
+    "post_gameweek": 111,
+    "price_risk": 15,
+    "fixture_change": 10,
+    "unexpected_benching": 50
+  },
+  "unfiltered_candidates": {
+    "role_change": 132,
+    "fixture_change": 111,
+    "unexpected_benching": 49
+  },
+  "dedupe_reevaluation_identical": true,
+  "unique_dedupe_keys": true,
+  "alerts": [
+    {
+      "season": "2023-24",
+      "gw": 2,
+      "kind": "role_change",
+      "title": "Fabianski: role down (P(start) 83%\u219250%)",
+      "materiality": 1.294,
+      "dedupe_key": "role:2023-24:2:37096:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 2,
+      "kind": "role_change",
+      "title": "Undav: role down (P(start) 50%\u219219%)",
+      "materiality": 1.917,
+      "dedupe_key": "role:2023-24:2:450434:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 3,
+      "kind": "role_change",
+      "title": "Mings: role down (P(start) 75%\u219248%)",
+      "materiality": 1.034,
+      "dedupe_key": "role:2023-24:3:149484:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 3,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (67%)",
+      "materiality": 0.668,
+      "dedupe_key": "price:2023-24:3:b464a0af17f4:6"
+    },
+    {
+      "season": "2023-24",
+      "gw": 4,
+      "kind": "role_change",
+      "title": "Martinez: role down (P(start) 83%\u219257%)",
+      "materiality": 1.217,
+      "dedupe_key": "role:2023-24:4:98980:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 5,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u22483.7 pts)",
+      "materiality": 3.738,
+      "dedupe_key": "fixture:2023-24:plan:5:3af2c5452101"
+    },
+    {
+      "season": "2023-24",
+      "gw": 6,
+      "kind": "unexpected_benching",
+      "title": "Estupi\u00f1an: unexpectedly benched",
+      "materiality": 2.481,
+      "dedupe_key": "bench:2023-24:6:204214"
+    },
+    {
+      "season": "2023-24",
+      "gw": 7,
+      "kind": "unexpected_benching",
+      "title": "Gross: unexpectedly benched",
+      "materiality": 3.215,
+      "dedupe_key": "bench:2023-24:7:60307"
+    },
+    {
+      "season": "2023-24",
+      "gw": 7,
+      "kind": "role_change",
+      "title": "Morris: role up (P(start) 70%\u219296%)",
+      "materiality": 1.236,
+      "dedupe_key": "role:2023-24:7:156700:up"
+    },
+    {
+      "season": "2023-24",
+      "gw": 7,
+      "kind": "unexpected_benching",
+      "title": "Henry: unexpectedly benched",
+      "materiality": 1.891,
+      "dedupe_key": "bench:2023-24:7:194010"
+    },
+    {
+      "season": "2023-24",
+      "gw": 7,
+      "kind": "unexpected_benching",
+      "title": "Foster: unexpectedly benched",
+      "materiality": 2.575,
+      "dedupe_key": "bench:2023-24:7:435973"
+    },
+    {
+      "season": "2023-24",
+      "gw": 9,
+      "kind": "role_change",
+      "title": "Gross: role up (P(start) 57%\u219290%)",
+      "materiality": 1.243,
+      "dedupe_key": "role:2023-24:9:60307:up"
+    },
+    {
+      "season": "2023-24",
+      "gw": 9,
+      "kind": "role_change",
+      "title": "Estupi\u00f1an: role down (P(start) 70%\u219212%)",
+      "materiality": 1.783,
+      "dedupe_key": "role:2023-24:9:204214:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 9,
+      "kind": "role_change",
+      "title": "Eze: role down (P(start) 78%\u219250%)",
+      "materiality": 1.493,
+      "dedupe_key": "role:2023-24:9:232413:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 9,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (78%)",
+      "materiality": 0.7835,
+      "dedupe_key": "price:2023-24:9:c290fc6f7ac2:7"
+    },
+    {
+      "season": "2023-24",
+      "gw": 11,
+      "kind": "role_change",
+      "title": "Foster: role down (P(start) 91%\u219244%)",
+      "materiality": 2.04,
+      "dedupe_key": "role:2023-24:11:435973:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 11,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (40%)",
+      "materiality": 0.3959,
+      "dedupe_key": "price:2023-24:11:ff0e1c934d6d:3"
+    },
+    {
+      "season": "2023-24",
+      "gw": 12,
+      "kind": "role_change",
+      "title": "Neto: role down (P(start) 87%\u219236%)",
+      "materiality": 2.504,
+      "dedupe_key": "role:2023-24:12:247632:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 12,
+      "kind": "role_change",
+      "title": "Foster: role down (P(start) 44%\u219219%)",
+      "materiality": 1.069,
+      "dedupe_key": "role:2023-24:12:435973:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 13,
+      "kind": "role_change",
+      "title": "White: role down (P(start) 91%\u219255%)",
+      "materiality": 1.671,
+      "dedupe_key": "role:2023-24:13:198869:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 13,
+      "kind": "unexpected_benching",
+      "title": "Mitoma: unexpectedly benched",
+      "materiality": 5.392,
+      "dedupe_key": "bench:2023-24:13:451340"
+    },
+    {
+      "season": "2023-24",
+      "gw": 14,
+      "kind": "role_change",
+      "title": "Mitoma: role down (P(start) 87%\u219246%)",
+      "materiality": 1.834,
+      "dedupe_key": "role:2023-24:14:451340:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 16,
+      "kind": "role_change",
+      "title": "Fabianski: role up (P(start) 6%\u219272%)",
+      "materiality": 1.039,
+      "dedupe_key": "role:2023-24:16:37096:up"
+    },
+    {
+      "season": "2023-24",
+      "gw": 16,
+      "kind": "role_change",
+      "title": "White: role up (P(start) 47%\u219280%)",
+      "materiality": 1.478,
+      "dedupe_key": "role:2023-24:16:198869:up"
+    },
+    {
+      "season": "2023-24",
+      "gw": 16,
+      "kind": "unexpected_benching",
+      "title": "Gibbs-White: unexpectedly benched",
+      "materiality": 3.75,
+      "dedupe_key": "bench:2023-24:16:222531"
+    },
+    {
+      "season": "2023-24",
+      "gw": 17,
+      "kind": "unexpected_benching",
+      "title": "T.Silva: unexpectedly benched",
+      "materiality": 2.477,
+      "dedupe_key": "bench:2023-24:17:51090"
+    },
+    {
+      "season": "2023-24",
+      "gw": 17,
+      "kind": "role_change",
+      "title": "Akanji: role down (P(start) 88%\u219263%)",
+      "materiality": 1.064,
+      "dedupe_key": "role:2023-24:17:211975:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 17,
+      "kind": "unexpected_benching",
+      "title": "Haaland: unexpectedly benched",
+      "materiality": 5.815,
+      "dedupe_key": "bench:2023-24:17:223094"
+    },
+    {
+      "season": "2023-24",
+      "gw": 17,
+      "kind": "role_change",
+      "title": "Mbeumo: role down (P(start) 81%\u219251%)",
+      "materiality": 2.129,
+      "dedupe_key": "role:2023-24:17:446008:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 18,
+      "kind": "role_change",
+      "title": "Trippier: role down (P(start) 89%\u219247%)",
+      "materiality": 2.304,
+      "dedupe_key": "role:2023-24:18:77794:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 18,
+      "kind": "role_change",
+      "title": "B.Fernandes: role down (P(start) 98%\u219256%)",
+      "materiality": 1.607,
+      "dedupe_key": "role:2023-24:18:141746:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 18,
+      "kind": "role_change",
+      "title": "Haaland: role down (P(start) 80%\u219248%)",
+      "materiality": 1.874,
+      "dedupe_key": "role:2023-24:18:223094:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 18,
+      "kind": "role_change",
+      "title": "Foster: role up (P(start) 12%\u219255%)",
+      "materiality": 2.161,
+      "dedupe_key": "role:2023-24:18:435973:up"
+    },
+    {
+      "season": "2023-24",
+      "gw": 18,
+      "kind": "role_change",
+      "title": "Mbeumo: role down (P(start) 51%\u219225%)",
+      "materiality": 1.274,
+      "dedupe_key": "role:2023-24:18:446008:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 19,
+      "kind": "role_change",
+      "title": "Fabianski: role down (P(start) 85%\u219241%)",
+      "materiality": 1.56,
+      "dedupe_key": "role:2023-24:19:37096:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 19,
+      "kind": "role_change",
+      "title": "Trippier: role up (P(start) 47%\u219285%)",
+      "materiality": 2.011,
+      "dedupe_key": "role:2023-24:19:77794:up"
+    },
+    {
+      "season": "2023-24",
+      "gw": 21,
+      "kind": "role_change",
+      "title": "Trippier: role down (P(start) 90%\u219252%)",
+      "materiality": 1.236,
+      "dedupe_key": "role:2023-24:21:77794:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 22,
+      "kind": "role_change",
+      "title": "Trippier: role up (P(start) 52%\u219279%)",
+      "materiality": 1.007,
+      "dedupe_key": "role:2023-24:22:77794:up"
+    },
+    {
+      "season": "2023-24",
+      "gw": 22,
+      "kind": "unexpected_benching",
+      "title": "Son: unexpectedly benched",
+      "materiality": 3.906,
+      "dedupe_key": "bench:2023-24:22:85971"
+    },
+    {
+      "season": "2023-24",
+      "gw": 22,
+      "kind": "unexpected_benching",
+      "title": "Salah: unexpectedly benched",
+      "materiality": 5.257,
+      "dedupe_key": "bench:2023-24:22:118748"
+    },
+    {
+      "season": "2023-24",
+      "gw": 22,
+      "kind": "role_change",
+      "title": "Hee Chan: role down (P(start) 90%\u219251%)",
+      "materiality": 1.61,
+      "dedupe_key": "role:2023-24:22:184754:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 22,
+      "kind": "role_change",
+      "title": "Akanji: role down (P(start) 83%\u219241%)",
+      "materiality": 1.273,
+      "dedupe_key": "role:2023-24:22:211975:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 22,
+      "kind": "unexpected_benching",
+      "title": "Gibbs-White: unexpectedly benched",
+      "materiality": 2.931,
+      "dedupe_key": "bench:2023-24:22:222531"
+    },
+    {
+      "season": "2023-24",
+      "gw": 22,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u224821.7 pts)",
+      "materiality": 21.749,
+      "dedupe_key": "fixture:2023-24:plan:22:de1e747d8a29"
+    },
+    {
+      "season": "2023-24",
+      "gw": 23,
+      "kind": "role_change",
+      "title": "Walker: role down (P(start) 89%\u219252%)",
+      "materiality": 1.801,
+      "dedupe_key": "role:2023-24:23:58621:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 25,
+      "kind": "role_change",
+      "title": "Diogo J.: role up (P(start) 71%\u219296%)",
+      "materiality": 1.7,
+      "dedupe_key": "role:2023-24:25:194634:up"
+    },
+    {
+      "season": "2023-24",
+      "gw": 25,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u22484.0 pts)",
+      "materiality": 4.013,
+      "dedupe_key": "fixture:2023-24:plan:25:a8f0adf70ef0"
+    },
+    {
+      "season": "2023-24",
+      "gw": 26,
+      "kind": "unexpected_benching",
+      "title": "Diogo J.: unexpectedly benched",
+      "materiality": 9.064,
+      "dedupe_key": "bench:2023-24:26:194634"
+    },
+    {
+      "season": "2023-24",
+      "gw": 26,
+      "kind": "role_change",
+      "title": "Pinnock: role down (P(start) 99%\u219245%)",
+      "materiality": 2.318,
+      "dedupe_key": "role:2023-24:26:231065:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 27,
+      "kind": "unexpected_benching",
+      "title": "J.Alvarez: unexpectedly benched",
+      "materiality": 2.751,
+      "dedupe_key": "bench:2023-24:27:461358"
+    },
+    {
+      "season": "2023-24",
+      "gw": 28,
+      "kind": "unexpected_benching",
+      "title": "Gross: unexpectedly benched",
+      "materiality": 3.875,
+      "dedupe_key": "bench:2023-24:28:60307"
+    },
+    {
+      "season": "2023-24",
+      "gw": 28,
+      "kind": "role_change",
+      "title": "Trippier: role down (P(start) 91%\u219258%)",
+      "materiality": 1.552,
+      "dedupe_key": "role:2023-24:28:77794:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 29,
+      "kind": "role_change",
+      "title": "Trippier: role down (P(start) 58%\u219228%)",
+      "materiality": 1.149,
+      "dedupe_key": "role:2023-24:29:77794:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 30,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u224840.2 pts)",
+      "materiality": 40.198,
+      "dedupe_key": "fixture:2023-24:plan:30:02b4e717fa20"
+    },
+    {
+      "season": "2023-24",
+      "gw": 31,
+      "kind": "role_change",
+      "title": "Walker: role down (P(start) 84%\u219230%)",
+      "materiality": 1.697,
+      "dedupe_key": "role:2023-24:31:58621:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 32,
+      "kind": "role_change",
+      "title": "Martinez: role down (P(start) 96%\u219257%)",
+      "materiality": 1.012,
+      "dedupe_key": "role:2023-24:32:98980:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 32,
+      "kind": "unexpected_benching",
+      "title": "Watkins: unexpectedly benched",
+      "materiality": 3.013,
+      "dedupe_key": "bench:2023-24:32:178301"
+    },
+    {
+      "season": "2023-24",
+      "gw": 32,
+      "kind": "role_change",
+      "title": "Saka: role down (P(start) 94%\u219269%)",
+      "materiality": 1.815,
+      "dedupe_key": "role:2023-24:32:223340:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 33,
+      "kind": "role_change",
+      "title": "Watkins: role up (P(start) 66%\u219293%)",
+      "materiality": 1.371,
+      "dedupe_key": "role:2023-24:33:178301:up"
+    },
+    {
+      "season": "2023-24",
+      "gw": 33,
+      "kind": "role_change",
+      "title": "Foden: role down (P(start) 75%\u219243%)",
+      "materiality": 1.669,
+      "dedupe_key": "role:2023-24:33:209244:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 34,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u224830.5 pts)",
+      "materiality": 30.482,
+      "dedupe_key": "fixture:2023-24:plan:34:5337e89afa4e"
+    },
+    {
+      "season": "2023-24",
+      "gw": 35,
+      "kind": "role_change",
+      "title": "Neto: role down (P(start) 100%\u219243%)",
+      "materiality": 3.607,
+      "dedupe_key": "role:2023-24:35:69752:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 35,
+      "kind": "unexpected_benching",
+      "title": "Palmer: unexpectedly benched",
+      "materiality": 3.094,
+      "dedupe_key": "bench:2023-24:35:244851"
+    },
+    {
+      "season": "2023-24",
+      "gw": 36,
+      "kind": "role_change",
+      "title": "Zabarnyi: role down (P(start) 99%\u219254%)",
+      "materiality": 1.35,
+      "dedupe_key": "role:2023-24:36:477580:down"
+    },
+    {
+      "season": "2023-24",
+      "gw": 37,
+      "kind": "unexpected_benching",
+      "title": "Martinez: unexpectedly benched",
+      "materiality": 1.366,
+      "dedupe_key": "bench:2023-24:37:98980"
+    },
+    {
+      "season": "2023-24",
+      "gw": 37,
+      "kind": "unexpected_benching",
+      "title": "B.Fernandes: unexpectedly benched",
+      "materiality": 4.717,
+      "dedupe_key": "bench:2023-24:37:141746"
+    },
+    {
+      "season": "2023-24",
+      "gw": 38,
+      "kind": "role_change",
+      "title": "Martinez: role up (P(start) 37%\u219280%)",
+      "materiality": 1.038,
+      "dedupe_key": "role:2023-24:38:98980:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 2,
+      "kind": "role_change",
+      "title": "Vardy: role up (P(start) 49%\u219286%)",
+      "materiality": 2.543,
+      "dedupe_key": "role:2024-25:2:101668:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 2,
+      "kind": "role_change",
+      "title": "Foden: role down (P(start) 86%\u219252%)",
+      "materiality": 1.606,
+      "dedupe_key": "role:2024-25:2:209244:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 2,
+      "kind": "role_change",
+      "title": "Mateta: role down (P(start) 73%\u219246%)",
+      "materiality": 1.362,
+      "dedupe_key": "role:2024-25:2:231747:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 3,
+      "kind": "role_change",
+      "title": "Foden: role down (P(start) 52%\u219219%)",
+      "materiality": 2.118,
+      "dedupe_key": "role:2024-25:3:209244:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 3,
+      "kind": "role_change",
+      "title": "Mateta: role up (P(start) 46%\u219281%)",
+      "materiality": 2.358,
+      "dedupe_key": "role:2024-25:3:231747:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 4,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (80%)",
+      "materiality": 0.796,
+      "dedupe_key": "price:2024-25:4:3d5c958c2b0a:7"
+    },
+    {
+      "season": "2024-25",
+      "gw": 5,
+      "kind": "unexpected_benching",
+      "title": "Gvardiol: unexpectedly benched",
+      "materiality": 3.73,
+      "dedupe_key": "bench:2024-25:5:477424"
+    },
+    {
+      "season": "2024-25",
+      "gw": 6,
+      "kind": "unexpected_benching",
+      "title": "White: unexpectedly benched",
+      "materiality": 2.251,
+      "dedupe_key": "bench:2024-25:6:198869"
+    },
+    {
+      "season": "2024-25",
+      "gw": 6,
+      "kind": "unexpected_benching",
+      "title": "Brereton D\u00edaz: unexpectedly benched",
+      "materiality": 2.036,
+      "dedupe_key": "bench:2024-25:6:204814"
+    },
+    {
+      "season": "2024-25",
+      "gw": 6,
+      "kind": "role_change",
+      "title": "Wissa: role down (P(start) 72%\u219229%)",
+      "materiality": 1.809,
+      "dedupe_key": "role:2024-25:6:216646:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 7,
+      "kind": "role_change",
+      "title": "White: role down (P(start) 78%\u219246%)",
+      "materiality": 1.579,
+      "dedupe_key": "role:2024-25:7:198869:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 8,
+      "kind": "role_change",
+      "title": "White: role down (P(start) 46%\u219220%)",
+      "materiality": 1.317,
+      "dedupe_key": "role:2024-25:8:198869:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 8,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (77%)",
+      "materiality": 0.7651,
+      "dedupe_key": "price:2024-25:8:7374c3842edf:7"
+    },
+    {
+      "season": "2024-25",
+      "gw": 9,
+      "kind": "role_change",
+      "title": "Mu\u00f1oz: role up (P(start) 62%\u219292%)",
+      "materiality": 1.022,
+      "dedupe_key": "role:2024-25:9:247348:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 10,
+      "kind": "role_change",
+      "title": "Gordon: role down (P(start) 90%\u219256%)",
+      "materiality": 1.312,
+      "dedupe_key": "role:2024-25:10:232826:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 11,
+      "kind": "role_change",
+      "title": "Eze: role down (P(start) 85%\u219246%)",
+      "materiality": 2.106,
+      "dedupe_key": "role:2024-25:11:232413:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 11,
+      "kind": "role_change",
+      "title": "Gordon: role up (P(start) 56%\u219286%)",
+      "materiality": 1.256,
+      "dedupe_key": "role:2024-25:11:232826:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 12,
+      "kind": "role_change",
+      "title": "Vardy: role down (P(start) 88%\u219241%)",
+      "materiality": 1.857,
+      "dedupe_key": "role:2024-25:12:101668:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 12,
+      "kind": "role_change",
+      "title": "Alexander-Arnold: role down (P(start) 83%\u219240%)",
+      "materiality": 2.097,
+      "dedupe_key": "role:2024-25:12:169187:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 12,
+      "kind": "role_change",
+      "title": "Eze: role down (P(start) 46%\u219217%)",
+      "materiality": 1.557,
+      "dedupe_key": "role:2024-25:12:232413:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 12,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (93%)",
+      "materiality": 0.9263,
+      "dedupe_key": "price:2024-25:12:88a497b7c1fa:9"
+    },
+    {
+      "season": "2024-25",
+      "gw": 13,
+      "kind": "unexpected_benching",
+      "title": "Johnson: unexpectedly benched",
+      "materiality": 3.133,
+      "dedupe_key": "bench:2024-25:13:242898"
+    },
+    {
+      "season": "2024-25",
+      "gw": 14,
+      "kind": "role_change",
+      "title": "Isak: role down (P(start) 96%\u219259%)",
+      "materiality": 1.676,
+      "dedupe_key": "role:2024-25:14:219168:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 14,
+      "kind": "role_change",
+      "title": "Gvardiol: role down (P(start) 90%\u219245%)",
+      "materiality": 1.103,
+      "dedupe_key": "role:2024-25:14:477424:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 15,
+      "kind": "role_change",
+      "title": "Ra\u00fal: role down (P(start) 76%\u219242%)",
+      "materiality": 1.659,
+      "dedupe_key": "role:2024-25:15:102057:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 15,
+      "kind": "role_change",
+      "title": "Isak: role up (P(start) 59%\u219291%)",
+      "materiality": 1.348,
+      "dedupe_key": "role:2024-25:15:219168:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 15,
+      "kind": "unexpected_benching",
+      "title": "Gabriel: unexpectedly benched",
+      "materiality": 2.274,
+      "dedupe_key": "bench:2024-25:15:226597"
+    },
+    {
+      "season": "2024-25",
+      "gw": 15,
+      "kind": "role_change",
+      "title": "Gvardiol: role up (P(start) 45%\u219287%)",
+      "materiality": 1.643,
+      "dedupe_key": "role:2024-25:15:477424:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 16,
+      "kind": "role_change",
+      "title": "Ra\u00fal: role up (P(start) 42%\u219276%)",
+      "materiality": 1.608,
+      "dedupe_key": "role:2024-25:16:102057:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 16,
+      "kind": "role_change",
+      "title": "Gabriel: role down (P(start) 57%\u219224%)",
+      "materiality": 1.275,
+      "dedupe_key": "role:2024-25:16:226597:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 16,
+      "kind": "unexpected_benching",
+      "title": "Gordon: unexpectedly benched",
+      "materiality": 3.221,
+      "dedupe_key": "bench:2024-25:16:232826"
+    },
+    {
+      "season": "2024-25",
+      "gw": 17,
+      "kind": "role_change",
+      "title": "Gabriel: role up (P(start) 24%\u219284%)",
+      "materiality": 2.844,
+      "dedupe_key": "role:2024-25:17:226597:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 17,
+      "kind": "unexpected_benching",
+      "title": "Johnson: unexpectedly benched",
+      "materiality": 3.153,
+      "dedupe_key": "bench:2024-25:17:242898"
+    },
+    {
+      "season": "2024-25",
+      "gw": 17,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (80%)",
+      "materiality": 0.8016,
+      "dedupe_key": "price:2024-25:17:df9f70d8fd02:8"
+    },
+    {
+      "season": "2024-25",
+      "gw": 18,
+      "kind": "role_change",
+      "title": "Mu\u00f1oz: role down (P(start) 97%\u219249%)",
+      "materiality": 1.498,
+      "dedupe_key": "role:2024-25:18:247348:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 19,
+      "kind": "role_change",
+      "title": "Mu\u00f1oz: role up (P(start) 49%\u219294%)",
+      "materiality": 1.209,
+      "dedupe_key": "role:2024-25:19:247348:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 19,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (55%)",
+      "materiality": 0.5485,
+      "dedupe_key": "price:2024-25:19:6e2f0daf04d4:5"
+    },
+    {
+      "season": "2024-25",
+      "gw": 22,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u22489.8 pts)",
+      "materiality": 9.836,
+      "dedupe_key": "fixture:2024-25:plan:22:93f50ef84828"
+    },
+    {
+      "season": "2024-25",
+      "gw": 23,
+      "kind": "role_change",
+      "title": "Solanke: role down (P(start) 99%\u219260%)",
+      "materiality": 1.504,
+      "dedupe_key": "role:2024-25:23:154566:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 23,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u22486.9 pts)",
+      "materiality": 6.936,
+      "dedupe_key": "fixture:2024-25:plan:23:6323b4f234c1"
+    },
+    {
+      "season": "2024-25",
+      "gw": 24,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (77%)",
+      "materiality": 0.7702,
+      "dedupe_key": "price:2024-25:24:0ca5b87cefd1:7"
+    },
+    {
+      "season": "2024-25",
+      "gw": 25,
+      "kind": "unexpected_benching",
+      "title": "Alexander-Arnold: unexpectedly benched",
+      "materiality": 7.492,
+      "dedupe_key": "bench:2024-25:25:169187"
+    },
+    {
+      "season": "2024-25",
+      "gw": 25,
+      "kind": "role_change",
+      "title": "Ndiaye: role down (P(start) 97%\u219261%)",
+      "materiality": 2.248,
+      "dedupe_key": "role:2024-25:25:440993:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 26,
+      "kind": "unexpected_benching",
+      "title": "Ndiaye: unexpectedly benched",
+      "materiality": 1.277,
+      "dedupe_key": "bench:2024-25:26:440993"
+    },
+    {
+      "season": "2024-25",
+      "gw": 28,
+      "kind": "unexpected_benching",
+      "title": "Iwobi: unexpectedly benched",
+      "materiality": 2.905,
+      "dedupe_key": "bench:2024-25:28:153133"
+    },
+    {
+      "season": "2024-25",
+      "gw": 28,
+      "kind": "role_change",
+      "title": "Robinson: role down (P(start) 100%\u219262%)",
+      "materiality": 1.473,
+      "dedupe_key": "role:2024-25:28:169528:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 28,
+      "kind": "unexpected_benching",
+      "title": "Isak: unexpectedly benched",
+      "materiality": 3.985,
+      "dedupe_key": "bench:2024-25:28:219168"
+    },
+    {
+      "season": "2024-25",
+      "gw": 29,
+      "kind": "role_change",
+      "title": "Robinson: role up (P(start) 62%\u219291%)",
+      "materiality": 1.037,
+      "dedupe_key": "role:2024-25:29:169528:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 29,
+      "kind": "role_change",
+      "title": "Mateta: role down (P(start) 94%\u219255%)",
+      "materiality": 2.449,
+      "dedupe_key": "role:2024-25:29:231747:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 29,
+      "kind": "role_change",
+      "title": "O.Dango: role down (P(start) 86%\u219255%)",
+      "materiality": 1.484,
+      "dedupe_key": "role:2024-25:29:533463:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 30,
+      "kind": "unexpected_benching",
+      "title": "Mateta: unexpectedly benched",
+      "materiality": 1.446,
+      "dedupe_key": "bench:2024-25:30:231747"
+    },
+    {
+      "season": "2024-25",
+      "gw": 30,
+      "kind": "unexpected_benching",
+      "title": "Palmer: unexpectedly benched",
+      "materiality": 4.183,
+      "dedupe_key": "bench:2024-25:30:244851"
+    },
+    {
+      "season": "2024-25",
+      "gw": 30,
+      "kind": "role_change",
+      "title": "O.Dango: role down (P(start) 55%\u219230%)",
+      "materiality": 1.253,
+      "dedupe_key": "role:2024-25:30:533463:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 30,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u224823.2 pts)",
+      "materiality": 23.21,
+      "dedupe_key": "fixture:2024-25:plan:30:6a763c78d724"
+    },
+    {
+      "season": "2024-25",
+      "gw": 31,
+      "kind": "role_change",
+      "title": "Ndiaye: role up (P(start) 10%\u219255%)",
+      "materiality": 2.137,
+      "dedupe_key": "role:2024-25:31:440993:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 31,
+      "kind": "role_change",
+      "title": "O.Dango: role up (P(start) 30%\u219276%)",
+      "materiality": 3.658,
+      "dedupe_key": "role:2024-25:31:533463:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 34,
+      "kind": "unexpected_benching",
+      "title": "Mateta: unexpectedly benched",
+      "materiality": 5.223,
+      "dedupe_key": "bench:2024-25:34:231747"
+    },
+    {
+      "season": "2024-25",
+      "gw": 34,
+      "kind": "unexpected_benching",
+      "title": "I.Sarr: unexpectedly benched",
+      "materiality": 7.058,
+      "dedupe_key": "bench:2024-25:34:232185"
+    },
+    {
+      "season": "2024-25",
+      "gw": 35,
+      "kind": "unexpected_benching",
+      "title": "Tarkowski: unexpectedly benched",
+      "materiality": 1.932,
+      "dedupe_key": "bench:2024-25:35:17761"
+    },
+    {
+      "season": "2024-25",
+      "gw": 35,
+      "kind": "unexpected_benching",
+      "title": "Robinson: unexpectedly benched",
+      "materiality": 3.82,
+      "dedupe_key": "bench:2024-25:35:169528"
+    },
+    {
+      "season": "2024-25",
+      "gw": 36,
+      "kind": "role_change",
+      "title": "Tarkowski: role down (P(start) 56%\u219230%)",
+      "materiality": 1.178,
+      "dedupe_key": "role:2024-25:36:17761:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 36,
+      "kind": "role_change",
+      "title": "Strand Larsen: role down (P(start) 85%\u219235%)",
+      "materiality": 1.839,
+      "dedupe_key": "role:2024-25:36:247412:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 37,
+      "kind": "role_change",
+      "title": "Robinson: role down (P(start) 94%\u219240%)",
+      "materiality": 2.28,
+      "dedupe_key": "role:2024-25:37:169528:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 38,
+      "kind": "role_change",
+      "title": "Robinson: role up (P(start) 40%\u219287%)",
+      "materiality": 1.522,
+      "dedupe_key": "role:2024-25:38:169528:up"
+    },
+    {
+      "season": "2024-25",
+      "gw": 38,
+      "kind": "role_change",
+      "title": "Isak: role down (P(start) 91%\u219266%)",
+      "materiality": 1.121,
+      "dedupe_key": "role:2024-25:38:219168:down"
+    },
+    {
+      "season": "2024-25",
+      "gw": 38,
+      "kind": "unexpected_benching",
+      "title": "Cunha: unexpectedly benched",
+      "materiality": 2.571,
+      "dedupe_key": "bench:2024-25:38:430871"
+    },
+    {
+      "season": "2025-26",
+      "gw": 2,
+      "kind": "role_change",
+      "title": "Wissa: role down (P(start) 85%\u219237%)",
+      "materiality": 2.684,
+      "dedupe_key": "role:2025-26:2:216646:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 2,
+      "kind": "role_change",
+      "title": "Mykolenko: role down (P(start) 89%\u219238%)",
+      "materiality": 2.158,
+      "dedupe_key": "role:2025-26:2:224967:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 3,
+      "kind": "role_change",
+      "title": "Eze: role down (P(start) 86%\u219240%)",
+      "materiality": 2.585,
+      "dedupe_key": "role:2025-26:3:232413:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 3,
+      "kind": "role_change",
+      "title": "Palmer: role down (P(start) 90%\u219259%)",
+      "materiality": 1.641,
+      "dedupe_key": "role:2025-26:3:244851:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 3,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (47%)",
+      "materiality": 0.4657,
+      "dedupe_key": "price:2025-26:3:50424a1f406e:4"
+    },
+    {
+      "season": "2025-26",
+      "gw": 4,
+      "kind": "role_change",
+      "title": "Mykolenko: role up (P(start) 20%\u219289%)",
+      "materiality": 2.985,
+      "dedupe_key": "role:2025-26:4:224967:up"
+    },
+    {
+      "season": "2025-26",
+      "gw": 5,
+      "kind": "unexpected_benching",
+      "title": "Cucurella: unexpectedly benched",
+      "materiality": 3.05,
+      "dedupe_key": "bench:2025-26:5:179268"
+    },
+    {
+      "season": "2025-26",
+      "gw": 5,
+      "kind": "role_change",
+      "title": "Mykolenko: role down (P(start) 89%\u219236%)",
+      "materiality": 1.829,
+      "dedupe_key": "role:2025-26:5:224967:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 5,
+      "kind": "role_change",
+      "title": "Sarr: role down (P(start) 91%\u219251%)",
+      "materiality": 2.377,
+      "dedupe_key": "role:2025-26:5:232185:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 5,
+      "kind": "role_change",
+      "title": "Eze: role up (P(start) 50%\u219278%)",
+      "materiality": 1.454,
+      "dedupe_key": "role:2025-26:5:232413:up"
+    },
+    {
+      "season": "2025-26",
+      "gw": 6,
+      "kind": "role_change",
+      "title": "Sch\u00e4r: role down (P(start) 91%\u219256%)",
+      "materiality": 1.487,
+      "dedupe_key": "role:2025-26:6:119471:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 6,
+      "kind": "role_change",
+      "title": "Mykolenko: role up (P(start) 36%\u219284%)",
+      "materiality": 1.385,
+      "dedupe_key": "role:2025-26:6:224967:up"
+    },
+    {
+      "season": "2025-26",
+      "gw": 6,
+      "kind": "role_change",
+      "title": "Sarr: role down (P(start) 51%\u219220%)",
+      "materiality": 1.838,
+      "dedupe_key": "role:2025-26:6:232185:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 7,
+      "kind": "role_change",
+      "title": "Sch\u00e4r: role down (P(start) 56%\u219222%)",
+      "materiality": 1.44,
+      "dedupe_key": "role:2025-26:7:119471:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 7,
+      "kind": "role_change",
+      "title": "Sarr: role up (P(start) 20%\u219282%)",
+      "materiality": 3.658,
+      "dedupe_key": "role:2025-26:7:232185:up"
+    },
+    {
+      "season": "2025-26",
+      "gw": 7,
+      "kind": "role_change",
+      "title": "Ekitik\u00e9: role down (P(start) 72%\u219234%)",
+      "materiality": 1.808,
+      "dedupe_key": "role:2025-26:7:510663:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 7,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (96%)",
+      "materiality": 0.9608,
+      "dedupe_key": "price:2025-26:7:a8a45b699347:9"
+    },
+    {
+      "season": "2025-26",
+      "gw": 9,
+      "kind": "unexpected_benching",
+      "title": "Wood: unexpectedly benched",
+      "materiality": 1.819,
+      "dedupe_key": "bench:2025-26:9:60689"
+    },
+    {
+      "season": "2025-26",
+      "gw": 9,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (85%)",
+      "materiality": 0.8488,
+      "dedupe_key": "price:2025-26:9:d86f68931e53:8"
+    },
+    {
+      "season": "2025-26",
+      "gw": 13,
+      "kind": "role_change",
+      "title": "Burn: role down (P(start) 88%\u219247%)",
+      "materiality": 1.437,
+      "dedupe_key": "role:2025-26:13:78916:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 13,
+      "kind": "role_change",
+      "title": "Gabriel: role down (P(start) 92%\u219260%)",
+      "materiality": 1.785,
+      "dedupe_key": "role:2025-26:13:226597:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 13,
+      "kind": "role_change",
+      "title": "Semenyo: role down (P(start) 100%\u219274%)",
+      "materiality": 1.521,
+      "dedupe_key": "role:2025-26:13:437730:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 13,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (78%)",
+      "materiality": 0.7808,
+      "dedupe_key": "price:2025-26:13:d27b773bfa80:7"
+    },
+    {
+      "season": "2025-26",
+      "gw": 14,
+      "kind": "role_change",
+      "title": "Sarr: role down (P(start) 91%\u219257%)",
+      "materiality": 1.846,
+      "dedupe_key": "role:2025-26:14:232185:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 15,
+      "kind": "role_change",
+      "title": "Senesi: role down (P(start) 86%\u219238%)",
+      "materiality": 2.463,
+      "dedupe_key": "role:2025-26:15:221466:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 15,
+      "kind": "unexpected_benching",
+      "title": "Sarr: unexpectedly benched",
+      "materiality": 1.871,
+      "dedupe_key": "bench:2025-26:15:232185"
+    },
+    {
+      "season": "2025-26",
+      "gw": 15,
+      "kind": "unexpected_benching",
+      "title": "Thiago: unexpectedly benched",
+      "materiality": 3.191,
+      "dedupe_key": "bench:2025-26:15:502500"
+    },
+    {
+      "season": "2025-26",
+      "gw": 15,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (53%)",
+      "materiality": 0.525,
+      "dedupe_key": "price:2025-26:15:3ac40a3cdc21:5"
+    },
+    {
+      "season": "2025-26",
+      "gw": 16,
+      "kind": "unexpected_benching",
+      "title": "Mu\u00f1oz: unexpectedly benched",
+      "materiality": 4.61,
+      "dedupe_key": "bench:2025-26:16:247348"
+    },
+    {
+      "season": "2025-26",
+      "gw": 17,
+      "kind": "role_change",
+      "title": "Mu\u00f1oz: role down (P(start) 85%\u219254%)",
+      "materiality": 1.246,
+      "dedupe_key": "role:2025-26:17:247348:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 17,
+      "kind": "role_change",
+      "title": "Schade: role down (P(start) 89%\u219254%)",
+      "materiality": 1.847,
+      "dedupe_key": "role:2025-26:17:513418:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 17,
+      "kind": "price_risk",
+      "title": "Planned transfer at risk from price changes (92%)",
+      "materiality": 0.922,
+      "dedupe_key": "price:2025-26:17:c9e6d9c5e15d:9"
+    },
+    {
+      "season": "2025-26",
+      "gw": 18,
+      "kind": "role_change",
+      "title": "Van Hecke: role down (P(start) 98%\u219268%)",
+      "materiality": 1.473,
+      "dedupe_key": "role:2025-26:18:469142:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 19,
+      "kind": "unexpected_benching",
+      "title": "B.Fernandes: unexpectedly benched",
+      "materiality": 2.928,
+      "dedupe_key": "bench:2025-26:19:141746"
+    },
+    {
+      "season": "2025-26",
+      "gw": 19,
+      "kind": "role_change",
+      "title": "Szoboszlai: role down (P(start) 89%\u219252%)",
+      "materiality": 1.95,
+      "dedupe_key": "role:2025-26:19:424876:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 19,
+      "kind": "role_change",
+      "title": "Van den Berg: role down (P(start) 99%\u219268%)",
+      "materiality": 1.331,
+      "dedupe_key": "role:2025-26:19:444765:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 20,
+      "kind": "role_change",
+      "title": "B.Fernandes: role down (P(start) 52%\u219226%)",
+      "materiality": 1.739,
+      "dedupe_key": "role:2025-26:20:141746:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 20,
+      "kind": "role_change",
+      "title": "Szoboszlai: role up (P(start) 52%\u219289%)",
+      "materiality": 1.855,
+      "dedupe_key": "role:2025-26:20:424876:up"
+    },
+    {
+      "season": "2025-26",
+      "gw": 20,
+      "kind": "role_change",
+      "title": "Van den Berg: role down (P(start) 68%\u219241%)",
+      "materiality": 1.207,
+      "dedupe_key": "role:2025-26:20:444765:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 22,
+      "kind": "role_change",
+      "title": "B.Fernandes: role up (P(start) 32%\u219272%)",
+      "materiality": 2.723,
+      "dedupe_key": "role:2025-26:22:141746:up"
+    },
+    {
+      "season": "2025-26",
+      "gw": 23,
+      "kind": "role_change",
+      "title": "Gu\u00e9hi: role down (P(start) 90%\u219258%)",
+      "materiality": 1.502,
+      "dedupe_key": "role:2025-26:23:209036:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 24,
+      "kind": "role_change",
+      "title": "Tavernier: role down (P(start) 87%\u219254%)",
+      "materiality": 1.511,
+      "dedupe_key": "role:2025-26:24:201658:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 24,
+      "kind": "unexpected_benching",
+      "title": "Haaland: unexpectedly benched",
+      "materiality": 5.027,
+      "dedupe_key": "bench:2025-26:24:223094"
+    },
+    {
+      "season": "2025-26",
+      "gw": 25,
+      "kind": "role_change",
+      "title": "Tavernier: role down (P(start) 54%\u219228%)",
+      "materiality": 1.284,
+      "dedupe_key": "role:2025-26:25:201658:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 25,
+      "kind": "unexpected_benching",
+      "title": "Collins: unexpectedly benched",
+      "materiality": 3.374,
+      "dedupe_key": "bench:2025-26:25:432830"
+    },
+    {
+      "season": "2025-26",
+      "gw": 26,
+      "kind": "role_change",
+      "title": "Van Hecke: role down (P(start) 96%\u219260%)",
+      "materiality": 1.417,
+      "dedupe_key": "role:2025-26:26:469142:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 27,
+      "kind": "role_change",
+      "title": "J.Gomes: role down (P(start) 99%\u219270%)",
+      "materiality": 1.847,
+      "dedupe_key": "role:2025-26:27:448089:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 28,
+      "kind": "role_change",
+      "title": "Mukiele: role down (P(start) 96%\u219263%)",
+      "materiality": 1.471,
+      "dedupe_key": "role:2025-26:28:200834:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 28,
+      "kind": "role_change",
+      "title": "J.Gomes: role down (P(start) 70%\u219240%)",
+      "materiality": 1.104,
+      "dedupe_key": "role:2025-26:28:448089:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 29,
+      "kind": "unexpected_benching",
+      "title": "Mukiele: unexpectedly benched",
+      "materiality": 1.424,
+      "dedupe_key": "bench:2025-26:29:200834"
+    },
+    {
+      "season": "2025-26",
+      "gw": 29,
+      "kind": "unexpected_benching",
+      "title": "Haaland: unexpectedly benched",
+      "materiality": 4.829,
+      "dedupe_key": "bench:2025-26:29:223094"
+    },
+    {
+      "season": "2025-26",
+      "gw": 29,
+      "kind": "role_change",
+      "title": "J.Gomes: role up (P(start) 40%\u219284%)",
+      "materiality": 1.884,
+      "dedupe_key": "role:2025-26:29:448089:up"
+    },
+    {
+      "season": "2025-26",
+      "gw": 30,
+      "kind": "role_change",
+      "title": "Roefs: role down (P(start) 95%\u219247%)",
+      "materiality": 1.439,
+      "dedupe_key": "role:2025-26:30:498016:down"
+    },
+    {
+      "season": "2025-26",
+      "gw": 32,
+      "kind": "unexpected_benching",
+      "title": "Thiaw: unexpectedly benched",
+      "materiality": 4.662,
+      "dedupe_key": "bench:2025-26:32:465642"
+    },
+    {
+      "season": "2025-26",
+      "gw": 32,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u224851.5 pts)",
+      "materiality": 51.472,
+      "dedupe_key": "fixture:2025-26:plan:32:086154c47d95"
+    },
+    {
+      "season": "2025-26",
+      "gw": 33,
+      "kind": "unexpected_benching",
+      "title": "Stach: unexpectedly benched",
+      "materiality": 2.955,
+      "dedupe_key": "bench:2025-26:33:466525"
+    },
+    {
+      "season": "2025-26",
+      "gw": 33,
+      "kind": "role_change",
+      "title": "Roefs: role up (P(start) 19%\u219279%)",
+      "materiality": 2.32,
+      "dedupe_key": "role:2025-26:33:498016:up"
+    },
+    {
+      "season": "2025-26",
+      "gw": 33,
+      "kind": "fixture_change",
+      "title": "Fixture changes affect your plan (\u224811.1 pts)",
+      "materiality": 11.07,
+      "dedupe_key": "fixture:2025-26:plan:33:2058ad5baa15"
+    },
+    {
+      "season": "2025-26",
+      "gw": 36,
+      "kind": "unexpected_benching",
+      "title": "Anderson: unexpectedly benched",
+      "materiality": 3.641,
+      "dedupe_key": "bench:2025-26:36:215379"
+    },
+    {
+      "season": "2025-26",
+      "gw": 37,
+      "kind": "unexpected_benching",
+      "title": "Haaland: unexpectedly benched",
+      "materiality": 9.362,
+      "dedupe_key": "bench:2025-26:37:223094"
+    },
+    {
+      "season": "2025-26",
+      "gw": 37,
+      "kind": "role_change",
+      "title": "Cherki: role down (P(start) 97%\u219256%)",
+      "materiality": 3.759,
+      "dedupe_key": "role:2025-26:37:466052:down"
+    }
+  ],
+  "price_risk": [
+    {
+      "season": "2023-24",
+      "gw": 3,
+      "buys": [
+        "Henry",
+        "Foden",
+        "Haaland"
+      ],
+      "max_p_rise_buy": 0.25,
+      "alert": true,
+      "probability": 0.668
+    },
+    {
+      "season": "2023-24",
+      "gw": 4,
+      "buys": [
+        "Morris"
+      ],
+      "max_p_rise_buy": 0.014184397163120567,
+      "alert": false,
+      "probability": null
+    },
+    {
+      "season": "2023-24",
+      "gw": 6,
+      "buys": [
+        "Eze",
+        "Foster"
+      ],
+      "max_p_rise_buy": 0.15702479338842976,
+      "alert": false,
+      "probability": null
+    },
+    {
+      "season": "2023-24",
+      "gw": 9,
+      "buys": [
+        "White",
+        "Neto"
+      ],
+      "max_p_rise_buy": 0.5,
+      "alert": true,
+      "probability": 0.7835
+    },
+    {
+      "season": "2023-24",
+      "gw": 11,
+      "buys": [
+        "Andersen",
+        "Hee Chan"
+      ],
+      "max_p_rise_buy": 0.25308641975308643,
+      "alert": true,
+      "probability": 0.3959
+    },
+    {
+      "season": "2023-24",
+      "gw": 12,
+      "buys": [
+        "Mitoma"
+      ],
+      "max_p_rise_buy": 0.06666666666666667,
+      "alert": false,
+      "probability": null
+    },
+    {
+      "season": "2024-25",
+      "gw": 4,
+      "buys": [
+        "Eze",
+        "Palmer",
+        "Wissa"
+      ],
+      "max_p_rise_buy": 0.42424242424242425,
+      "alert": true,
+      "probability": 0.796
+    },
+    {
+      "season": "2024-25",
+      "gw": 8,
+      "buys": [
+        "Robinson",
+        "Johnson",
+        "Mbeumo",
+        "Ra\u00fal"
+      ],
+      "max_p_rise_buy": 0.3798449612403101,
+      "alert": true,
+      "probability": 0.7651
+    },
+    {
+      "season": "2024-25",
+      "gw": 12,
+      "buys": [
+        "Virgil",
+        "B.Fernandes",
+        "Isak",
+        "Evanilson"
+      ],
+      "max_p_rise_buy": 0.5106382978723404,
+      "alert": true,
+      "probability": 0.9263
+    },
+    {
+      "season": "2024-25",
+      "gw": 17,
+      "buys": [
+        "Milenkovi\u0107",
+        "Lacroix",
+        "M.Salah",
+        "Iwobi",
+        "Lankshear"
+      ],
+      "max_p_rise_buy": 0.27340823970037453,
+      "alert": true,
+      "probability": 0.8016
+    },
+    {
+      "season": "2024-25",
+      "gw": 19,
+      "buys": [
+        "I.Sarr",
+        "Solanke"
+      ],
+      "max_p_rise_buy": 0.2807017543859649,
+      "alert": true,
+      "probability": 0.5485
+    },
+    {
+      "season": "2024-25",
+      "gw": 24,
+      "buys": [
+        "Tarkowski",
+        "Virgil",
+        "Alexander-Arnold",
+        "O.Dango",
+        "Ndiaye"
+      ],
+      "max_p_rise_buy": 0.30714285714285716,
+      "alert": true,
+      "probability": 0.7702
+    },
+    {
+      "season": "2025-26",
+      "gw": 3,
+      "buys": [
+        "Elanga",
+        "Ekitik\u00e9"
+      ],
+      "max_p_rise_buy": 0.38461538461538464,
+      "alert": true,
+      "probability": 0.4657
+    },
+    {
+      "season": "2025-26",
+      "gw": 7,
+      "buys": [
+        "Burn",
+        "Senesi",
+        "Anthony",
+        "Haaland"
+      ],
+      "max_p_rise_buy": 0.5714285714285714,
+      "alert": true,
+      "probability": 0.9608
+    },
+    {
+      "season": "2025-26",
+      "gw": 9,
+      "buys": [
+        "Gabriel",
+        "Minteh"
+      ],
+      "max_p_rise_buy": 0.9659520807061792,
+      "alert": true,
+      "probability": 0.8488
+    },
+    {
+      "season": "2025-26",
+      "gw": 13,
+      "buys": [
+        "Gu\u00e9hi",
+        "Van den Berg",
+        "B.Fernandes",
+        "Thiago"
+      ],
+      "max_p_rise_buy": 0.3068181818181818,
+      "alert": true,
+      "probability": 0.7808
+    },
+    {
+      "season": "2025-26",
+      "gw": 15,
+      "buys": [
+        "Thiaw",
+        "Szoboszlai"
+      ],
+      "max_p_rise_buy": 0.21621621621621623,
+      "alert": true,
+      "probability": 0.525
+    },
+    {
+      "season": "2025-26",
+      "gw": 17,
+      "buys": [
+        "Verbruggen",
+        "Collins",
+        "Van Hecke",
+        "Tavernier",
+        "Foden"
+      ],
+      "max_p_rise_buy": 0.875,
+      "alert": true,
+      "probability": 0.922
+    }
+  ],
+  "post_gameweek_with_explained_misses": 110,
+  "post_gameweek_reviews": 111,
+  "deadline": [
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": 30,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": 20,
+      "alert": "GW6 deadline in under 24h",
+      "local": "2026-10-10T11:00:00+01:00",
+      "dedupe_key": "deadline:2026-27:6:24h"
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": 20,
+      "alert": "GW6 deadline in under 24h",
+      "local": "2026-10-10T11:00:00+01:00",
+      "dedupe_key": "deadline:2026-27:6:24h"
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": 1.5,
+      "alert": "GW6 deadline in under 2h",
+      "local": "2026-10-10T11:00:00+01:00",
+      "dedupe_key": "deadline:2026-27:6:2h"
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": -0.1,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": 30,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": 20,
+      "alert": "GW6 deadline in under 24h",
+      "local": "2026-10-10T15:30:00+05:30",
+      "dedupe_key": "deadline:2026-27:6:24h"
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": 20,
+      "alert": "GW6 deadline in under 24h",
+      "local": "2026-10-10T15:30:00+05:30",
+      "dedupe_key": "deadline:2026-27:6:24h"
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": 1.5,
+      "alert": "GW6 deadline in under 2h",
+      "local": "2026-10-10T15:30:00+05:30",
+      "dedupe_key": "deadline:2026-27:6:2h"
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": -0.1,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": 30,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": 20,
+      "alert": "GW6 deadline in under 24h",
+      "local": "2026-10-10T06:00:00-04:00",
+      "dedupe_key": "deadline:2026-27:6:24h"
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": 20,
+      "alert": "GW6 deadline in under 24h",
+      "local": "2026-10-10T06:00:00-04:00",
+      "dedupe_key": "deadline:2026-27:6:24h"
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": 1.5,
+      "alert": "GW6 deadline in under 2h",
+      "local": "2026-10-10T06:00:00-04:00",
+      "dedupe_key": "deadline:2026-27:6:2h"
+    },
+    {
+      "gw": 6,
+      "deadline_utc": "2026-10-10T10:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": -0.1,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": 30,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": 20,
+      "alert": "GW9 deadline in under 24h",
+      "local": "2026-10-31T11:00:00+00:00",
+      "dedupe_key": "deadline:2026-27:9:24h"
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": 20,
+      "alert": "GW9 deadline in under 24h",
+      "local": "2026-10-31T11:00:00+00:00",
+      "dedupe_key": "deadline:2026-27:9:24h"
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": 1.5,
+      "alert": "GW9 deadline in under 2h",
+      "local": "2026-10-31T11:00:00+00:00",
+      "dedupe_key": "deadline:2026-27:9:2h"
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Europe/London",
+      "hours_before": -0.1,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": 30,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": 20,
+      "alert": "GW9 deadline in under 24h",
+      "local": "2026-10-31T16:30:00+05:30",
+      "dedupe_key": "deadline:2026-27:9:24h"
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": 20,
+      "alert": "GW9 deadline in under 24h",
+      "local": "2026-10-31T16:30:00+05:30",
+      "dedupe_key": "deadline:2026-27:9:24h"
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": 1.5,
+      "alert": "GW9 deadline in under 2h",
+      "local": "2026-10-31T16:30:00+05:30",
+      "dedupe_key": "deadline:2026-27:9:2h"
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "Asia/Kolkata",
+      "hours_before": -0.1,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": 30,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": 20,
+      "alert": "GW9 deadline in under 24h",
+      "local": "2026-10-31T07:00:00-04:00",
+      "dedupe_key": "deadline:2026-27:9:24h"
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": 20,
+      "alert": "GW9 deadline in under 24h",
+      "local": "2026-10-31T07:00:00-04:00",
+      "dedupe_key": "deadline:2026-27:9:24h"
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": 1.5,
+      "alert": "GW9 deadline in under 2h",
+      "local": "2026-10-31T07:00:00-04:00",
+      "dedupe_key": "deadline:2026-27:9:2h"
+    },
+    {
+      "gw": 9,
+      "deadline_utc": "2026-10-31T11:00:00+00:00",
+      "timezone": "America/New_York",
+      "hours_before": -0.1,
+      "alert": null,
+      "local": null,
+      "dedupe_key": null
+    }
+  ],
+  "webhook_failure_paths": [
+    {
+      "url": "https://hooks.invalid/x",
+      "result": "rejected: cannot resolve 'hooks.invalid'"
+    },
+    {
+      "url": "https://localhost/x",
+      "result": "rejected: 'localhost' resolves to a non-public address"
+    },
+    {
+      "url": "https://10.1.2.3/x",
+      "result": "rejected: '10.1.2.3' resolves to a non-public address"
+    },
+    {
+      "url": "http://example.org/x",
+      "result": "rejected: only https webhooks are allowed"
+    }
+  ]
+}

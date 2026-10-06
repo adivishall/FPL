@@ -6,27 +6,27 @@ Inputs: stored walk-forward predictions from `forecast_eval.py` (114 cutoffs). G
 
 | test season | weight on MC (chosen earlier) | RMSE ensemble | RMSE MC | RMSE direct |
 |---|---|---|---|---|
-| 2024-25 | 0.75 | 1.9124 | 1.9168 | 1.9215 |
-| 2025-26 | 0.65 | 1.9216 | 1.9221 | 1.9350 |
+| 2024-25 | 0.65 | 1.9107 | 1.9167 | 1.9187 |
+| 2025-26 | 0.60 | 1.9231 | 1.9230 | 1.9366 |
 
 ## Conformal intervals (target coverage ≥ 0.80; calibration = previous 8 cutoffs' rows with known outcomes)
 
 | method | horizon | n | coverage | mean width |
 |---|---|---|---|---|
-| cqr_adjusted | 0 | 83,035 | 0.939 | 2.70 |
-| cqr_adjusted | 1 | 78,618 | 0.936 | 2.81 |
-| cqr_adjusted | 2 | 73,610 | 0.936 | 2.88 |
-| cqr_adjusted | 3 | 68,811 | 0.934 | 2.91 |
-| cqr_adjusted | 4 | 62,716 | 0.933 | 2.90 |
-| mc_quantiles | 0 | 83,035 | 0.939 | 2.70 |
-| mc_quantiles | 1 | 78,618 | 0.936 | 2.81 |
-| mc_quantiles | 2 | 73,610 | 0.936 | 2.88 |
-| mc_quantiles | 3 | 68,811 | 0.934 | 2.91 |
-| mc_quantiles | 4 | 62,716 | 0.933 | 2.90 |
-| residual_conformal | 0 | 83,035 | 0.805 | 3.19 |
-| residual_conformal | 1 | 78,618 | 0.805 | 3.30 |
-| residual_conformal | 2 | 73,610 | 0.806 | 3.40 |
-| residual_conformal | 3 | 68,811 | 0.806 | 3.44 |
-| residual_conformal | 4 | 62,716 | 0.806 | 3.48 |
+| cqr_adjusted | 0 | 84,057 | 0.939 | 2.71 |
+| cqr_adjusted | 1 | 79,608 | 0.936 | 2.82 |
+| cqr_adjusted | 2 | 75,083 | 0.936 | 2.89 |
+| cqr_adjusted | 3 | 70,753 | 0.935 | 2.92 |
+| cqr_adjusted | 4 | 66,163 | 0.932 | 2.90 |
+| mc_quantiles | 0 | 84,057 | 0.939 | 2.71 |
+| mc_quantiles | 1 | 79,608 | 0.936 | 2.82 |
+| mc_quantiles | 2 | 75,083 | 0.936 | 2.89 |
+| mc_quantiles | 3 | 70,753 | 0.935 | 2.92 |
+| mc_quantiles | 4 | 66,163 | 0.932 | 2.90 |
+| residual_conformal | 0 | 84,057 | 0.805 | 3.20 |
+| residual_conformal | 1 | 79,608 | 0.804 | 3.33 |
+| residual_conformal | 2 | 75,083 | 0.806 | 3.42 |
+| residual_conformal | 3 | 70,753 | 0.805 | 3.47 |
+| residual_conformal | 4 | 66,163 | 0.805 | 3.51 |
 
 Interpretation is in `docs/MODEL_CARD.md` §4 (adoption decisions are recorded there, not here).

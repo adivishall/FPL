@@ -1,0 +1,256 @@
+{
+  "machine": {
+    "cpu": "Apple M4",
+    "logical_cpus": 10,
+    "memory_gb": 16.0,
+    "python": "3.12.15",
+    "platform": "macOS-27.0.1-arm64-arm-64bit"
+  },
+  "measured_at": "2026-10-05 09:50 IST",
+  "in_process": {
+    "snapshot": {
+      "id": "snap_f07530594f3810cc5574",
+      "load_and_verify_s": 1.23,
+      "id_lookup_ms": 0.013
+    },
+    "forecast": {
+      "season": "2026-27",
+      "gameweek": 6,
+      "players": 667,
+      "rows": 5336,
+      "n_sims": 1000,
+      "cold_train_and_simulate_s": 71.8,
+      "disk_cache_load_s": 0.03,
+      "memory_cache_ms": 0.06,
+      "shorter_horizon_from_cache_ms": 0.02,
+      "peak_rss_gb_before": 0.42,
+      "peak_rss_gb_after": 1.99
+    },
+    "price_model_train_predict_s": 2.44,
+    "cold_process_first_players_request_s": 1.15,
+    "latency_in_process": {
+      "GET /health": {
+        "n": 200,
+        "p50_ms": 4.5,
+        "p95_ms": 4.7,
+        "p99_ms": 5.1,
+        "max_ms": 49.1
+      },
+      "GET /gameweeks/current": {
+        "n": 200,
+        "p50_ms": 3.3,
+        "p95_ms": 3.5,
+        "p99_ms": 4.1,
+        "max_ms": 4.3
+      },
+      "GET /players?limit=50": {
+        "n": 200,
+        "p50_ms": 11.1,
+        "p95_ms": 11.5,
+        "p99_ms": 12.1,
+        "max_ms": 54.4
+      },
+      "GET /players/{code}/forecast (cached)": {
+        "n": 200,
+        "p50_ms": 9.2,
+        "p95_ms": 9.4,
+        "p99_ms": 9.5,
+        "max_ms": 9.7
+      },
+      "GET /players/{code} (profile)": {
+        "n": 50,
+        "p50_ms": 14.1,
+        "p95_ms": 15.3,
+        "p99_ms": 36.8,
+        "max_ms": 56.7
+      },
+      "GET /squad": {
+        "n": 100,
+        "p50_ms": 4.5,
+        "p95_ms": 4.7,
+        "p99_ms": 4.8,
+        "max_ms": 4.9
+      },
+      "POST /lineup": {
+        "n": 30,
+        "p50_ms": 22.8,
+        "p95_ms": 23.1,
+        "p99_ms": 23.2,
+        "max_ms": 23.2
+      },
+      "POST /replacements (1 player, 5 GW)": {
+        "n": 15,
+        "p50_ms": 17664.8,
+        "p95_ms": 17769.7,
+        "p99_ms": 17770.7,
+        "max_ms": 17770.9
+      },
+      "POST /optimize (1 GW)": {
+        "n": 15,
+        "p50_ms": 216.7,
+        "p95_ms": 219.0,
+        "p99_ms": 219.2,
+        "max_ms": 219.2
+      },
+      "POST /optimize (5 GW, 1 alt)": {
+        "n": 10,
+        "p50_ms": 16129.3,
+        "p95_ms": 16170.1,
+        "p99_ms": 16174.8,
+        "max_ms": 16175.9
+      },
+      "POST /what-if (1 scenario, 5 GW)": {
+        "n": 10,
+        "p50_ms": 8079.8,
+        "p95_ms": 8232.6,
+        "p99_ms": 8259.0,
+        "max_ms": 8265.5
+      },
+      "GET /metrics": {
+        "n": 100,
+        "p50_ms": 5.3,
+        "p95_ms": 5.5,
+        "p99_ms": 5.7,
+        "max_ms": 5.9
+      }
+    },
+    "db_save_squad": {
+      "n": 20,
+      "p50_ms": 9.4,
+      "p95_ms": 10.1,
+      "p99_ms": 13.2,
+      "max_ms": 14.0
+    },
+    "recommendation_full": [
+      {
+        "profile": "default",
+        "status": "succeeded",
+        "wall_s": 135.7,
+        "stages_s": {
+          "chips": 45.54,
+          "total": 135.66,
+          "optimise": 19.96,
+          "scenarios": 11.87,
+          "stability": 58.27,
+          "simulate_plans": 0.02
+        }
+      },
+      {
+        "profile": "conservative",
+        "status": "succeeded",
+        "wall_s": 177.7,
+        "stages_s": {
+          "chips": 36.36,
+          "total": 177.61,
+          "optimise": 4.04,
+          "scenarios": 3.9,
+          "stability": 133.26,
+          "simulate_plans": 0.02
+        }
+      },
+      {
+        "profile": "aggressive",
+        "status": "succeeded",
+        "wall_s": 158.6,
+        "stages_s": {
+          "chips": 58.27,
+          "total": 158.52,
+          "optimise": 19.68,
+          "scenarios": 12.3,
+          "stability": 68.24,
+          "simulate_plans": 0.02
+        }
+      }
+    ],
+    "alerts_evaluation_s": 0.02,
+    "trace": {
+      "n": 20,
+      "p50_ms": 3.9,
+      "p95_ms": 4.3,
+      "p99_ms": 6.0,
+      "max_ms": 6.5
+    },
+    "db_export": {
+      "n": 10,
+      "p50_ms": 8.1,
+      "p95_ms": 12.5,
+      "p99_ms": 15.0,
+      "max_ms": 15.6
+    },
+    "peak_rss_gb_process": 1.99
+  },
+  "deployed": {
+    "web": "http://127.0.0.1:3000",
+    "api": "http://127.0.0.1:8000",
+    "latency_http": {
+      "GET /gameweeks/current (via web proxy)": {
+        "n": 40,
+        "p50_ms": 22.4,
+        "p95_ms": 24.8,
+        "p99_ms": 25.0,
+        "max_ms": 25.1
+      },
+      "GET /gameweeks/current (direct API + key)": {
+        "n": 40,
+        "p50_ms": 19.2,
+        "p95_ms": 20.4,
+        "p99_ms": 20.9,
+        "max_ms": 20.9
+      },
+      "GET /players?limit=50 (via web proxy)": {
+        "n": 40,
+        "p50_ms": 41.8,
+        "p95_ms": 44.8,
+        "p99_ms": 51.7,
+        "max_ms": 55.9
+      },
+      "GET /players?limit=50 (direct API + key)": {
+        "n": 40,
+        "p50_ms": 38.6,
+        "p95_ms": 41.5,
+        "p99_ms": 42.5,
+        "max_ms": 43.0
+      },
+      "GET /players/{code}/forecast (via web proxy)": {
+        "n": 40,
+        "p50_ms": 36.8,
+        "p95_ms": 40.7,
+        "p99_ms": 101.1,
+        "max_ms": 134.3
+      },
+      "GET /players/{code}/forecast (direct API + key)": {
+        "n": 40,
+        "p50_ms": 34.7,
+        "p95_ms": 37.1,
+        "p99_ms": 38.0,
+        "max_ms": 38.1
+      }
+    },
+    "worker_alert_job_round_trip": [
+      {
+        "status": "succeeded",
+        "seconds": 1.56
+      },
+      {
+        "status": "succeeded",
+        "seconds": 1.56
+      },
+      {
+        "status": "succeeded",
+        "seconds": 1.56
+      },
+      {
+        "status": "succeeded",
+        "seconds": 1.56
+      },
+      {
+        "status": "succeeded",
+        "seconds": 1.56
+      }
+    ],
+    "worker_recommendation_job": {
+      "status": "succeeded",
+      "seconds": 48.1
+    }
+  }
+}

@@ -6,47 +6,47 @@ Snapshot `snap_b64560a8c4f434ad984e`; normalised LightGBM gain at 6 training cut
 
 ## start
 
-Rank stability 0.968; unstable features: start_rate_short.
+Rank stability 0.967; unstable features: start_rate_short.
 
 | feature | mean gain share | CV across cutoffs |
 |---|---|---|
-| mins_ewm_short | 0.414 | 0.08 |
-| mins_last1 | 0.283 | 0.11 |
-| mins_ewm_long | 0.047 | 0.38 |
-| app_rate_short | 0.036 | 0.16 |
-| ownership_pctile | 0.020 | 0.31 |
-| full90_rate_long | 0.017 | 0.21 |
-| ppg_season | 0.016 | 0.17 |
-| price | 0.014 | 0.23 |
-| zero_min_streak | 0.014 | 0.47 |
-| days_since_last_app | 0.013 | 0.19 |
-| start_rate_short | 0.013 | 0.69 |
-| horizon | 0.012 | 0.03 |
-| team_xg_for_ewm | 0.011 | 0.22 |
+| mins_ewm_short | 0.436 | 0.07 |
+| mins_last1 | 0.257 | 0.17 |
+| mins_ewm_long | 0.047 | 0.31 |
+| app_rate_short | 0.040 | 0.07 |
+| ownership_pctile | 0.020 | 0.30 |
+| full90_rate_long | 0.018 | 0.27 |
+| ppg_season | 0.016 | 0.21 |
+| price | 0.015 | 0.26 |
+| zero_min_streak | 0.014 | 0.44 |
+| days_since_last_app | 0.012 | 0.18 |
 | mins_if_start_long | 0.011 | 0.25 |
-| net_transfers_last_gw | 0.010 | 0.25 |
+| horizon | 0.011 | 0.05 |
+| team_xg_for_ewm | 0.011 | 0.17 |
+| start_rate_short | 0.010 | 0.73 |
+| net_transfers_last_gw | 0.010 | 0.23 |
 
 ## direct_points
 
-Rank stability 0.974; unstable features: none.
+Rank stability 0.972; unstable features: none.
 
 | feature | mean gain share | CV across cutoffs |
 |---|---|---|
-| mins_last1 | 0.247 | 0.24 |
-| pts_ewm_short | 0.228 | 0.40 |
-| pts_ewm_long | 0.072 | 0.15 |
-| mins_ewm_short | 0.068 | 0.10 |
-| price | 0.048 | 0.15 |
-| app_rate_short | 0.036 | 0.20 |
-| ownership_pctile | 0.028 | 0.32 |
-| days_rest | 0.025 | 0.39 |
-| opp_xg_for_ewm | 0.019 | 0.06 |
+| pts_ewm_short | 0.260 | 0.31 |
+| mins_last1 | 0.204 | 0.22 |
+| pts_ewm_long | 0.076 | 0.15 |
+| mins_ewm_short | 0.074 | 0.12 |
+| price | 0.049 | 0.15 |
+| app_rate_short | 0.040 | 0.18 |
+| ownership_pctile | 0.027 | 0.29 |
+| days_rest | 0.025 | 0.40 |
+| opp_xg_for_ewm | 0.019 | 0.09 |
 | opp_xg_against_ewm | 0.018 | 0.09 |
-| threat_p90 | 0.015 | 0.21 |
-| ppg_season | 0.014 | 0.26 |
-| creativity_p90 | 0.012 | 0.28 |
-| is_home | 0.010 | 0.28 |
-| team_xg_against_ewm | 0.010 | 0.10 |
+| threat_p90 | 0.014 | 0.20 |
+| ppg_season | 0.013 | 0.24 |
+| creativity_p90 | 0.012 | 0.31 |
+| is_home | 0.011 | 0.28 |
+| team_xg_against_ewm | 0.009 | 0.16 |
 
 ## price_rise
 

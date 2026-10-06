@@ -52,3 +52,13 @@ Not observable in the public historical dataset (no manager-level data). Verifie
 * in live operation, the manager-sync replay cross-checks every gameweek's replayed hit cost
   against FPL's recorded `event_transfers_cost` and reports disagreements
   (`fpl_ingestion.manager_sync`).
+
+
+## Addendum (2026-10-05, local development machine)
+
+The egress block described above applied to the earlier cloud build environment only. On the
+local machine `fantasy.premierleague.com` and `premierleague.com` are reachable: live bootstrap
+and fixture captures, live squad sync (verified against official picks) and the hourly scheduled
+refresh run against the real API, and `tests/integration/test_live_rules.py` (marker `network`)
+checks the 2026-27 ruleset against the official `game_settings`, chip windows and scoring table
+(all pass). Degraded mode remains the behaviour whenever the source is unreachable.

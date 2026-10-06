@@ -68,31 +68,35 @@ per player × GW samples → mean, quantiles, P(≥2/6/10/15), component means, 
 | Feature set | 49 registered features, `FEATURE_VERSION 1.0.0` (AST-fingerprint locked); data dictionary §5 |
 | Seeds | simulation 20260828; LightGBM seeds in configs; split-half / bootstrap seeds in scripts |
 
-## 4. Evaluation (114 decision cutoffs, 2023-24 → 2025-26, horizon 5, 396,696 player × GW rows)
+## 4. Evaluation (114 decision cutoffs, 2023-24 → 2025-26, horizon 5, 405,942 player × GW rows)
+
+Regenerated on 2026-10-04 under schedule rule S1 (ADR-0004: the fixture schedule as published at
+each cutoff). The earlier numbers (396,696 rows, RMSE 1.927) read the archive's final schedule;
+the conclusions below did not change.
 
 **Point accuracy, horizon 0** (RMSE primary; paired bootstrap over cutoffs, 95 % CI):
 
 | Forecaster | RMSE all | RMSE regulars | Spearman all |
 |---|---|---|---|
-| **Decomposed MC (mean)** | **1.927** | **2.957** | **0.712** |
-| Direct LightGBM | 1.938 | 2.973 | 0.706 |
-| ppg × availability | 2.034 | 3.125 | 0.677 |
-| Recent form | 2.037 | 3.136 | 0.678 |
-| FPL-style heuristic (approximation) | 2.054 | 3.152 | 0.688 |
-| Position mean | 2.361 | 3.538 | 0.085 |
+| **Decomposed MC (mean)** | **1.924** | **2.955** | **0.706** |
+| Direct LightGBM | 1.934 | 2.968 | 0.700 |
+| ppg × availability | 2.031 | 3.125 | 0.671 |
+| Recent form | 2.035 | 3.138 | 0.673 |
+| FPL-style heuristic (approximation) | 2.053 | 3.157 | 0.682 |
+| Position mean | 2.351 | 3.520 | 0.083 |
 
-MC − direct LightGBM: −0.0093 RMSE [−0.0115, −0.0071] (all), −0.0158 [−0.0200, −0.0116]
+MC − direct LightGBM: −0.0084 RMSE [−0.0104, −0.0063] (all), −0.0142 [−0.0180, −0.0104]
 (regulars). MC − best simple baseline: −0.093 [−0.111, −0.078]. The advantage holds at every
-horizon (h4: 2.034 vs 2.046 direct, 2.127 best baseline).
+horizon (h4: 2.060 vs 2.070 direct, 2.151 best baseline).
 
-**Distributional quality, horizon 0**: CRPS 0.630 vs 0.726 for a position × role climatology
-(−0.070 [−0.073, −0.067]); P(≥6) Brier 0.056 / ECE 0.003; randomised-PIT central 80 % coverage
-0.803 and 50 % coverage 0.503; PIT histogram max deviation 0.004 → well calibrated. The inclusive
+**Distributional quality, horizon 0**: CRPS 0.628 vs 0.722 for a position × role climatology
+(−0.068 [−0.071, −0.065]); P(≥6) Brier 0.055 / ECE 0.003; randomised-PIT central 80 % coverage
+0.804 and 50 % coverage 0.505; PIT histogram max deviation 0.006 → well calibrated. The inclusive
 [p10, p90] interval covers 0.938 because points are integers (40 % of rows have p10 = p90); this is
 why the first coverage gate was mis-specified (§6).
 
-**Minutes, horizon 0**: P(start) Brier 0.081 vs 0.100 (rate baseline), log loss 0.263 vs 0.349,
-ECE 0.010 vs 0.018; expected-minutes MAE 13.9 vs 15.9.
+**Minutes, horizon 0**: P(start) Brier 0.083 vs 0.101 (rate baseline), log loss 0.268 vs 0.355,
+ECE 0.011 vs 0.021; expected-minutes MAE 14.1 vs 16.0.
 
 **Price change** (76,516 predictions): rise log loss 0.059 vs 0.084 trend baseline vs 0.102 base
 rate (AUC 0.957 / 0.792 / 0.478); fall log loss 0.151 vs 0.176 vs 0.196 (AUC 0.863 / 0.733);
@@ -130,7 +134,7 @@ more training rows carry it (0.005 → 0.024); the combined share of the colline
 * **Gate outcomes on the evaluation above**: minutes@1.0.0 PASSED; price_change@1.0.0 PASSED;
   points@1.0.0 **FAILED** (`interval_80_coverage` = 0.938, target 0.75–0.90). Diagnosis: the gate,
   not the model, was mis-specified for integer outcomes (see §4). points@1.1.0 replaces it with the
-  PIT-based central coverage (0.803, target 0.77–0.83) → PASSED. The correction was made after
+  PIT-based central coverage (0.803; 0.804 after the S1 re-evaluation; target 0.77–0.83) → PASSED. The correction was made after
   seeing the result and is recorded as such in the config header and the report's gate history.
 * Drift: PSI per feature (training reference vs current snapshot), residual RMSE ratio, bias and
   ECE; retraining triggers = schedule (4 GWs) **or** degradation (RMSE ratio > 1.15, |bias| > 0.4,

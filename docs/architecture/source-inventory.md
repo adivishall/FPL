@@ -69,3 +69,13 @@ defensive actions (2025-26+). Shots, box touches, key passes, big chances are **
 from any reachable source; the ingestion layer exposes an `UnderlyingStatsSource` interface so
 such a provider can be added with source priority and conflict tracking. Documented in
 KNOWN_LIMITATIONS.
+
+
+## Addendum (2026-10-05, local development machine)
+
+The egress block described above applied to the earlier cloud build environment only. On the
+local machine `fantasy.premierleague.com` and `premierleague.com` are reachable: live bootstrap
+and fixture captures, live squad sync (verified against official picks) and the hourly scheduled
+refresh run against the real API, and `tests/integration/test_live_rules.py` (marker `network`)
+checks the 2026-27 ruleset against the official `game_settings`, chip windows and scoring table
+(all pass). Degraded mode remains the behaviour whenever the source is unreachable.
