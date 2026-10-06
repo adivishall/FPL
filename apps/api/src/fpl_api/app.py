@@ -31,7 +31,7 @@ from fpl_api.container import AppServices, build_recommendation, optimization_pr
 from fpl_api.jobs import JobBackend
 from fpl_api.lineage import trace
 from fpl_api.privacy import audit, delete_manager, export_manager
-from fpl_api.security import Guard, hash_key
+from fpl_api.security import Guard, hash_key, loggable_path
 from fpl_api.services import ForecastUnavailable, sources_config
 from fpl_api.settings import Settings
 from fpl_decision.captaincy import analyse_captaincy
@@ -119,7 +119,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                     "security_event",
                     kind=kind,
                     method=request.method,
-                    path=request.url.path,
+                    path=loggable_path(request.url.path),
                     client=guard.client_id(request)[:20],
                     request_id=rid,
                 )
@@ -829,7 +829,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                 404,
                 f"no recommendation yet for GW{ctx.gameweek}; POST {API}/recommendations/generate",
             )
-        return {**rec, "freshness": fresh()}
+        return {**rec, "names": rec_names(rec), "freshness": fresh()}
 
     @r.get("/recommendations/{rec_id}")
     def get_rec(rec_id: str) -> dict[str, Any]:
@@ -838,7 +838,18 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         rec = svc.recs.get(rec_id)
         if rec is None:
             raise HTTPException(404, f"recommendation {rec_id} not found")
-        return {**rec, "freshness": fresh()}
+        return {**rec, "names": rec_names(rec), "freshness": fresh()}
+
+    def rec_names(rec: dict[str, Any]) -> dict[str, str | None]:
+        """Names of every player an alternative sells or buys (incoming players are not in the
+        manager's squad, so the UI cannot name them from the squad)."""
+        codes = {
+            int(c)
+            for a in rec.get("alternatives") or []
+            for c in [*(a.get("sells") or []), *(a.get("buys") or [])]
+        }
+        names = svc.data.names(svc.context().season)
+        return {str(c): names.get(c) for c in sorted(codes)}
 
     @r.get("/decisions")
     def decisions(manager_key: str = Query(..., max_length=64)) -> dict[str, Any]:

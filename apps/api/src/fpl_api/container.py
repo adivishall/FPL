@@ -25,6 +25,7 @@ from fpl_api.watch import plan_watch
 from fpl_decision.engine import DecisionContext, RecommendationPackage, recommend
 from fpl_decision.inputs import player_table
 from fpl_decision.render import render_markdown
+from fpl_domain.hashing import short_id
 from fpl_domain.state import ManagerState, with_current_clubs
 from fpl_forecasting.pipeline import Forecast
 from fpl_notifications.store import NotificationStore
@@ -168,6 +169,7 @@ def build_recommendation(
         gameweeks=tuple(range(ctx.gameweek, ctx.gameweek + table.horizon)),
         features=svc.forecasts.features(ctx.season, ctx.gameweek, h),
         names=names,
+        team_names=svc.data.teams(ctx.season),
         preferences=preferences or Preferences(),
         price_probs=prices,
     )
@@ -194,9 +196,26 @@ def build_recommendation(
         pkg.assumptions.append("price-change probabilities unavailable: price risk not assessed")
     rec_id = None
     if persist and svc.recs is not None:
+        # Stored records belong to one manager. Two managers with identical squads get the same
+        # computation (its content id is kept as the run's input hash) but separate records, so
+        # each sees, traces, exports and erases only their own.
+        computed = pkg.optimizer_run_id
+        scope = {"state": state_id, "manager": manager_key}
+        pkg = pkg.model_copy(
+            update={
+                "optimizer_run_id": short_id("opt", {"run": computed, **scope}),
+                "decision_id": short_id("dec", {"decision": pkg.decision_id, **scope}),
+            }
+        )
         watch = plan_watch(svc, ctx, fc, state, pkg)
         rec_id = svc.recs.save(
-            pkg, manager_key, state_id, render_markdown(pkg, names), watch, fc.run_id
+            pkg,
+            manager_key,
+            state_id,
+            render_markdown(pkg, names),
+            watch,
+            fc.run_id,
+            input_hash=computed,
         )
     svc.metrics.recommendations.labels("success").inc()
     return rec_id, pkg

@@ -112,6 +112,7 @@ class UnsafeUrl(ValueError):
 
 
 Resolver = Callable[[str, int], list[str]]
+_NAT64 = ipaddress.IPv6Network("64:ff9b::/96")  # "global" per IANA, but maps onto IPv4
 
 
 def _resolve(host: str, port: int) -> list[str]:
@@ -126,7 +127,11 @@ def validate_webhook_url(
     The host allow-list is the primary control (DNS answers can change between this check and
     the connection); the public-address check is defence in depth.
     """
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+        port = parts.port  # parsed lazily: raises on out-of-range or non-numeric ports
+    except ValueError as exc:  # e.g. "https://[::1", ":99999", ":abc"
+        raise UnsafeUrl("malformed webhook URL") from exc
     if parts.scheme != "https":
         raise UnsafeUrl("only https webhooks are allowed")
     if parts.username or parts.password:
@@ -134,7 +139,7 @@ def validate_webhook_url(
     host = (parts.hostname or "").lower().rstrip(".")
     if not host or host not in {h.lower() for h in allowed_hosts}:
         raise UnsafeUrl(f"host '{host}' is not on the webhook allow-list")
-    if parts.port not in (None, 443):
+    if port not in (None, 443):
         raise UnsafeUrl("only the default https port is allowed")
     try:
         addrs = resolver(host, 443)
@@ -144,6 +149,8 @@ def validate_webhook_url(
         raise UnsafeUrl(f"'{host}' has no addresses")
     for a in addrs:
         ip = ipaddress.ip_address(a)
+        if isinstance(ip, ipaddress.IPv6Address) and ip in _NAT64:  # judge the embedded IPv4
+            ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
         if not ip.is_global or ip.is_multicast:
             raise UnsafeUrl(f"'{host}' resolves to a non-public address")
     return url

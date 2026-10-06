@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -48,6 +49,15 @@ PRIVILEGED_GET_PREFIXES = (
 
 def hash_key(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+_MANAGER_IN_PATH = re.compile(r"(/managers/)([^/]+)")
+
+
+def loggable_path(path: str) -> str:
+    """A request path safe to log: manager keys in the path are replaced by a short hash (the
+    same pseudonym the audit log uses), so logs never hold the identifier itself."""
+    return _MANAGER_IN_PATH.sub(lambda mt: mt.group(1) + "k:" + hash_key(mt.group(2))[:16], path)
 
 
 @dataclass

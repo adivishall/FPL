@@ -203,6 +203,7 @@ class DecisionContext:
     features: pd.DataFrame | None = None
     price_probs: pd.DataFrame | None = None
     names: dict[int, str] | None = None
+    team_names: dict[int, str] | None = None
     preferences: Preferences = field(default_factory=Preferences)
     chip_options: dict[str, tuple[int, ...]] | None = None
 
@@ -301,15 +302,22 @@ def _binding_constraints(
     idx = prob.players.index()
     teams = Counter(int(prob.players.team[idx[c]]) for c in first.squad)
     full = sorted(t for t, n in teams.items() if n >= rs.squad.max_per_club)
+
+    def listed(codes: Any, labels: dict[int, str] | None) -> str:
+        return ", ".join((labels or {}).get(c, str(c)) for c in sorted(codes))
+
     if full:
-        out.append(f"club limit: {rs.squad.max_per_club} players already from team(s) {full}")
+        out.append(
+            f"club limit: {rs.squad.max_per_club} players already from "
+            f"{listed(full, ctx.team_names)}"
+        )
     if prob.preferences.locked:
-        out.append(f"user locks: {sorted(prob.preferences.locked)} must be kept")
+        out.append(f"user locks: {listed(prob.preferences.locked, ctx.names)} must be kept")
     if prob.preferences.banned:
-        out.append(f"user exclusions: {sorted(prob.preferences.banned)}")
+        out.append(f"user exclusions: {listed(prob.preferences.banned, ctx.names)}")
     unavailable = [c.chip_id for c in ctx.state.chips if not c.usable_in(ctx.gameweeks[0])]
     if unavailable:
-        out.append(f"chips not usable this GW: {unavailable}")
+        out.append(f"chips not usable this GW: {', '.join(unavailable)}")
     return out
 
 
@@ -366,8 +374,11 @@ def recommend(
         if s.passes_thresholds and s.objective_gain_vs_hold > 0:
             chosen = s
             break
+        out_, in_ = (
+            ", ".join((ctx.names or {}).get(c, str(c)) for c in x) for x in (s.sells, s.buys)
+        )
         refusal.append(
-            f"{s.label} ({s.action} out {s.sells} in {s.buys}): horizon gain "
+            f"{s.label} ({s.action} out {out_}; in {in_}): horizon gain "
             f"{s.gain_horizon.mean:+.2f} pts (threshold {cfg.decision.min_gain}), "
             f"P(gain>0) {s.gain_horizon.probability_positive:.2f} "
             f"(threshold {cfg.decision.min_prob_positive})"

@@ -86,6 +86,8 @@ def test_healthy_optimal_squad_holds_with_reasons(base) -> None:  # type: ignore
     assert pkg.decision["action"] == "HOLD"
     assert pkg.chosen.label == "hold"
     assert pkg.explanation.refusal_reasons  # explains why no move cleared the thresholds
+    assert not any("[" in r for r in pkg.explanation.refusal_reasons)  # names, not code lists
+    assert not any("[" in b for b in pkg.explanation.constraints_binding)
     assert pkg.alternatives  # alternatives are still shown
 
 

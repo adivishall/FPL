@@ -11,6 +11,8 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+import structlog
+import structlog.testing
 from fastapi.testclient import TestClient
 
 from fpl_api.app import create_app
@@ -222,6 +224,8 @@ def test_recommendation_lifecycle_and_journal(client: TestClient, squad: list[in
     assert any("stale" in a or "expired" in a for a in rec["assumptions"])
     detail = client.get(f"/api/v1/recommendations/{rec['id']}").json()
     assert detail["optimizer_run_id"] == rec["optimizer_run_id"]
+    moved = {c for a in rec["alternatives"] for c in [*a["sells"], *a["buys"]]}
+    assert {int(c) for c in rec["names"]} == moved and all(rec["names"].values())
     fb = client.post(
         f"/api/v1/decisions/{rec['id']}/feedback", json={"followed": "followed", "note": "did it"}
     )
@@ -375,6 +379,19 @@ def test_manager_linked_reads_need_a_key_reference_reads_do_not(tmp_path: Path) 
             assert c.get(path, headers={"X-API-Key": key}).status_code not in (401, 403), path
         for path in ("/api/v1/health", "/api/v1/gameweeks/current", "/api/v1/reports"):
             assert c.get(path).status_code == 200, path
+        # rejected requests are logged as security events without the manager key in the path
+        manager = "private-manager-7f3a"
+        with structlog.testing.capture_logs() as logs:
+            for hdr in ({}, {"X-API-Key": "wrong"}):
+                assert c.get(f"/api/v1/managers/{manager}/export", headers=hdr).status_code in (
+                    401,
+                    403,
+                )
+                c.delete(f"/api/v1/managers/{manager}", headers=hdr)
+        events = [e for e in logs if e.get("event") == "security_event"]
+        assert len(events) == 4
+        assert all(f"/managers/k:{hash_key(manager)[:16]}" in e["path"] for e in events)
+        assert manager not in repr(logs) and "wrong" not in repr(logs)
 
 
 # ----------------------------------------------------------------------------- M13: §74–§76
@@ -511,6 +528,11 @@ def test_settings_reject_unsafe_webhook_and_bad_timezone(client: TestClient) -> 
         json={"webhook_url": "https://169.254.169.254/latest/meta-data"},
     )
     assert bad.status_code == 422 and "allow-list" in bad.json()["detail"]
+    for url in ("https://[::1", "https://hooks.example.com:99999/x"):  # was a 500
+        r = client.post(
+            "/api/v1/settings", params={"manager_key": "demo"}, json={"webhook_url": url}
+        )
+        assert r.status_code == 422 and "malformed" in r.json()["detail"], url
     tz = client.post(
         "/api/v1/settings", params={"manager_key": "demo"}, json={"timezone": "Mars/Olympus"}
     )
@@ -569,3 +591,32 @@ def test_observability_metrics(client: TestClient, rec: dict) -> None:  # type: 
     ):
         assert name in text, name
     assert 'fpl_recommendations_total{outcome="success"}' in text
+
+
+def test_identical_squads_of_two_managers_get_separate_records(
+    client: TestClient,
+    squad: list[int],
+    rec: dict,  # type: ignore[type-arg]
+) -> None:
+    """Regression: recommendation ids were content hashes of the computation alone, so a second
+    manager with the same squad silently received (and could erase) the first one's record."""
+    demo = client.get("/api/v1/squad", params={"manager_key": "demo"}).json()["state"]
+    twin = "twin-manager"
+    body = {"picks": [{"player_code": c} for c in squad], "bank": demo["bank"]}
+    r = client.post("/api/v1/squad", json={"manager_key": twin, **body, "free_transfers": 1})
+    assert r.status_code == 200, r.text
+    gen = {"horizon": 2, "stability": False, "scenarios": True, "chips": False}
+    job = client.post("/api/v1/recommendations/generate", json={"manager_key": twin, **gen})
+    assert client.get(f"/api/v1/jobs/{job.json()['job_id']}").json()["status"] == "succeeded"
+    mine = client.get("/api/v1/recommendations/current", params={"manager_key": twin})
+    assert mine.status_code == 200, mine.text
+    rec_twin = mine.json()
+    assert rec_twin["id"] != rec["id"] and rec_twin["manager_key"] == twin
+    assert rec_twin["optimizer_run_id"] != rec["optimizer_run_id"]
+    trace = client.get(f"/api/v1/recommendations/{rec_twin['id']}/trace").json()
+    assert all(c["ok"] for c in trace["checks"]), trace["checks"]
+    # erasing the twin leaves the first manager's recommendation and its trace intact
+    assert client.delete(f"/api/v1/managers/{twin}").status_code == 200
+    assert client.get(f"/api/v1/recommendations/{rec_twin['id']}").status_code == 404
+    kept = client.get(f"/api/v1/recommendations/{rec['id']}/trace").json()
+    assert all(c["ok"] for c in kept["checks"]), kept["checks"]
