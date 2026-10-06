@@ -57,8 +57,9 @@ All other settings are `fpl_api.settings.Settings` fields with the `FPL_` prefix
    `ml/reports/performance.md`).
 5. `docker compose up -d` (api, worker, scheduler, web).
 6. `uv run python infra/scripts/smoke.py --api http://localhost:8000 --web http://localhost:3000`.
-7. Full production-topology browser suite (15 flows: proxy-only traffic, key enforcement, worker
-   jobs, alerts, settings, traceability, export/delete, error states, rate limiting):
+7. Full production-topology browser suite (17 flows: proxy-only traffic, key enforcement, squad,
+   captain/bench, worker jobs, alerts, settings, traceability, export/delete, Backtest Lab, error
+   states, rate limiting):
 
    ```bash
    cd apps/web && E2E_BASE_URL=http://127.0.0.1:3000 E2E_API_URL=http://127.0.0.1:8000 \
@@ -94,9 +95,23 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
 
 ## Retention
 
-Every live refresh exports a ~3 MB snapshot (hourly by default: ~70 MB/day). There is no automatic
-retention yet: prune old `snap_*` directories (keep the pinned evaluation snapshot and the one
-being served) and their `/data/artifacts/forecasts` entries periodically.
+Every live refresh exports a ~3 MB snapshot and, once a forecast is computed for it, a ~30 MB
+feature cache and a ~7 MB forecast — about 1 GB a day unpruned (measured on the local stack).
+The scheduler submits a `retention` job hourly (`fpl_api/retention.py`):
+
+* kept with caches: the `FPL_SNAPSHOT_RETENTION_KEEP` newest snapshots (default 24), the one the
+  API serves, and every evaluation snapshot pinned in `config/backtest/*.yaml`;
+* kept without caches: any other snapshot a stored recommendation, backtest run or registered
+  model references (its decisions stay traceable and re-derivable; caches are recomputable);
+* deleted: all other snapshots with their feature caches and serving markers, forecast/price
+  caches unused by a kept serving forecast and older than `FPL_ARTIFACT_RETENTION_HOURS`
+  (default 24), exports interrupted before their manifest and temporary files of killed writers.
+
+Database rows are never deleted. A path that cannot be deleted fails the job after the rest is
+done (`failure=error`, `JobFailures` alert); `0` disables pruning. Not pruned: `/data/raw` (the
+captured source payloads that canonical rows cite as provenance, ~0.3 MB per hourly capture) and
+the PostgreSQL tables of live observations — both grow slowly and need an archival policy before
+multi-year operation (`docs/KNOWN_LIMITATIONS.md`).
 
 ## Backups
 
@@ -124,7 +139,10 @@ in `infra/deployment/prometheus/alerts.yml`. Exposed series:
 * Optimisation: `fpl_optimization_seconds{stage}` and `fpl_optimization_status_total{status}`
   (validator verdict on the chosen plan).
 * Outcomes and queue: `fpl_recommendations_total{outcome}`, `fpl_jobs{status}` (queue depth =
-  `queued`), `fpl_job_failures_total{kind}`.
+  `queued`), `fpl_jobs_failed{kind,failure}` (from the database, so failures closed by the
+  scheduler's reaper count too) and the per-process `fpl_job_failures_total{kind,failure}`;
+  `failure` is `error` (the job's code raised) or `interrupted` (its worker was killed, lost or
+  timed out).
 * Freshness and models: `fpl_data_freshness_hours{source}`, `fpl_model_metric{model,metric}`
   (published gate metrics: PIT coverage, ECE, CRPS, log loss …).
 * Security: `fpl_security_events_total{kind}`.
@@ -155,11 +173,16 @@ the last snapshot in degraded mode; no action can make data fresher than the sou
 
 ### Abandoned jobs
 
-A job whose worker died (OOM kill, container replaced) is closed by the scheduler's reaper as
+`JobInterruptions`. A job whose worker died (OOM kill, container replaced, host asleep long
+enough for RQ's timeout to fire on wake) is closed by the scheduler's reaper as
 `failed: abandoned …` — immediately when RQ reports the job failed or unknown, otherwise when its
-lease expires (forecast/recommendation 30 min, alerts 15 min, backtest 6 h) — and an identical
-request then starts a new attempt. Failed jobs are never retried automatically except by the
-scheduler's next bucket. `fpl_job_failures_total{kind}` counts them.
+lease expires (forecast/recommendation 30 min, alerts/retention 15 min, backtest 6 h) — and an
+identical request then starts a new attempt. RQ's own job timeout is recorded as
+`interrupted: …`. All of these have `failure=interrupted` in `GET /jobs/{id}` and in
+`fpl_jobs_failed`; every job publishes its result only at the end (one database transaction,
+atomic file renames), so an interrupted job leaves no partial state and re-running it is safe.
+The reaper is idempotent (it only closes `queued`/`running` rows) and logs `job_interrupted` per
+job. Failed jobs are never retried automatically except by the scheduler's next bucket.
 
 ### Queue backlog
 
@@ -169,8 +192,8 @@ duplicate submissions do not multiply work.
 
 ### Job failures
 
-`JobFailures` / `RecommendationFailures`. `GET /api/v1/jobs/{id}` shows the error and a short
-traceback. Typical causes: a manager squad that is no longer legal under the season's ruleset
+`JobFailures` (`failure=error`) / `RecommendationFailures`. The job's own code raised:
+`GET /api/v1/jobs/{id}` shows the error and a short traceback. Typical causes: a manager squad that is no longer legal under the season's ruleset
 (re-sync or re-enter), or a missing forecast for a new snapshot.
 
 ### Forecast failures

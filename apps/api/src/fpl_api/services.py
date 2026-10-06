@@ -89,17 +89,26 @@ class CurrentContext:
         }
 
 
+def _publish(path: Path, write: Callable[[Path], object]) -> None:
+    """Write via a per-process temporary file and an atomic rename: a process killed mid-write
+    (OOM, timeout, host sleep) leaves no truncated file under the cache key for others to load."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.tmp{os.getpid()}")
+    try:
+        write(tmp)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def _ready_marker(settings: Settings, snapshot_id: str) -> Path:
     return settings.artifact_dir / "serving" / f"{snapshot_id}.ready"
 
 
 def mark_serving_ready(settings: Settings, snapshot_id: str, forecast_key: str) -> None:
     """Record that the serving forecast of ``snapshot_id`` is precomputed (snapshot promotion)."""
-    p = _ready_marker(settings, snapshot_id)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"forecast_key": forecast_key}))
-    os.replace(tmp, p)
+    marker = json.dumps({"forecast_key": forecast_key})
+    _publish(_ready_marker(settings, snapshot_id), lambda t: t.write_text(marker))
 
 
 def is_serving_ready(settings: Settings, snapshot_id: str) -> bool:
@@ -329,8 +338,7 @@ class ForecastService:
                 raise
             self.metrics.forecast_seconds.observe(time.perf_counter() - t0)
             fc.provenance["forecast_key"] = k
-            path.parent.mkdir(parents=True, exist_ok=True)
-            joblib.dump(fc, path, compress=3)
+            _publish(path, lambda t: joblib.dump(fc, t, compress=3))
             self._mem[k] = fc
             self._lineage(fc, horizon, path)
             return fc
@@ -398,8 +406,7 @@ class PriceService:
                 else:
                     spec = price_spec()[0]
                     out = PriceChangeModel(spec.params).fit(rows).predict(feats)
-                path.parent.mkdir(parents=True, exist_ok=True)
-                out.to_parquet(path, index=False)
+                _publish(path, lambda t: out.to_parquet(t, index=False))
             self._mem[k] = out
             return out
 
@@ -471,6 +478,7 @@ class RecommendationStore:
         markdown: str,
         watch: dict[str, Any] | None = None,
         prediction_run_id: str | None = None,
+        input_hash: str | None = None,
     ) -> str:
         rec_id = pkg.decision_id.replace("dec_", "rec_", 1)
         with session_scope(self.engine) as s:
@@ -496,7 +504,7 @@ class RecommendationStore:
                 id=pkg.optimizer_run_id,
                 season_id=season_id,
                 gw=pkg.gameweek,
-                input_hash=pkg.optimizer_run_id,
+                input_hash=input_hash or pkg.optimizer_run_id,  # content id of the computation
                 input_state_id=state_id,
                 prediction_run_id=prediction_run_id,
                 ruleset_version=pkg.ruleset_version,

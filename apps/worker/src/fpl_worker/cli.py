@@ -6,7 +6,8 @@
   submitted at most once per bucket however many schedulers run or restart.
 * ``fpl-worker run-once <task>`` runs one task immediately (operations / smoke tests).
 * ``fpl-worker healthcheck work|schedule`` is the container liveness probe: the worker's own RQ
-  heartbeat in Redis must be recent; the scheduler must have ticked recently (heartbeat file).
+  heartbeat in Redis must be within RQ's key expiry; the scheduler must have ticked recently
+  (heartbeat file).
 """
 
 from __future__ import annotations
@@ -28,6 +29,8 @@ import structlog
 from prometheus_client import CollectorRegistry, multiprocess, start_http_server
 from pydantic import BaseModel, ConfigDict
 from rq import Queue, Worker
+from rq.defaults import DEFAULT_WORKER_TTL
+from rq.utils import utcparse
 from sqlalchemy import select
 
 from fpl_api.container import AppServices
@@ -44,7 +47,9 @@ log = structlog.get_logger("fpl_worker")
 SCHEDULER_HEARTBEAT = Path(
     os.environ.get("FPL_SCHEDULER_HEARTBEAT") or Path(tempfile.gettempdir()) / "fpl-scheduler.alive"
 )
-WORKER_HEARTBEAT_MAX_AGE_S = 180.0  # RQ heartbeats every few seconds while idle or busy
+# RQ heartbeats every job-monitoring interval while busy but only once per blocking dequeue
+# (worker_ttl - 15 s) while idle, and lets the key expire worker_ttl + 60 s after a beat.
+WORKER_HEARTBEAT_MAX_AGE_S = float(DEFAULT_WORKER_TTL + 60)
 
 
 class TaskSpec(BaseModel):
@@ -128,10 +133,16 @@ def task_live_refresh(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, A
     }
 
 
+def task_retention(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
+    # a job (not inline): its outcome is recorded, counted and alerted on like any other
+    return {"status": "submitted", "job_id": jobs.submit("retention", {"at": b})}
+
+
 TASKS: dict[str, Callable[[AppServices, JobBackend, str], dict[str, Any]]] = {
     "forecast_precompute": task_forecast_precompute,
     "alerts": task_alerts,
     "live_refresh": task_live_refresh,
+    "retention": task_retention,
 }
 
 
@@ -225,13 +236,19 @@ def _healthcheck(args: argparse.Namespace) -> int:
     if not url:
         return 1
     conn = redis.Redis.from_url(url, socket_timeout=3)
-    prefix = f"{socket.gethostname()}."
-    for w in Worker.all(connection=conn):
-        beat = w.last_heartbeat
-        if w.name.startswith(prefix) and beat is not None:
-            age = (datetime.now(UTC) - beat.replace(tzinfo=beat.tzinfo or UTC)).total_seconds()
-            if age <= WORKER_HEARTBEAT_MAX_AGE_S:
-                return 0
+    # This container's own worker keys, not RQ's global worker set: after the host sleeps past
+    # the key's TTL, RQ drops the name from that set while the live worker's next heartbeat
+    # recreates the key, so the set can be empty although the worker keeps consuming jobs.
+    for key in conn.scan_iter(
+        match=f"{Worker.redis_worker_namespace_prefix}{socket.gethostname()}.*"
+    ):
+        raw = conn.hget(key, "last_heartbeat")
+        if raw is None:
+            continue
+        beat = utcparse(raw.decode() if isinstance(raw, bytes) else raw)
+        age = (datetime.now(UTC) - beat.replace(tzinfo=beat.tzinfo or UTC)).total_seconds()
+        if age <= WORKER_HEARTBEAT_MAX_AGE_S:
+            return 0
     return 1
 
 

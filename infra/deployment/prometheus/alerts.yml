@@ -42,11 +42,17 @@ groups:
           summary: "More than 20 queued jobs for 15 minutes (worker down or saturated)"
           runbook: "docs/DEPLOYMENT.md#queue-backlog"
       - alert: JobFailures
-        expr: increase(fpl_job_failures_total[1h]) > 3
+        expr: sum(delta(fpl_jobs_failed{failure="error"}[1h])) > 0
         labels: {severity: ticket}
         annotations:
-          summary: "More than 3 failed jobs in an hour"
+          summary: "A job's code raised (failure=error): a bug or bad input, not the environment"
           runbook: "docs/DEPLOYMENT.md#job-failures"
+      - alert: JobInterruptions
+        expr: sum(delta(fpl_jobs_failed{failure="interrupted"}[1h])) > 3
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than 3 jobs interrupted in an hour (worker killed, lost or timed out)"
+          runbook: "docs/DEPLOYMENT.md#abandoned-jobs"
       - alert: ForecastFailures
         expr: increase(fpl_forecast_failures_total[1h]) > 0
         labels: {severity: page}

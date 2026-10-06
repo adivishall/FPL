@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 import redis
 from rq import Queue, SimpleWorker, Worker
+from rq.timeouts import JobTimeoutException
 
 from fpl_api.container import AppServices
 from fpl_api.jobs import JobBackend
@@ -88,6 +89,21 @@ def test_rq_worker_executes_jobs_and_scheduler_is_idempotent(
     failed = backend.get(bad)
     assert failed is not None and failed["status"] == "failed"
     assert "ZeroDivisionError" in failed["error"]
+    assert failed["failure"] == "error"  # the job's own code raised: not an interruption
+    # RQ's timeout alarm inside the work horse is an interruption, not a code error
+    slow = backend.submit("alerts", {"manager_key": "nobody", "at": "y"})
+
+    def _timeout(*_a: object, **_k: object) -> None:
+        raise JobTimeoutException("Task exceeded maximum timeout value (900 seconds)")
+
+    monkeypatch.setattr(jobs_mod, "evaluate_alerts", _timeout)
+    SimpleWorker([Queue("fpl", connection=conn)], connection=conn).work(burst=True)
+    timed = backend.get(slow)
+    assert timed is not None and timed["status"] == "failed"
+    assert timed["failure"] == "interrupted" and timed["error"].startswith("interrupted:")
+    svc.metrics.refresh(svc.engine, None, tmp_path)
+    assert svc.metrics.jobs_failed.labels("alerts", "error")._value.get() >= 1
+    assert svc.metrics.jobs_failed.labels("alerts", "interrupted")._value.get() >= 1
 
 
 def test_killed_work_horse_never_blocks_its_request_forever(
@@ -133,13 +149,17 @@ def test_killed_work_horse_never_blocks_its_request_forever(
     assert retry != job_id
     dead = backend.get(job_id)
     assert dead is not None and dead["status"] == "failed"
-    assert dead["error"] == jobs_mod.ABANDONED
+    assert dead["error"] == jobs_mod.ABANDONED and dead["failure"] == "interrupted"
     assert backend.get(retry)["status"] == "queued"  # type: ignore[index]
     # failures RQ itself raises (e.g. timeouts) are recorded through the callback
     jobs_mod.on_rq_failure(SimpleNamespace(args=[retry]), conn, TimeoutError, "too slow", None)
     timed_out = backend.get(retry)
     assert timed_out is not None and timed_out["status"] == "failed"
-    assert "TimeoutError: too slow" in timed_out["error"]
+    assert "TimeoutError: too slow" in timed_out["error"] and timed_out["failure"] == "error"
+    # RQ's own job timeout reported through the callback is an interruption
+    nxt = backend.submit("alerts", {"manager_key": "victim2", "at": "b1"})
+    jobs_mod.on_rq_failure(SimpleNamespace(args=[nxt]), conn, JobTimeoutException, "900 s", None)
+    assert backend.get(nxt)["failure"] == "interrupted"  # type: ignore[index]
     # a dead job whose request is never re-submitted (snapshot changed) is swept by the
     # scheduler's reaper instead of staying 'running' forever
     orphan = backend.submit("alerts", {"manager_key": "orphan", "at": "b0"})
@@ -261,4 +281,44 @@ def test_restarted_worker_does_not_collide_with_its_stale_registration(redis_url
     assert fresh.name != dead.name
     assert fresh.name.startswith(_socket.gethostname() + ".")  # liveness probe still finds it
     for w in (dead, fresh):
+        w.register_death()
+
+
+def test_worker_liveness_survives_idle_gaps_and_a_lost_registry_entry(
+    redis_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: an idle worker beats only once per blocking dequeue (~405 s), and after the
+    host slept past the key TTL RQ dropped the live worker from its global set — the probe
+    reported a working worker as dead in both cases."""
+    from datetime import UTC, datetime, timedelta
+
+    from rq.utils import utcformat
+
+    from fpl_worker import cli as worker_cli
+
+    monkeypatch.setenv("FPL_REDIS_URL", redis_url)
+    conn = redis.Redis.from_url(redis_url)
+    for k in conn.scan_iter(match="rq:worker*"):
+        conn.delete(k)
+    probe = ["healthcheck", "work"]
+    assert worker_cli.main(probe) == 1  # no worker at all
+
+    w = Worker([Queue("fpl", connection=conn)], connection=conn, name=worker_cli.worker_name())
+    w.register_birth()
+    try:
+
+        def beat(seconds_ago: float) -> None:
+            ts = datetime.now(UTC) - timedelta(seconds=seconds_ago)
+            conn.hset(w.key, "last_heartbeat", utcformat(ts))
+
+        beat(0)
+        assert worker_cli.main(probe) == 0
+        beat(400)  # idle: the next beat comes after the blocking dequeue times out
+        assert worker_cli.main(probe) == 0
+        conn.srem("rq:workers", w.key)  # what RQ's registry cleanup did after the host slept
+        assert Worker.all(connection=conn) == []
+        assert worker_cli.main(probe) == 0
+        beat(worker_cli.WORKER_HEARTBEAT_MAX_AGE_S + 30)  # past RQ's own expiry: really dead
+        assert worker_cli.main(probe) == 1
+    finally:
         w.register_death()

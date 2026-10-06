@@ -10,6 +10,12 @@ re-submitted as a new attempt. RQ's failure callback records failures RQ raises 
 horse (e.g. job timeouts) immediately; a SIGKILLed horse (OOM) runs no callback in RQ 2.x and
 is recovered by the lease. Failed jobs are terminal and observable via
 ``GET /jobs/{id}``; retrying means submitting again (the scheduler does so every bucket).
+
+Every failure is classified (``failure``): ``error`` — the job's own code raised (a bug or bad
+input; the traceback is recorded) — or ``interrupted`` — the job never finished because its
+process was killed, lost or timed out (OOM, container replaced, host sleep / VM clock jump).
+An interrupted job wrote no result: every job publishes its outcome only at the end (database
+transaction, atomic file renames), so re-submitting it is always safe.
 """
 
 from __future__ import annotations
@@ -22,13 +28,16 @@ from functools import lru_cache
 from typing import Any
 
 import redis
+import structlog
 from rq import Callback, Queue
 from rq.exceptions import NoSuchJobError
 from rq.job import Job
+from rq.timeouts import JobTimeoutException
 from sqlalchemy import select
 
 from fpl_api.alerts import evaluate_alerts
 from fpl_api.container import AppServices, build_recommendation
+from fpl_api.retention import prune
 from fpl_api.services import mark_serving_ready
 from fpl_api.settings import Settings
 from fpl_backtest.runner import default_strategies, run_season
@@ -39,6 +48,7 @@ from fpl_storage import models as m
 from fpl_storage.db import session_scope
 
 JobFn = Callable[[AppServices, dict[str, Any]], str]
+log = structlog.get_logger("fpl_api.jobs")
 
 
 def _job_forecast(svc: AppServices, p: dict[str, Any]) -> str:
@@ -119,6 +129,10 @@ def _job_backtest(svc: AppServices, p: dict[str, Any]) -> str:
     return bt_id
 
 
+def _job_retention(svc: AppServices, p: dict[str, Any]) -> str:
+    return prune(svc.settings, svc.engine).summary()
+
+
 def _job_alerts(svc: AppServices, p: dict[str, Any]) -> str:
     out = evaluate_alerts(svc, p["manager_key"])
     return f"alerts:{len(out['new_ids'])}/{len(out['alerts'])}"
@@ -129,6 +143,7 @@ JOB_KINDS: dict[str, JobFn] = {
     "forecast": _job_forecast,
     "recommendation": _job_recommendation,
     "backtest": _job_backtest,
+    "retention": _job_retention,
 }
 # Upper bound on a healthy run of each kind: RQ's job timeout and the de-duplication lease.
 JOB_LEASE: dict[str, timedelta] = {
@@ -136,9 +151,19 @@ JOB_LEASE: dict[str, timedelta] = {
     "forecast": timedelta(minutes=30),
     "recommendation": timedelta(minutes=30),
     "backtest": timedelta(hours=6),
+    "retention": timedelta(minutes=15),
 }
 ABANDONED = "abandoned: no result within the job lease (worker lost or killed)"
 RQ_GRACE = timedelta(minutes=2)
+_INTERRUPTED = ("abandoned:", "interrupted:")
+
+
+def failure_kind(error: str | None) -> str | None:
+    """``interrupted`` (environment: process killed, lost or timed out) or ``error`` (the job's
+    code raised) for a failed job's recorded error; None if there is no error."""
+    if error is None:
+        return None
+    return "interrupted" if error.startswith(_INTERRUPTED) else "error"
 
 
 def _expired(r: m.JobRow, now: datetime) -> bool:
@@ -177,7 +202,8 @@ class JobBackend:
                 if dup.status == "succeeded" or not _expired(dup, now):
                     return dup.id
                 dup.status, dup.error, dup.finished_at = "failed", ABANDONED, now
-                self.svc.metrics.job_failures.labels(dup.kind).inc()
+                self.svc.metrics.job_failures.labels(dup.kind, "interrupted").inc()
+                log.warning("job_interrupted", job_id=dup.id, kind=dup.kind, error=ABANDONED)
             job_id = "job_" + uuid.uuid4().hex[:16]
             s.add(
                 m.JobRow(id=job_id, kind=kind, status="queued", request_hash=h, request_json=params)
@@ -207,7 +233,8 @@ class JobBackend:
                 if r.kind in JOB_LEASE and (lost or _expired(r, now)):
                     r.status, r.finished_at = "failed", now
                     r.error = f"abandoned: {lost}" if lost else ABANDONED
-                    self.svc.metrics.job_failures.labels(r.kind).inc()
+                    self.svc.metrics.job_failures.labels(r.kind, "interrupted").inc()
+                    log.warning("job_interrupted", job_id=r.id, kind=r.kind, error=r.error)
                     n += 1
         return n
 
@@ -236,6 +263,7 @@ class JobBackend:
                 "progress": r.progress,
                 "result_ref": r.result_ref,
                 "error": r.error,
+                "failure": failure_kind(r.error) if r.status == "failed" else None,
                 "created_at": r.created_at.isoformat(),
                 "finished_at": r.finished_at.isoformat() if r.finished_at else None,
             }
@@ -252,10 +280,14 @@ def execute(svc: AppServices, job_id: str) -> None:
     try:
         ref = JOB_KINDS[kind](svc, params)
         status, error = "succeeded", None
+    except JobTimeoutException as exc:  # RQ's alarm inside the work horse: not a code error
+        ref, status = None, "failed"
+        error = f"interrupted: exceeded the {JOB_LEASE[kind]} job timeout ({exc})"
+        svc.metrics.job_failures.labels(kind, "interrupted").inc()
     except Exception as exc:  # recorded, surfaced through GET /jobs/{id}
         ref, status = None, "failed"
         error = f"{type(exc).__name__}: {exc}\n" + traceback.format_exc(limit=3)
-        svc.metrics.job_failures.labels(kind).inc()
+        svc.metrics.job_failures.labels(kind, "error").inc()
     with session_scope(svc.engine) as s:
         r = s.get(m.JobRow, job_id)
         assert r is not None
@@ -286,5 +318,11 @@ def on_rq_failure(job: Any, connection: Any, typ: Any, value: Any, tb: Any) -> N
         if r is None or r.status in ("succeeded", "failed"):
             return
         r.status, r.finished_at = "failed", datetime.now(UTC)
-        r.error = f"worker failure: {getattr(typ, '__name__', typ)}: {value}"
-        svc.metrics.job_failures.labels(r.kind).inc()
+        name = getattr(typ, "__name__", typ)
+        if isinstance(typ, type) and issubclass(typ, JobTimeoutException):
+            r.error = f"interrupted: exceeded the {JOB_LEASE.get(r.kind)} job timeout ({value})"
+        else:
+            r.error = f"worker failure: {name}: {value}"
+        reason = failure_kind(r.error) or "error"
+        svc.metrics.job_failures.labels(r.kind, reason).inc()
+        log.warning("job_failed_in_worker", job_id=r.id, kind=r.kind, failure=reason)

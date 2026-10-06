@@ -23,6 +23,15 @@ class Settings(BaseSettings):
         description="API: swap to a newer snapshot only once its serving forecast is "
         "precomputed (no 'forecast not ready' window after each live refresh)",
     )
+    snapshot_retention_keep: int = Field(
+        24,
+        ge=0,
+        description="newest snapshots kept with their caches (0 disables pruning); pinned, "
+        "serving and referenced snapshots are always kept (fpl_api.retention)",
+    )
+    artifact_retention_hours: float = Field(
+        24.0, gt=0, description="age after which unused forecast/price caches are deleted"
+    )
     artifact_dir: Path = Path("data/artifacts")
     reports_dir: Path | None = Field(None, description="published experiment reports (ml/reports)")
     feature_store_dir: Path | None = None

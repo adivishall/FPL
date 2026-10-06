@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -375,7 +376,10 @@ def export_snapshot(
         "seasons": ds.seasons(),
         **(extra_meta or {}),
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    # the manifest is published last and atomically: readers only ever see complete snapshots
+    tmp = manifest_path.with_name(f"manifest.json.tmp{os.getpid()}")
+    tmp.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(tmp, manifest_path)
     return out
 
 

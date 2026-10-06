@@ -13,3 +13,6 @@ tasks:
   alerts:                # §74 rules for every manager with a stored squad
     every_minutes: 30
     enabled: true
+  retention:             # prune old live snapshots and caches (fpl_api.retention)
+    every_minutes: 60
+    enabled: true
