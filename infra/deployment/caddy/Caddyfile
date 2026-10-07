@@ -1,0 +1,42 @@
+# Public entry point (docker-compose.public.yml, docs/DEPLOYMENT.md "Public deployment").
+# Internet → this TLS proxy → web (Next.js, which proxies /backend/* to the API with a key the
+# browser never sees) → API → PostgreSQL / Redis / worker. Only this service publishes ports.
+{
+	# certificates: an ACME e-mail address (Let's Encrypt, renewed automatically) or "internal"
+	# (Caddy's own CA, for a local test only); never touch the host's trust store
+	skip_install_trust
+
+	# request URIs carry manager keys (query and path); error entries must not log them
+	log default {
+		format filter {
+			wrap json
+			fields {
+				request>uri delete
+				request>headers>Authorization delete
+				request>headers>Cookie delete
+			}
+		}
+	}
+}
+
+{$FPL_PUBLIC_DOMAIN} {
+	tls {$FPL_TLS}
+
+	# V1 is single-tenant: the web server acts for whoever reaches it, so the whole site sits
+	# behind one login. auth.caddy is required (generate it from auth.caddy.example); without it
+	# Caddy refuses to start rather than serve an open site.
+	import /etc/caddy/auth.caddy
+
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+		-X-Powered-By
+	}
+	# no access log: request URLs carry manager keys (the API redacts them in its own logs)
+	reverse_proxy web:3000
+}

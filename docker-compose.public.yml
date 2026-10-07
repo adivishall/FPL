@@ -1,0 +1,31 @@
+# Public deployment overlay: a TLS reverse proxy in front of the web server.
+#   docker compose -f docker-compose.yml -f docker-compose.public.yml up -d
+# Requires FPL_PUBLIC_DOMAIN and FPL_TLS in .env and infra/deployment/caddy/auth.caddy
+# (docs/DEPLOYMENT.md "Public deployment"). Everything else keeps listening on loopback only.
+services:
+  caddy:
+    image: caddy:2.10-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    restart: unless-stopped
+    ports:
+      - "${FPL_HTTP_PORT:-80}:80"
+      - "${FPL_HTTPS_PORT:-443}:443"
+      - "${FPL_HTTPS_PORT:-443}:443/udp"
+    environment:
+      FPL_PUBLIC_DOMAIN: ${FPL_PUBLIC_DOMAIN:?set FPL_PUBLIC_DOMAIN to the site's DNS name}
+      FPL_TLS: ${FPL_TLS:?set FPL_TLS to the ACME e-mail address (or "internal" for a local test)}
+    volumes:
+      - ./infra/deployment/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/deployment/caddy/auth.caddy:/etc/caddy/auth.caddy:ro
+      - caddy_data:/data       # certificates and ACME account: keep across restarts
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      web: {condition: service_healthy}
+
+volumes:
+  caddy_data:
+  caddy_config:

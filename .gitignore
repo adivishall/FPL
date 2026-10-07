@@ -42,3 +42,7 @@ data/artifacts/
 data/snapshots-live/
 apps/web/playwright-report-prod/
 apps/web/prod-results.json
+# Public deployment login for the TLS proxy (contains a password hash)
+infra/deployment/caddy/auth.caddy
+# database / data backups (infra/scripts/backup.sh)
+backups/

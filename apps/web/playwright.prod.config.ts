@@ -21,6 +21,12 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000",
     trace: "retain-on-failure",
     acceptDownloads: true,
+    // behind the public TLS proxy (docker-compose.public.yml): its login, and — only for a local
+    // test against Caddy's internal CA, whose chain is checked separately — its certificate
+    httpCredentials: process.env.E2E_HTTP_USER
+      ? { username: process.env.E2E_HTTP_USER, password: process.env.E2E_HTTP_PASSWORD ?? "" }
+      : undefined,
+    ignoreHTTPSErrors: process.env.E2E_IGNORE_HTTPS_ERRORS === "1",
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },
 });

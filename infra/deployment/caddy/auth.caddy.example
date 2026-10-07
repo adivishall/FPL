@@ -1,0 +1,5 @@
+# Copy to auth.caddy (git-ignored) and replace the hash. Generate it with:
+#   docker run --rm caddy:2.10-alpine caddy hash-password --plaintext '<a long random password>'
+basic_auth {
+	operator $2a$14$REPLACE_WITH_THE_BCRYPT_HASH_FROM_caddy_hash-password
+}

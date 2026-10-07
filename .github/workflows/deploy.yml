@@ -61,7 +61,8 @@ jobs:
     needs: images
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment || 'staging' }}
-    if: ${{ vars.API_URL != '' }}
+    # public topology: only WEB_URL is reachable (TLS proxy + site login in SMOKE_WEB_AUTH)
+    if: ${{ vars.API_URL != '' || vars.WEB_URL != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -69,4 +70,6 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: uv sync --frozen
       - name: smoke test
-        run: uv run python infra/scripts/smoke.py --api "${{ vars.API_URL }}" ${{ vars.WEB_URL && format('--web {0}', vars.WEB_URL) || '' }}
+        env:
+          FPL_SMOKE_WEB_AUTH: ${{ secrets.SMOKE_WEB_AUTH }}
+        run: uv run python infra/scripts/smoke.py ${{ vars.API_URL && format('--api {0}', vars.API_URL) || '' }} ${{ vars.WEB_URL && format('--web {0}', vars.WEB_URL) || '' }}
