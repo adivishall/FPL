@@ -25,6 +25,16 @@ forecast (marker `/data/artifacts/serving/<snapshot>.ready`), so a live refresh 
 forecast; the swap follows within the check interval. On a first deployment no snapshot is ready
 yet and forecast routes answer `503` with `Retry-After` until the first forecast completes.
 
+Completed-match results come from the scheduler's `live_results` task: when a finished (or
+provisionally finished) gameweek has no results, and daily during the 4 days after a gameweek's
+last kickoff, it reads every player's `element-summary` history (one paced request per player,
+~11 minutes), loads the results tables only, then exports a snapshot and submits its forecast.
+It is otherwise skipped ("results up to date"). The scheduler runs it inline (its heartbeat is
+kept alive), so its other tasks wait for it once per gameweek. Run it by hand with
+`docker compose exec scheduler fpl-worker run-once live_results` (same checks and steps);
+`fpl-ingest live-results --season <season>` forces a capture, which the next hourly refresh
+exports.
+
 Resources (measured, `ml/reports/performance.md`): the worker computing the 8-gameweek,
 1,000-sample serving forecast peaks at ~2 GB RSS (container); give it ≥ 3 GB. The images run
 as the non-root `app` user and the image pre-creates `/data` owned by `app`, so an empty named
@@ -170,6 +180,8 @@ saturated by a co-located worker. Move workers to separate hosts or reduce `FPL_
 `DataStale` / `DataExpired`. The live capture is failing (network policy, upstream outage) or the
 scheduler is down. Check `fpl-worker run-once live_refresh` output. The product keeps serving
 the last snapshot in degraded mode; no action can make data fresher than the source.
+"match results missing for finished GW…" means the `live_results` capture has not completed:
+check the `data_jobs` rows of type `live_results` and the scheduler log.
 
 ### Abandoned jobs
 

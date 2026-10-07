@@ -59,8 +59,9 @@ Raw payloads are stored content-addressed; each canonical row records the payloa
 every observation carries an *availability* timestamp separate from its event time (ADR-0004).
 The canonical snapshot id is a hash of all tables — rebuilding from the pinned historical commit
 gives `snap_b64560a8c4f434ad984e` on macOS and inside the Linux container alike. Live captures
-from the official API (prices, availability, news, fixtures, deadlines) produce new snapshots;
-historical evaluation is pinned to the archive snapshot and never sees them.
+from the official API (prices, availability, news, fixtures, deadlines, and completed-match
+results with each fixture's price and ownership) produce new snapshots; historical evaluation is
+pinned to the archive snapshot and never sees them.
 
 **Schedule rule S1.** Archives contain only the *final* fixture list, so a match postponed on the
 day looks "known" months earlier. The point-in-time view reconstructs each moved fixture's
@@ -155,17 +156,18 @@ Measured on the final code (`docs/BUILD_STATUS.md`):
 
 | Suite | Result |
 |---|---|
-| Python fast tier — unit, Hypothesis property tests, integration on real PostgreSQL and Redis | 374 passed, 0 failed, 0 skipped |
+| Python fast tier — unit, Hypothesis property tests, integration on real PostgreSQL and Redis | 379 passed, 0 failed, 0 skipped |
 | Slow tier — official points reproduced on all 113,870 historical player-match rows | 2 passed |
-| Network tier — versioned 2026-27 ruleset vs the live FPL API's own game settings | 3 passed |
-| Playwright, production topology — browser → Next.js proxy → API key → API → PostgreSQL / Redis / worker, on the Docker Compose stack | 17 passed |
+| Network tier — versioned 2026-27 ruleset and per-player match histories vs the live FPL API | 4 passed |
+| Playwright, production topology — browser → Next.js proxy → API key → API → PostgreSQL / Redis / worker, on the Docker Compose stack | 18 passed |
 | Playwright, development flows | 7 passed |
 | ruff, mypy (109 files), import-linter (4 layering contracts), `tsc` | clean |
 
 The production suite covers key enforcement (missing / invalid / valid), that the proxy key never
 reaches the browser, squad build, captain / vice / bench, worker-generated recommendations,
 price predictions, replacement → what-if without mutating state, alert de-duplication,
-time-zone and webhook validation, traceability, export and erasure, the Backtest Lab, API error /
+time-zone and webhook validation, settings that cannot be edited or saved before the stored
+values arrive (a held-response race regression) or after a failed load, traceability, export and erasure, the Backtest Lab, API error /
 auth / outage states and rate limiting. GitHub Actions runs lint, types, tests, the optimiser
 suite, e2e, dependency and secret scans and container builds on every push.
 
@@ -174,7 +176,8 @@ suite, e2e, dependency and secret scans and container builds on every push.
 `docker compose up -d` runs PostgreSQL, Redis, migrations, the API, the RQ worker, the
 scheduler and the web server (+ Prometheus with `--profile monitoring`); verified locally with
 health checks for every service, persistence across restarts and recovery from a killed worker
-(`docs/DEPLOYMENT.md`). The scheduler captures live data hourly, precomputes forecasts (the API
+(`docs/DEPLOYMENT.md`). The scheduler captures live data hourly and completed-match results once
+a gameweek finishes, precomputes forecasts (the API
 promotes a new snapshot only once its forecast is ready), evaluates alerts and prunes old
 snapshots and caches. Failed jobs are classified as code `error` or environmental `interrupted`
 (killed, lost, timed out); results are published atomically, so an interrupted job leaves
@@ -211,7 +214,6 @@ Recommendations therefore run as background jobs; heavy requests are minutes, no
 
 ## Status and limitations
 
-Specification audit: `docs/FINAL_AUDIT.md` (99 requirements: 79 COMPLETE, 15 PARTIAL, 4 NOT IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE). What is not done or not proven —
-including that live per-match results are not yet ingested from the API, the single-tenant
-security model, selection bias from developing on the evaluated seasons, and development-machine
+Specification audit: `docs/FINAL_AUDIT.md` (99 requirements: 80 COMPLETE, 14 PARTIAL, 4 NOT IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE). What is not done or not proven —
+including the single-tenant security model, the ~11-minute live results capture, selection bias from developing on the evaluated seasons, and development-machine
 timings — is in `docs/KNOWN_LIMITATIONS.md`. Progress record: `docs/BUILD_STATUS.md`.

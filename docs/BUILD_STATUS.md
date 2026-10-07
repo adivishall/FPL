@@ -24,12 +24,14 @@ Legend: ☑ done **and** verified · ◐ partial (see notes) · ✗ not done (re
 | M9 | Explainability: evidence, counterfactuals | ☑ | No unsupported reasons | evidence tests; E2E recommendation |
 | M10 | Walk-forward backtesting, benchmarks, reports | ☑ | No-lookahead audit passes | `ml/reports/backtest.md`: 3 seasons, 0 violations, rule S1 (leak found and fixed in M14) |
 | M11 | API + async jobs + cache | ☑ | Contract tests pass | `tests/integration/test_api.py`, `test_worker.py` |
-| M12 | UI (Next.js) + e2e | ☑ | End-to-end flow works | dev flows 7/7 + 17/17 production-topology flows |
+| M12 | UI (Next.js) + e2e | ☑ | End-to-end flow works | dev flows 7/7 + 18/18 production-topology flows |
 | M13 | Production hardening | ☑ | Clean production smoke test | Docker Compose verified locally (health, persistence, crash recovery, E2E) |
 | M14 | Final verification, audit, limitations, portfolio docs | ☑ | A reviewer can reproduce core claims | `docs/FINAL_AUDIT.md`, `docs/KNOWN_LIMITATIONS.md`, README, this file |
 
 The specification audit (`docs/FINAL_AUDIT.md`) is stricter than this table: it counts every
-requirement and marks partial work as PARTIAL (99 requirements: 79 COMPLETE, 15 PARTIAL, 4 NOT IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE).
+requirement and marks partial work as PARTIAL (99 requirements: 80 COMPLETE, 14 PARTIAL, 4 NOT IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE).
+V1 release work after M14 is planned and logged in `docs/V1_RELEASE_PLAN.md`; its verification
+record is §2a.
 
 ## 2. M14 verification record (2026-10-04 – 06, local machine)
 
@@ -103,6 +105,30 @@ requirement and marks partial work as PARTIAL (99 requirements: 79 COMPLETE, 15 
     test managers stored; both were erased through the privacy endpoint, and both harnesses now
     clean up even when they fail midway.
 
+## 2a. V1 release work record (2026-10-06 – 07, local machine)
+
+| Area | Result |
+|---|---|
+| Live completed-match results (R1) | `live_results` job on the Compose stack: 667 players, 3,216 rows, GW1–GW5 in 11 min 20 s (2,606 new rows; 610 GW1 revisions changing only source and lineage; 0 conflicts). All 50 finished fixtures have rows for both sides and two team rows; fixture scores equal team goals; official deadlines unchanged and equal to the API's. Second run: 11 min 10 s, 3,216 + 100 rows unchanged, nothing inserted, updated or revised. Pinned evaluation snapshot unchanged (hash-verified; 2026-27 GW1 only). API `status: ok`, not degraded, after promotion |
+| Settings race | reproduced on the pre-fix web image by holding the settings GET: an edit made while it was in flight was accepted, then overwritten by the late response, and Save posted the stored value (`Europe/London`) instead of the edit. A failed load silently left editable defaults that Save would post. Both new production tests fail on that image and pass on the fixed one |
+| Images under test | web `sha256:f68e999b…` (built 2026-10-07 02:34 UTC, served bundle contains the fix), engine `sha256:2a552f2f…` (api, worker, scheduler) |
+| Playwright | production topology 18/18 (health `ok`, not degraded, at the start); development flows 7/7 |
+| Test suite | fast tier 379 passed, 0 failed, 6 deselected (slow + network) in 6 min 10 s; ingestion / live / worker set 58 passed incl. network; network tier 4/4 against the live API |
+| Lint / types / layering | ruff, ruff format (240 files), mypy (109 source files), import-linter 4/4: clean; `tsc` clean; `next build` clean |
+| Source outage | 10 consecutive hourly captures failed (2026-10-06 13:00 – 2026-10-07 02:20 UTC, source unreachable while the host slept): every job ended `failed` with its reason, none stayed `running`; the API flagged the data stale and degraded, and the next capture restored `ok` without intervention |
+
+### Defects found and fixed in the V1 work
+
+31. Completed-match results of the live season were never ingested, so every live response was
+    degraded and live forecasts used results through GW1 only.
+32. Settings page: a late response for the stored settings overwrote edits made before it
+    arrived, so Save posted the stored values; a failed load left editable defaults that Save
+    would have written over the stored settings. Server-backed fields and Save now stay disabled
+    until the stored values load; a failed load is shown with a Retry; a response for a previous
+    manager key is discarded.
+33. A bootstrap payload failing its schema raised out of the live capture and left its job
+    `running`; it is now quarantined like any other contract failure.
+
 ## 3. Environment
 
 Apple M4 (10 logical CPUs), 16 GB RAM, macOS 27.0.1; Python 3.12.15 (uv), Node 22.23, PostgreSQL
@@ -128,15 +154,14 @@ decision policy), ADR-0008 (model registry), ADR-0009 (async jobs & caching), AD
 
 ## 6. Known limitations
 
-`docs/KNOWN_LIMITATIONS.md` (live per-match results not ingested; single-tenant security model;
+`docs/KNOWN_LIMITATIONS.md` (single-tenant security model; ~11-minute live results capture;
 selection bias; development-machine timings; availability model uncalibrated; …).
 
 ## 7. Remaining work
 
 Genuinely open items, in priority order (details in the audit and limitations):
 
-1. Ingest completed-gameweek results from the live API point-in-time correctly (schema change for
-   per-row prices), so live forecasts use the current season's results.
+1. ~~Ingest completed-gameweek results from the live API~~ — done in the V1 work (§2a).
 2. Real per-user authentication/authorisation if the system is ever exposed beyond a trusted group.
 3. Expose league analytics (head-to-head, template, differential) through the API/UI.
 4. A public deployment target (VM + TLS reverse proxy), Alertmanager routing, and archival of

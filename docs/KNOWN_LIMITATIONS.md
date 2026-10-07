@@ -9,6 +9,7 @@ generated reports so they cannot drift from this page.
 | Verified against real data | Evidence |
 |---|---|
 | Live FPL API (`fantasy.premierleague.com`) reachable from the development machine; `bootstrap-static` and `fixtures` parse against the typed contracts and load canonically (667 players, 380 fixtures, news/availability, official deadlines) | `fpl-ingest live --season 2026-27`; the compose scheduler's hourly `live_refresh` |
+| Completed-match results of the live season from the API (`element-summary/{id}` histories, 2026-10-06): 3,216 rows for 667 players, GW1–GW5, in 11 min 20 s. All 50 finished fixtures have rows for both sides and two team rows; fixture scores equal team goals; the 610 GW1 rows equal the archive's values exactly (only source and lineage changed: 610 revisions, 0 conflicts); deadlines and the schedule untouched. A second run (2026-10-07) inserted, updated and revised nothing (3,216 + 100 unchanged). The live snapshot was promoted and the API stopped reporting degraded | `fpl-ingest live-results`; scheduler `live_results`; `tests/integration/test_live_results.py`; `test_live_rules.py::test_live_player_histories_pass_the_archive_contract` (network) |
 | Live squad sync of a public manager entry: squad, bank, free transfers and both chip sets reconstructed; squad equal to the official pre-Free-Hit picks (correct Free Hit reversion) | manual run against the deployed API (data deleted afterwards; identifiers not recorded) |
 | Current gameweek and decision cutoff equal the official API's `is_next` event | `GET /api/v1/gameweeks/current` vs `bootstrap-static` |
 | Historical seasons 2022-23 – 2026-27 (GW1) from the pinned vaastav commit; the canonical snapshot reproduces byte-identically on macOS and in the Linux container | `snap_b64560a8c4f434ad984e` (`docs/BACKTEST_PROTOCOL.md`) |
@@ -21,29 +22,37 @@ generated reports so they cannot drift from this page.
 | Injury / suspension / doubt alerts (availability drops) | the archive has no status history; real live changes did not occur during the test window |
 | Webhook *delivery* success | only failure paths were exercised against real DNS; no external endpoint was posted to |
 | Manager sync for edge cases (mid-season joiners, AFCON top-ups, 2022-23 GW17 rule) | synthetic payloads in `tests/unit/ingestion/test_manager_sync.py` |
-| Double-gameweek splitting of live per-match data | not implemented (see 2) |
+| Live results in a double gameweek | the API reports one history row per fixture (the archive's schema, whose double gameweeks the historical tests cover), but no double gameweek has occurred in 2026-27 yet |
 
 ## 2. Live data pipeline
 
-* **Completed-gameweek results are not ingested from the live API.** The live capture stores
-  bootstrap (prices, status, news, ownership) and fixtures, but not `event/{gw}/live` per-match
-  statistics: the per-row price/transfer fields of the canonical match table cannot be filled
-  point-in-time correctly from that endpoint. Until the pinned historical archive is advanced,
-  live forecasts for 2026-27 use match results through GW1 only. This is **not hidden**: the
-  freshness block of every response lists "match results missing for finished GW2–GW5" and marks
-  the response degraded, and the UI banner shows it.
+* **Completed-match results take one request per player.** The `live_results` task reads every
+  player's `element-summary/{id}` history — the archive's per-fixture rows, with the price and
+  ownership at that fixture — so a capture takes ~11 minutes at the paced request rate. It runs
+  when a finished (or provisionally finished) gameweek has no results, then daily for 4 days after
+  a gameweek's last kickoff to pick up bonus and late corrections (stored as revisions); later
+  corrections are not fetched. The scheduler runs it inline, so its other tasks (alerts,
+  forecast precompute) are delayed by up to ~11 minutes when it runs. Players the API no longer lists are not captured. Until a
+  capture completes, the freshness block lists "match results missing for finished GW…" and marks
+  responses degraded. Live results never reach the evaluation: the backtests read only the pinned
+  evaluation snapshot and seasons (`config/backtest/default.yaml`).
 * Every live refresh exports a full snapshot (~3 MB, hourly) plus, once served, a ~30 MB feature
   cache and a ~7 MB forecast. The hourly `retention` job bounds this (newest 24 kept by default,
   plus the serving, pinned and recommendation-referenced snapshots; `docs/DEPLOYMENT.md`), but
   `/data/raw` (~0.3 MB per capture, the provenance evidence) and the live-observation tables in
   PostgreSQL are not pruned: they need an archival policy before multi-year operation.
 * After a live refresh the worker computes on the new snapshot while the API keeps serving the
-  previous one until its forecast is precomputed (minutes). A recommendation made in that window
+  previous one until its forecast is precomputed (1–2 minutes) and the API's next snapshot check
+  (`FPL_SNAPSHOT_CHECK_SECONDS`, 300 s by default). A recommendation made in that window
   records — and shows — its own, newer snapshot, which differs from the banner's.
 * Prices observed between captures are not modelled; the official price-change predictor is
   shown only when the captured bootstrap carries it and is never blended with the engine's model.
 * Source reliability: the FPL API is unofficial and undocumented; schema drift fails the typed
-  contracts (the capture is recorded as failed and the last validated snapshot keeps serving).
+  contracts (the capture is quarantined; an unreachable source is recorded as failed) and the last
+  validated snapshot keeps serving, flagged stale after 12 hours. Observed on 2026-10-06/07: ten
+  consecutive hourly captures failed while the source was unreachable (host asleep / network);
+  every job ended `failed` with the reason, responses were flagged degraded, and the next
+  successful capture restored fresh data without intervention.
 
 ## 3. Historical data and evaluation
 

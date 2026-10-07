@@ -2,6 +2,25 @@
 
 User-visible behaviour changes (§78). Milestones follow `docs/BUILD_STATUS.md`.
 
+## V1 release work (2026-10-07)
+
+### Added
+- **Live completed-match results.** `fpl-ingest live-results` and the scheduler task
+  `live_results` load the current season's per-fixture results from the FPL API's player
+  histories (`element-summary/{id}`) through the archive's contracts and quality gates — with
+  each fixture's price and ownership, results tables only, never deadlines or the schedule.
+  It runs when a finished gameweek has no results and daily during a 4-day correction window,
+  then exports a snapshot and precomputes its forecast. Live responses are no longer degraded
+  for missing results.
+
+### Fixed
+- Settings: edits made while the stored settings were still loading were overwritten by the late
+  response, so Save posted the stored values; a failed load left editable defaults that Save
+  would have written over the stored settings. Server-backed fields and Save are now disabled
+  until the stored values arrive; a failed load is shown with a Retry button.
+- A live bootstrap payload that fails its schema is quarantined instead of leaving its job
+  `running`.
+
 ## M14 — final verification (2026-10-05)
 
 ### Fixed

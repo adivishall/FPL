@@ -2,7 +2,8 @@
 
 Every major requirement of *FPL Decision Engine — Flagship Project Specification* mapped to its
 implementation, the test or measured artifact that supports it, and an honest status. Audited on
-the repository state of this commit, on 2026-10-06, after the M14 verification work.
+the repository state of this commit, on 2026-10-06, after the M14 verification work; updated on
+2026-10-07 for the V1 release work (`docs/V1_RELEASE_PLAN.md`).
 
 **Status rules.** COMPLETE = implemented, integrated, and backed by an automated test or a
 reproducible measured artifact. PARTIAL = implemented in part, or implemented but not reachable /
@@ -11,7 +12,7 @@ NOT VERIFIABLE = implemented, but the evidence would need an environment or data
 does not have. Code existing is never enough for COMPLETE.
 
 Abbreviations: `T:` test file(s); `R:` generated report; `E2E` = production-topology Playwright
-suite `apps/web/e2e-prod/production.spec.ts` (17/17 against Docker Compose).
+suite `apps/web/e2e-prod/production.spec.ts` (18/18 against Docker Compose).
 
 ## Data
 
@@ -19,7 +20,7 @@ suite `apps/web/e2e-prod/production.spec.ts` (17/17 against Docker Compose).
 |---|---|---|---|---|---|---|
 | Historical ingestion from a pinned source | §6.1, §55 | extract → validate → canonicalise → load, idempotent | `services/ingestion/.../pipeline.py`, `sources/historical.py` | T: `test_ingestion_pipeline.py` (idempotent re-run, revisions); real run of 5 seasons (113,870 rows) | COMPLETE | |
 | Live capture: bootstrap, fixtures, prices, status, news | §6.1 | `ingest_live`, `live.py` | `fpl_ingestion/live.py`, `sources/fpl_api.py` | real captures on this machine and hourly in Compose; T: `test_sources.py` contracts | COMPLETE | verified against the real API |
-| Live capture of completed-gameweek match results | §6.1 | parser exists (`player_match_from_live`) but is not wired | `fpl_ingestion/live.py` | freshness reports the gap ("results missing for finished GW2–GW5") | PARTIAL | live forecasts use results through the archive's last GW (KNOWN_LIMITATIONS §2) |
+| Live capture of completed-gameweek match results | §6.1 | `ingest_live_results`: per-player `element-summary` histories → archive contracts → quality gates → canonical results only (source `fpl_api`); scheduler task `live_results` when results are missing, then daily during the 4-day correction window | `fpl_ingestion/pipeline.py`, `live.py`, `fpl_worker/cli.py` | T: `test_live_results.py` (rows equal the archive path's, results-only load, idempotent, drift quarantined, outage fails cleanly), `test_schedule.py`; network contract test; real run: 3,216 rows GW1–GW5, GW1 equal to the archive, re-run unchanged | COMPLETE | ~11 min per capture (one request per player); KNOWN_LIMITATIONS §2 |
 | Raw payloads stored unchanged, content-addressed | §55.1 | `RawStore` | `fpl_storage/raw_store.py` | T: `test_raw_store_and_pit.py` | COMPLETE | |
 | Canonical schema, stable ids across seasons | §8, §54 | 37 tables, Alembic | `fpl_storage/models.py`, `db/migrations/` | T: `test_migrations.py` (upgrade/downgrade/no drift) | COMPLETE | |
 | Reproducible snapshots | §55, §86.2 | content-hashed Parquet + manifest | `fpl_storage/dataset.py` | same `snap_b64560a8c4f434ad984e` rebuilt on macOS and in Linux container | COMPLETE | |
@@ -168,8 +169,8 @@ Counts over the rows above (99 requirements):
 
 | Status | Count |
 |---|---|
-| COMPLETE | 79 |
-| PARTIAL | 15 |
+| COMPLETE | 80 |
+| PARTIAL | 14 |
 | NOT IMPLEMENTED | 4 |
 | BLOCKED | 0 |
 | NOT VERIFIABLE | 1 |
