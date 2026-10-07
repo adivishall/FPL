@@ -79,8 +79,15 @@ export default function Overview() {
                 {r.decision.stability ? (
                   <Badge tone={r.decision.stability === "stable" ? "good" : "warn"}>{r.decision.stability}</Badge>
                 ) : null}
-                <span className="small">confidence = P(plan beats holding)</span>
-                <Prob p={r.explanation.confidence.probability_beats_hold} />
+                {r.decision.action === "HOLD" ? (
+                  // P(holding beats holding) is 0 by definition: showing it read as "0% confidence"
+                  <span className="small" data-testid="confidence">no move cleared the thresholds — see Why</span>
+                ) : (
+                  <>
+                    <span className="small" data-testid="confidence">confidence = P(plan beats holding)</span>
+                    <Prob p={r.explanation.confidence.probability_beats_hold} />
+                  </>
+                )}
                 <button className="secondary" onClick={generate} disabled={!!busy}>
                   {busy ? `Re-running… (${busy})` : "Re-run"}
                 </button>
@@ -96,6 +103,11 @@ export default function Overview() {
                 <span className="muted">Captain</span>
                 <span>
                   <PlayerName code={r.lineup.captain} names={names} /> (vice <PlayerName code={r.lineup.vice_captain} names={names} />)
+                </span>
+                <span className="muted">Optimiser</span>
+                <span data-testid="optimality">
+                  {r.decision.optimality && r.decision.optimality !== "proven optimal" ? <Badge tone="warn">time limit</Badge> : null}{" "}
+                  {r.decision.optimality ?? "not recorded"}
                 </span>
               </div>
             </>
@@ -141,7 +153,7 @@ export default function Overview() {
                       <td>{a.label}</td>
                       <td>{a.sells.length ? <>{a.sells.map((c) => <PlayerName key={c} code={c} names={{ ...names, ...r.names }} />)} → {a.buys.map((c) => <PlayerName key={c} code={c} names={r.names} />)}</> : a.action}</td>
                       <td>{signed(a.gain_horizon.mean)}</td>
-                      <td><Badge tone={confidenceTone(a.gain_horizon.probability_positive)}>{pct(a.gain_horizon.probability_positive)}</Badge></td>
+                      <td>{a.action === "HOLD" ? <span className="muted">—</span> : <Badge tone={confidenceTone(a.gain_horizon.probability_positive)}>{pct(a.gain_horizon.probability_positive)}</Badge>}</td>
                     </tr>
                   ))}
                 </tbody>

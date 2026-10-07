@@ -56,10 +56,10 @@ export default function SquadPlanner() {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await post<{ squad: { player_code: number }[]; bank_after: number }>("/optimize/squad", { budget: 1000, horizon: settings.horizon, profile: settings.profile });
+      const r = await post<{ squad: { player_code: number }[]; bank_after: number; optimality: string }>("/optimize/squad", { budget: 1000, horizon: settings.horizon, profile: settings.profile });
       setCodes(r.squad.map((p) => p.player_code).join(" "));
       setBank(r.bank_after);
-      setMsg("Optimal squad proposed by the initial-squad optimiser — review, then save.");
+      setMsg(`Squad proposed by the initial-squad optimiser (${r.optimality}) — review, then save.`);
     } catch (e) {
       setMsg(String(e));
     } finally {

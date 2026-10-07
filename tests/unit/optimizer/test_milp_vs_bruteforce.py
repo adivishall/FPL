@@ -215,6 +215,9 @@ def test_time_limited_incumbent_with_slack_hits_is_repaired() -> None:
     cfg = prob.config.model_copy(update={"solver": SolverSettings(time_limit_seconds=1e-4)})
     sol = build_and_solve(replace(prob, config=cfg), start=bad)
     assert sol.status != "Optimal"  # the incumbent was returned, not re-optimised
+    # reported honestly: best found within the limit, never "optimal"
+    assert base.proven_optimal and base.optimality() == "proven optimal"
+    assert not sol.proven_optimal and sol.optimality().endswith("not proven optimal")
     v = validate_solution(prob, sol)
     assert v.valid, (sol.status, v.issues)
     assert sol.plans[0].hit_points == 0

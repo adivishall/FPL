@@ -29,6 +29,7 @@ with a = ev − λ_risk·(ev − q10).
 
 from __future__ import annotations
 
+import math
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
@@ -194,6 +195,25 @@ class Solution:
     @property
     def total_hits(self) -> int:
         return sum(p.hit_points for p in self.plans)
+
+    @property
+    def proven_optimal(self) -> bool:
+        """HiGHS proved optimality (the configured relative gap is 0). Otherwise the solver
+        stopped at a limit and this is its best plan: legal and independently validated, but
+        not proven optimal."""
+        return self.status == "Optimal"
+
+    def optimality(self) -> str:
+        """How good the plan is known to be, in words shown to users."""
+        if self.proven_optimal:
+            return "proven optimal"
+        gap = self.stats.get("mip_gap")
+        tail = f"; {gap:.1%} optimality gap when stopped" if _finite(gap) else ""
+        return f"best found within the solver limit ({self.status}{tail}); not proven optimal"
+
+
+def _finite(x: Any) -> bool:
+    return isinstance(x, float) and math.isfinite(x)
 
 
 def _chip_ft_next(policy: ChipFtPolicy, per: int) -> tuple[str, int]:

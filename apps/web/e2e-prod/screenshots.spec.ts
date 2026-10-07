@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
 test("capture the decision workflow", async ({ page }) => {
   await page.goto("/squad");
   await page.getByTestId("build-squad").click();
-  await expect(page.getByTestId("squad-msg")).toContainText("Optimal squad proposed");
+  await expect(page.getByTestId("squad-msg")).toContainText(/Squad proposed by the initial-squad optimiser \((proven optimal|best found within the solver limit.*not proven optimal)\)/);
   await page.getByTestId("save-squad").click();
   await expect(page.getByTestId("squad-msg")).toContainText("Squad saved");
   await page.screenshot({ path: `${OUT}/squad-planner.png`, fullPage: true });

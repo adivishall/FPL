@@ -19,6 +19,8 @@ def render_markdown(pkg: RecommendationPackage, names: dict[int, str] | None = N
     d = pkg.decision
     out = [f"# GW{pkg.gameweek} recommendation — {d['action']}", ""]
     out += ["## Decision", "", e.decision, ""]
+    if "optimality" in d:
+        out += [f"Optimiser: the chosen plan is {d['optimality']}.", ""]
     conf = e.confidence
     out += [
         "## Expected effect",

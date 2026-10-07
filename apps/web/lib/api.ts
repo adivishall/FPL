@@ -124,6 +124,7 @@ export interface OptionSummary {
   passes_thresholds: boolean;
   valid: boolean;
   timeline: PlanStep[];
+  optimality?: string;
 }
 
 export interface Evidence {
@@ -182,6 +183,7 @@ export interface Recommendation {
     p90: number;
     confidence: number | null;
     stability: string | null;
+    optimality?: string; // "proven optimal", or best found within the solver limit
   };
   chosen: OptionSummary;
   hold: OptionSummary;

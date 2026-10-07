@@ -622,6 +622,8 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             "bank_after": first.bank_after,
             "expected_points_gw": first.expected_points,
             "objective": sol.objective,
+            "proven_optimal": sol.proven_optimal,
+            "optimality": sol.optimality(),
             "config_ref": cfg.config_ref,
             "freshness": fresh(),
         }
@@ -700,6 +702,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                     "selection_reason": c.selection_reason,
                     "bank_after": c.bank_after,
                     "valid": c.valid,
+                    "optimality": c.solution.optimality(),
                 }
                 for c in res.candidates
             ],

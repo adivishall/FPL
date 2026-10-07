@@ -103,6 +103,8 @@ class OptionSummary(BaseModel):
     passes_thresholds: bool
     valid: bool
     timeline: list[PlanStep]
+    # "proven optimal", or best found within the solver limit (stored before V1: not recorded)
+    optimality: str = "not recorded"
 
 
 class ScenarioOutcome(BaseModel):
@@ -280,6 +282,7 @@ def _summarise(
         passes_thresholds=passes,
         valid=opt.validation.valid,
         timeline=_timeline(opt.solution, samples, hold_samples, n_fixtures),
+        optimality=opt.solution.optimality(),
     )
 
 
@@ -563,6 +566,7 @@ def recommend(
         "p90": float(np.percentile(first_pts, 90)),
         "confidence": chosen.gain_horizon.probability_positive if chosen.label != "hold" else None,
         "stability": stab.label if stab else None,
+        "optimality": chosen.optimality,
     }
     lineup = {
         "starters": list(first.lineup.starters),

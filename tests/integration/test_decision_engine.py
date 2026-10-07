@@ -104,6 +104,7 @@ def test_injured_starter_triggers_a_justified_transfer(base) -> None:  # type: i
     assert d["action"] in ("TRANSFER", "HIT")
     assert star in d["transfers_out"]
     assert pkg.chosen.passes_thresholds and pkg.chosen.valid
+    assert d["optimality"] == pkg.chosen.optimality == "proven optimal"
     assert pkg.chosen.gain_horizon.mean >= cfg.decision.min_gain
     assert d["p10"] <= d["p50"] <= d["p90"]
     # every driver is backed by an evidence object that exists in the package
@@ -147,6 +148,7 @@ def test_injured_starter_triggers_a_justified_transfer(base) -> None:  # type: i
     ):
         assert section in md
     assert pkg.decision_id in md and pkg.explanation.primary_drivers[0]["evidence_ids"][0] in md
+    assert "Optimiser: the chosen plan is proven optimal." in md
     # the package serialises (API contract)
     js = pkg.model_dump(mode="json")
     assert js["decision"]["action"] == d["action"]

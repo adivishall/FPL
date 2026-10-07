@@ -25,6 +25,7 @@ interface Candidate {
   selection_reason: string;
   follow_up: { gameweek: number; out: number[]; in: number[]; chip: string | null }[];
   bank_after: number;
+  optimality?: string; // "proven optimal", or best found within the solver limit
 }
 
 export default function TransferLab() {
@@ -90,6 +91,7 @@ export default function TransferLab() {
                       <td>{pct(c.start_probability)}</td>
                       <td className="small">
                         {c.selection_reason}
+                        {c.optimality && c.optimality !== "proven optimal" ? <div><Badge tone="warn">time limit</Badge> plan not proven optimal</div> : null}
                         {c.follow_up.length ? <div>then: {c.follow_up.map((f) => `GW${f.gameweek} ${f.out.join(",")}→${f.in.join(",")}`).join("; ")}</div> : null}
                       </td>
                     </tr>
