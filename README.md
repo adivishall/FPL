@@ -210,6 +210,13 @@ Serving performance on one development machine (`ml/reports/performance.md`, App
 | Full recommendation (alternatives, stability, scenarios, chips; worker job) | 48 s at 3 GW deployed; 136–178 s at 5 GW in-process, by profile |
 | Alert evaluation job round trip via RQ worker | 1.6 s |
 
+Where the time goes (`ml/reports/performance_stages.md`, worker container, 4 vCPUs, live 2026-27
+GW6 data, 2026-10-07): the cold forecast is 71 % feature building, 24 % training and 6 % Monte
+Carlo; a 5-GW recommendation is mostly exact MILP solves (stability perturbations, chip weeks)
+and fixture-shock re-simulations. Solving the independent MILPs in parallel worker processes
+cut it from 161 s to 105 s with identical output (every field but timings and timestamp);
+deployed jobs now take 42 s (3 GW) and 90 s (5 GW).
+
 Recommendations therefore run as background jobs; heavy requests are minutes, not milliseconds.
 
 ## Status and limitations

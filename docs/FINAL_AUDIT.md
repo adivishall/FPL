@@ -148,7 +148,7 @@ suite `apps/web/e2e-prod/production.spec.ts` (18/18 against Docker Compose).
 | Confidence intervals | §70.4 | paired bootstrap per season and pooled | `backtest_report.py` | R | COMPLETE | exchangeability caveat |
 | Reproducibility | §86.2 | pinned snapshot, seeds, checkpoints | | three full runs; every divergence between runs starts exactly where a rule fix applied (club moves; season end); optimiser re-solves 100 % deterministic | COMPLETE | |
 | Optimiser benchmark vs simpler heuristic | §86.3 | | `ml/experiments/optimizer_benchmark.py` | R: `optimizer_benchmark.md` | COMPLETE | development-machine timings |
-| Performance benchmark | §79 | | `infra/scripts/perf_probe.py` | R: `performance.md` | COMPLETE | development-machine timings |
+| Performance benchmark | §79 | | `infra/scripts/perf_probe.py`, `perf_stages.py` | R: `performance.md`; `performance_stages.md` (stage profile, serial vs parallel solves, worker container) | COMPLETE | development-machine timings |
 | Synthetic leagues with known ground truth | §36 | tiny leagues + brute force | `tests/opt_util.py` | T: `test_milp_vs_bruteforce.py` | COMPLETE | |
 | Closed feedback loop | §38 | post-GW review, forecast evaluation | | R: alerts audit, backtest report | PARTIAL | decision regret vs forecast error not attributed per decision |
 
@@ -177,3 +177,16 @@ Counts over the rows above (99 requirements):
 
 Nothing is BLOCKED any more: the live FPL API, Docker and Playwright — blocked in the earlier
 cloud environment — all ran on the local machine.
+
+### V1 release classification of the 19 remaining items (2026-10-07)
+
+| Class | Items | Reason |
+|---|---|---|
+| **V1 release blocker** | TLS in transit | required before the stack is exposed to the internet; a TLS reverse proxy is the next release item (R3 in `docs/V1_RELEASE_PLAN.md`) |
+| V1 acceptable (ships, documented) | degraded mode without a baseline-forecast fallback (the last good forecast keeps serving); drift monitors not yet run on live outcomes (possible now that results are ingested); availability layer uncalibrated (no historical news); injury / suspension / doubt alerts not yet seen on real status changes; Prometheus rules without Alertmanager paging; product modes as screens; no curated decision-playback walkthrough; no demo GIF | none affects the correctness of a recommendation; each is stated in `docs/KNOWN_LIMITATIONS.md` |
+| V1.1 | ingestion-level drift gate; league awareness and template exposure through the API/UI; per-decision regret attribution (closed feedback loop) | library code or monitoring exists; exposure and evaluation are follow-up work |
+| V2 | ownership-adjusted captaincy; ownership in the decision engine; differential strategy; short-lived tokens (multi-user authentication) | need an ownership model or a multi-user security model |
+| Environmental / verified at deployment | webhook delivery to a real endpoint (needs an endpoint the operator controls); CD from green main (needs a registry and a host); encryption at rest (the host's disk encryption) | cannot be proven without the operator's infrastructure |
+
+Public deployment is therefore blocked by TLS (repository work) and by operator inputs no
+repository change can supply: a host, a domain with DNS access, and production secrets.

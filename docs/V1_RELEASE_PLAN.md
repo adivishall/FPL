@@ -37,7 +37,7 @@ Classes: **A** release blocker · **B** important, ships in V1 as is (documented
 | ID | Item | Class | Status |
 |---|---|---|---|
 | R1 | Live completed-gameweek results ingested point-in-time correctly, strictly separate from historical evaluation (#1) | A | **done** 2026-10-07 (`docs/BUILD_STATUS.md` §2a) |
-| R2 | Interactive performance: profile, then speed up recommendation / replacement / player analysis without changing results | A | open |
+| R2 | Interactive performance: profile, then speed up recommendation / replacement / player analysis without changing results | A | **done** 2026-10-07: profiled (`ml/reports/performance_stages.md`); independent solves parallel (5-GW recommendation 161 s → 105 s, identical output); remaining floors documented, deeper work (targeted re-simulation, cross-snapshot feature cache) is V1.1 |
 | R3 | Public deployment preparation: TLS reverse proxy, environment docs, migrations/startup, tested backup **and restore**, production smoke test (#13) | A | open |
 | R4 | Optimiser status shown honestly ("best found within the time limit" vs "proven optimal"); timeouts safe | A | open |
 | R5 | Evaluation claims: model/configuration freeze + prospective 2026-27 protocol; selection-bias warning kept | B | open |
@@ -51,4 +51,5 @@ Classes: **A** release blocker · **B** important, ships in V1 as is (documented
 | Date | Session goal | Result |
 |---|---|---|
 | 2026-10-06 | Classification (this file); R1 | live results implemented; real run 3,216 rows GW1–GW5; API no longer degraded |
-| 2026-10-07 | Finish R1; settings race found by the production suite | settings race reproduced on the pre-fix image and fixed (held-response regression + failed-load test); real-data re-run unchanged; production E2E 18/18, dev 7/7, fast tier 379 passed. Next: R2 (performance) |
+| 2026-10-07 | Finish R1; settings race found by the production suite | settings race reproduced on the pre-fix image and fixed (held-response regression + failed-load test); real-data re-run unchanged; production E2E 18/18, dev 7/7, fast tier 379 passed |
+| 2026-10-07 | R2 performance triage | profile: MILP solves ~76 % of a recommendation, feature building 71 % of a cold forecast; parallel independent solves (identical output) 161 s → 105 s; production E2E 18/18 and fast tier 384 passed on the new image. Next: R3 (public deployment preparation) |

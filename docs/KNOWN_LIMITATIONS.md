@@ -106,10 +106,16 @@ generated reports so they cannot drift from this page.
   machine (Apple M4, 10 logical CPUs, 16 GB, macOS); they are not production guarantees. The
   benchmark ran partly on battery power (recorded per run, with CPU time ≈ wall time showing no
   sleep); an earlier attempt that the machine slept through was discarded, not reported.
-* Heavy requests are slow: on the development machine a full 5-GW recommendation takes 2–3
-  minutes (stability analysis dominates), the replacement picker ~18 s and a 5-GW what-if ~8 s
-  (`ml/reports/performance.md`). Recommendations run as worker jobs; the synchronous replacement
-  and what-if routes hold an HTTP request open for that long.
+* Heavy requests are slow. Deployed recommendation jobs (worker with 4 solver processes, live
+  GW6 data) take 42 s at 3 GW and 90 s at 5 GW; the replacement picker takes ~14 s and a 5-GW
+  what-if ~8 s, holding an HTTP request open for that long (the API solves serially).
+  `ml/reports/performance_stages.md` shows where the time goes: after parallelising independent
+  solves (161 s → 105 s for a 5-GW recommendation, identical output), the floor is the slowest
+  single stability perturbation (two exact MILP solves, ~20 s on the development machine) and
+  ten full Monte Carlo re-simulations used to value Triple Captain / Bench Boost under a
+  postponement (~35 s).
+  Re-simulating only the affected players, and reusing historical-season features across hourly
+  snapshots (71 % of a cold forecast), are V1.1 work.
 * The serving forecast needs ~2 GB of memory while it is computed (worker); it is computed
   asynchronously and the API never trains on a request path in production.
 * In-process rate limiting is per API replica; behind the web proxy all browser users share one

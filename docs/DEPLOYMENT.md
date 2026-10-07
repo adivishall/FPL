@@ -36,7 +36,11 @@ kept alive), so its other tasks wait for it once per gameweek. Run it by hand wi
 exports.
 
 Resources (measured, `ml/reports/performance.md`): the worker computing the 8-gameweek,
-1,000-sample serving forecast peaks at ~2 GB RSS (container); give it ≥ 3 GB. The images run
+1,000-sample serving forecast peaks at ~2 GB RSS (container); give it ≥ 3 GB. Recommendation
+jobs solve independent MILPs (stability perturbations, chip weeks) in `FPL_SOLVER_WORKERS`
+spawned processes (default 2; set it to the worker's vCPUs — 4 here; up to ~250 MB each); the
+output is identical for any value (`ml/reports/performance_stages.md`). The API keeps 1, so
+synchronous requests never spawn processes. The images run
 as the non-root `app` user and the image pre-creates `/data` owned by `app`, so an empty named
 volume is writable on first use.
 
@@ -67,9 +71,9 @@ All other settings are `fpl_api.settings.Settings` fields with the `FPL_` prefix
    `ml/reports/performance.md`).
 5. `docker compose up -d` (api, worker, scheduler, web).
 6. `uv run python infra/scripts/smoke.py --api http://localhost:8000 --web http://localhost:3000`.
-7. Full production-topology browser suite (17 flows: proxy-only traffic, key enforcement, squad,
-   captain/bench, worker jobs, alerts, settings, traceability, export/delete, Backtest Lab, error
-   states, rate limiting):
+7. Full production-topology browser suite (18 flows: proxy-only traffic, key enforcement, squad,
+   captain/bench, worker jobs, alerts, settings incl. the load race, traceability, export/delete,
+   Backtest Lab, error states, rate limiting):
 
    ```bash
    cd apps/web && E2E_BASE_URL=http://127.0.0.1:3000 E2E_API_URL=http://127.0.0.1:8000 \
