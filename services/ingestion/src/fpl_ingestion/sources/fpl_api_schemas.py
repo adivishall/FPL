@@ -109,38 +109,28 @@ class ApiFixture(_Api):
     team_a_difficulty: int | None = None
 
 
-class ApiLiveStats(_Api):
+class ApiPlayerHistory(_Api):
+    """One played fixture of a player this season (``element-summary/{id}`` ``history``).
+
+    The same per-fixture record the historical archive's ``merged_gw`` is built from, incl. the
+    price (``value``), ownership (``selected``) and transfers *at that fixture*; a double
+    gameweek is two rows. Only the identifying fields are typed here: the full row is validated
+    by the archive's ``merged_gw`` contract.
+    """
+
+    element: int
+    fixture: int
+    round: int = Field(ge=1, le=60)
+    kickoff_time: datetime
+    was_home: bool
+    opponent_team: int
     minutes: int
-    goals_scored: int
-    assists: int
-    clean_sheets: int
-    goals_conceded: int
-    own_goals: int
-    penalties_saved: int
-    penalties_missed: int
-    yellow_cards: int
-    red_cards: int
-    saves: int
-    bonus: int
-    bps: int
     total_points: int
-    starts: int | None = None
-    expected_goals: float | None = None
-    expected_assists: float | None = None
-    expected_goals_conceded: float | None = None
-    clearances_blocks_interceptions: int | None = None
-    tackles: int | None = None
-    recoveries: int | None = None
-    defensive_contribution: int | None = None
+    value: int
 
 
-class ApiLiveElement(_Api):
-    id: int
-    stats: ApiLiveStats
-
-
-class EventLive(_Api):
-    elements: list[ApiLiveElement]
+class ElementSummary(_Api):
+    history: list[ApiPlayerHistory]
 
 
 class ApiEntry(_Api):

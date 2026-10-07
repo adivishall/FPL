@@ -63,3 +63,15 @@ on them. The rule only under-states information (cup blanks were known weeks ahe
   superseded.
 - The same PIT view powers the live system (with `as_of = now`), so live and backtest code paths
   cannot diverge.
+
+## Addendum (V1): live completed-match results
+
+Live results are loaded from `element-summary/{id}` histories — the records the archive is
+built from — through the archive's contract, quality gates and canonicaliser, so a live row
+gets exactly the stamps an archive row would (`available_at` = kickoff + provisional lag;
+`finalized` from the fixture's state at capture). Only the results tables are written; the
+schedule and deadlines remain those the hourly bootstrap capture observed (rule S1). The pinned
+evaluation snapshot is immutable and never contains these rows, and backtests refuse any other
+snapshot, so live post-cutoff information cannot reach historical evaluation
+(`tests/integration/test_live_results.py`: the live path reproduces the archive path's rows
+exactly and leaves every other table untouched).

@@ -1,26 +1,30 @@
 """Canonicalise live FPL API payloads into the same canonical frames as historical data.
 
-Live captures produce:
+The hourly bootstrap capture (``canonicalize_bootstrap``) produces:
 * teams / players / gameweeks (official deadlines from ``events``),
 * fixtures with schedule availability = capture time (what was published when we looked),
 * ``player_snapshots`` (price, ownership, status, news, set pieces, official price signal),
-* ``news_signals`` for non-empty news,
-* ``player_match`` rows from ``event/{gw}/live`` for players with exactly one fixture in the
-  gameweek. Players in a double gameweek are not split from the aggregated live payload; this is
-  recorded as a data-quality warning and their rows arrive with the historical import.
+* ``news_signals`` for non-empty news.
+
+Completed-match results come from ``element-summary/{id}`` histories (``results_frames``): the
+very records the historical archive's ``merged_gw`` is built from — per fixture (double
+gameweeks split), with the price, ownership and transfers *at that fixture* — so the archive's
+contracts, quality gates and canonicaliser apply to them unchanged.
 """
 
 from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
+from typing import Any
 
 import pandas as pd
 
-from fpl_domain.enums import Position, Severity
+from fpl_domain.enums import Position
 from fpl_domain.rules import Ruleset
 from fpl_ingestion.canonical import CanonicalSeason
-from fpl_ingestion.contracts import Issue
+from fpl_ingestion.contracts import CONTRACTS, Issue
+from fpl_ingestion.quality import POS_BY_TYPE, SeasonFrames
 from fpl_ingestion.sources import fpl_api_schemas as s
 
 _STATUS_TEXT = {
@@ -237,88 +241,47 @@ def canonicalize_bootstrap(
     ), issues
 
 
-def player_match_from_live(
-    live: s.EventLive,
-    gameweek: int,
-    boot: s.BootstrapStatic,
-    fixtures: list[s.ApiFixture],
-    ruleset: Ruleset,
-) -> tuple[pd.DataFrame, list[Issue]]:
-    """Per-player match rows for a gameweek from ``event/{gw}/live`` (single-fixture players)."""
-    issues: list[Issue] = []
-    code_by_tid = {t.id: t.code for t in boot.teams}
-    el = {e.id: e for e in boot.elements}
-    gw_fx: dict[int, list[s.ApiFixture]] = {}
-    for f in fixtures:
-        if f.event == gameweek:
-            gw_fx.setdefault(f.team_h, []).append(f)
-            gw_fx.setdefault(f.team_a, []).append(f)
-    prov = timedelta(minutes=ruleset.timing.provisional_lag_minutes)
-    rows, skipped_dgw = [], 0
-    for item in live.elements:
-        e = el.get(item.id)
-        if e is None or e.element_type not in (1, 2, 3, 4):
+def results_frames(
+    season: str,
+    bootstrap: dict[str, Any],
+    fixtures: list[dict[str, Any]],
+    histories: dict[int, list[dict[str, Any]]],
+) -> SeasonFrames:
+    """The archive's four input files rebuilt from live payloads (same columns and meaning),
+    validated by the archive's contracts. ``histories`` maps element id → its history rows."""
+    teams = pd.DataFrame(bootstrap["teams"])
+    players = pd.DataFrame(bootstrap["elements"])
+    team_name = teams.set_index("id")["name"]
+    el = players.set_index("id")
+    rows = []
+    for eid, hist in sorted(histories.items()):
+        if eid not in el.index:
             continue
-        fxs = gw_fx.get(e.team, [])
-        if len(fxs) != 1:
-            skipped_dgw += int(len(fxs) > 1)
-            continue
-        f = fxs[0]
-        st = item.stats
-        home = f.team_h == e.team
-        rows.append(
-            {
-                "season": ruleset.season,
-                "gw": gameweek,
-                "fixture_id": f.id,
-                "player_code": e.code,
-                "team_code": e.team_code,
-                "opponent_team_code": code_by_tid[f.team_a if home else f.team_h],
-                "was_home": home,
-                "kickoff_at": f.kickoff_time,
-                "minutes": st.minutes,
-                "starts": st.starts,
-                "points": st.total_points,
-                "goals": st.goals_scored,
-                "assists": st.assists,
-                "clean_sheets": st.clean_sheets,
-                "goals_conceded": st.goals_conceded,
-                "own_goals": st.own_goals,
-                "penalties_saved": st.penalties_saved,
-                "penalties_missed": st.penalties_missed,
-                "yellow_cards": st.yellow_cards,
-                "red_cards": st.red_cards,
-                "saves": st.saves,
-                "bonus": st.bonus,
-                "bps": st.bps,
-                "dc": st.defensive_contribution,
-                "cbi": st.clearances_blocks_interceptions,
-                "tackles": st.tackles,
-                "recoveries": st.recoveries,
-                "price": e.now_cost,
-                "ownership_count": None,
-                "transfers_in": e.transfers_in_event,
-                "transfers_out": e.transfers_out_event,
-                "xg": st.expected_goals,
-                "xa": st.expected_assists,
-                "xgc": st.expected_goals_conceded,
-                "influence": None,
-                "creativity": None,
-                "threat": None,
-                "available_at": (pd.Timestamp(f.kickoff_time) + prov) if f.kickoff_time else None,
-                "finalized": bool(f.finished),
-            }
-        )
-    if skipped_dgw:
-        issues.append(
-            Issue(
-                "live_dgw_not_split",
-                Severity.WARNING,
-                "player_gw_stats",
-                f"{skipped_dgw} players in double gameweeks need per-fixture "
-                "splitting from the explain payload; deferred to the "
-                "end-of-season historical import",
-                count=skipped_dgw,
+        e = el.loc[eid]
+        for h in hist:
+            rows.append(
+                {
+                    **h,
+                    "GW": h["round"],
+                    "name": f"{e['first_name']} {e['second_name']}",
+                    "position": POS_BY_TYPE[int(e["element_type"])],
+                    "team": team_name[int(e["team"])],
+                }
             )
-        )
-    return pd.DataFrame(rows), issues
+    parsed, issues = {}, []
+    for key, df in (
+        ("merged_gw", pd.DataFrame(rows)),
+        ("fixtures", pd.DataFrame(fixtures)),
+        ("teams", teams),
+        ("players_raw", players),
+    ):
+        parsed[key], found = CONTRACTS[key].validate(df)
+        issues.extend(found)
+    return SeasonFrames(
+        season=season,
+        merged_gw=parsed["merged_gw"],
+        fixtures=parsed["fixtures"],
+        teams=parsed["teams"],
+        players_raw=parsed["players_raw"],
+        issues=issues,
+    )

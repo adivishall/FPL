@@ -12,7 +12,7 @@ Observed in the build environment (2026-10-02):
 
 | Source | Host | Reachable | Notes |
 |--------|------|-----------|-------|
-| FPL official API (`/api/bootstrap-static/`, `/api/fixtures/`, `/api/event/{gw}/live/`, `/api/entry/{id}/…`, `/api/leagues-classic/{id}/standings/`) | fantasy.premierleague.com | **No** (egress policy 403) | Primary live source in production. |
+| FPL official API (`/api/bootstrap-static/`, `/api/fixtures/`, `/api/element-summary/{id}/`, `/api/entry/{id}/…`, `/api/leagues-classic/{id}/standings/`) | fantasy.premierleague.com | **No** (egress policy 403) | Primary live source in production. |
 | FPL historical dataset (vaastav/Fantasy-Premier-League, MIT licence; data © FPL / Understat) | raw.githubusercontent.com | Yes | Seasons 2016-17 → 2025-26 complete, 2026-27 GW1. Pinned by commit SHA. |
 | premierleague.com rule pages | www.premierleague.com | No | Rules verified via secondary sources + empirical scoring reproduction (ADR-0005). |
 

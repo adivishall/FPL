@@ -16,3 +16,6 @@ tasks:
   retention:             # prune old live snapshots and caches (fpl_api.retention)
     every_minutes: 60
     enabled: true
+  live_results:          # completed-match results of the live season, when due (results_due)
+    every_minutes: 60
+    enabled: true

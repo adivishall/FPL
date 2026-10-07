@@ -12,8 +12,7 @@ Base: `https://fantasy.premierleague.com/api/` — read-only, unauthenticated pu
 |----------|----------|---------|-------|
 | `bootstrap-static/` | players, teams, gameweeks (deadlines), prices, ownership, status/news, chance of playing, set-piece orders, official price-change predictor fields (`price_change_percent`, `price_change_projections`, …) | scheduled (default every 6 h; hourly near deadline) | Largest payload; cached, never fetched per page load (§6.1). |
 | `fixtures/` | fixture schedule, results, per-fixture stats | scheduled | Normalised to canonical fixtures. |
-| `event/{gw}/live/` | per-player GW stats incl. provisional bonus | after matches | Provisional vs final distinguished (§51.1). |
-| `element-summary/{id}/` | per-player history | on demand / backfill | Rate-limited client. |
+| `element-summary/{id}/` | per-player, per-fixture history of the season: all match stats plus the price (`value`), ownership (`selected`) and transfers *at that fixture*; double gameweeks are separate rows | when a finished gameweek has no results, then daily while a recent gameweek may be corrected (`live_results` task; ~1 request/s per player) | The same records the archive's `merged_gw` is built from, so they pass the archive's contract, quality gates and canonicaliser unchanged; bundled into one raw payload per run for lineage. |
 | `entry/{id}/` | manager summary | on sync | Public. |
 | `entry/{id}/history/` | per-GW bank, value, transfers, hits, chips used | on sync | Used to reconstruct bank/FT/chip state. |
 | `entry/{id}/event/{gw}/picks/` | squad, captain, bench order for a finished/locked GW | on sync | Current-GW picks become public after the deadline. |

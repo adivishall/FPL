@@ -87,9 +87,9 @@ class FplApiClient:
         parsed = TypeAdapter(list[s.ApiFixture]).validate_python(json.loads(res.content))
         return payload, parsed
 
-    def event_live(self, gameweek: int) -> tuple[RawPayload, s.EventLive]:
-        gw = _bounded("gameweek", gameweek, 1, 60)
-        return self._get(f"event/{gw}/live/", f"event-live/{gw}", s.EventLive)
+    def element_summary(self, element_id: int) -> tuple[RawPayload, s.ElementSummary]:
+        eid = _bounded("element_id", element_id, 1, 5000)
+        return self._get(f"element-summary/{eid}/", f"element-summary/{eid}", s.ElementSummary)
 
     def entry(self, entry_id: int) -> tuple[RawPayload, s.ApiEntry]:
         eid = _bounded("entry_id", entry_id, 1, MAX_ENTRY_ID)

@@ -52,3 +52,29 @@ def test_scheduler_liveness_follows_its_heartbeat(
     old = time.time() - 3 * 60 * 60
     os.utime(beat, (old, old))
     assert cli.main(probe) == 1  # stuck scheduler is reported dead
+
+
+def test_results_are_due_when_missing_then_daily_while_correctable() -> None:
+    import pandas as pd
+
+    from fpl_worker.cli import results_due
+
+    last_ko = pd.Timestamp("2026-09-28T19:00Z")
+    gws = pd.DataFrame(
+        {
+            "season": "2026-27",
+            "gw": [1, 2, 3],
+            "status": ["finalized", "provisional", "upcoming"],
+            "last_kickoff_at": [pd.Timestamp("2026-08-24T19:00Z"), last_ko, pd.NaT],
+        }
+    )
+    have_gw1 = pd.DataFrame(
+        {"season": ["2026-27"], "gw": [1], "fixture_id": [1], "player_code": [1]}
+    )
+    now = last_ko + pd.Timedelta(hours=10)
+    assert results_due(gws, have_gw1, "2026-27", None, now) == "results missing for GW2-GW2"
+    both = pd.concat([have_gw1, have_gw1.assign(gw=2, fixture_id=2)])
+    assert results_due(gws, both, "2026-27", now - pd.Timedelta(hours=2), now) is None  # today
+    assert results_due(gws, both, "2026-27", now - pd.Timedelta(hours=25), now) is not None
+    later = last_ko + pd.Timedelta(days=5)  # outside the correction window: nothing to do
+    assert results_due(gws, both, "2026-27", now - pd.Timedelta(days=3), later) is None

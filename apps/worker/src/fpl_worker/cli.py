@@ -20,10 +20,11 @@ import tempfile
 import time
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import redis
 import structlog
 from prometheus_client import CollectorRegistry, multiprocess, start_http_server
@@ -31,7 +32,7 @@ from pydantic import BaseModel, ConfigDict
 from rq import Queue, Worker
 from rq.defaults import DEFAULT_WORKER_TTL
 from rq.utils import utcparse
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from fpl_api.container import AppServices
 from fpl_api.jobs import JobBackend, services
@@ -39,8 +40,11 @@ from fpl_api.services import ForecastUnavailable
 from fpl_domain.config import load_versioned_config
 from fpl_ingestion import cli as ingest_cli
 from fpl_ingestion.logs import configure_logging
+from fpl_ingestion.pipeline import ingest_live_results
+from fpl_ingestion.sources.fpl_api import FplApiClient
 from fpl_storage import models as m
 from fpl_storage.db import session_scope
+from fpl_storage.raw_store import RawStore
 
 log = structlog.get_logger("fpl_worker")
 # liveness marker only (its mtime is read; contents are never trusted)
@@ -138,11 +142,78 @@ def task_retention(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]
     return {"status": "submitted", "job_id": jobs.submit("retention", {"at": b})}
 
 
+RESULTS_RECHECK = timedelta(hours=24)
+RESULTS_CORRECTION_WINDOW = timedelta(days=4)  # bonus / data-check corrections land within it
+
+
+def results_due(
+    gameweeks: pd.DataFrame,
+    player_match: pd.DataFrame,
+    season: str,
+    last_success: datetime | None,
+    now: datetime,
+) -> str | None:
+    """Why the live season's match results should be (re)loaded now, or None.
+
+    Loading costs one paced request per player (~11 min), so it runs when a finished gameweek
+    has no results, and otherwise at most daily while a recent gameweek may still be corrected.
+    """
+    g = gameweeks[
+        (gameweeks["season"] == season) & gameweeks["status"].isin(["finalized", "provisional"])
+    ]
+    pm = player_match
+    missing = sorted(set(g["gw"].astype(int)) - set(pm.loc[pm["season"] == season, "gw"]))
+    if missing:
+        return f"results missing for GW{missing[0]}-GW{missing[-1]}"
+    last_kickoff = pd.to_datetime(g["last_kickoff_at"], utc=True).max() if len(g) else None
+    recent = last_kickoff is not None and now - last_kickoff < RESULTS_CORRECTION_WINDOW
+    if recent and (last_success is None or now - last_success >= RESULTS_RECHECK):
+        return "daily re-check while recent results may still be corrected"
+    return None
+
+
+def task_live_results(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
+    if svc.engine is None:
+        return {"status": "skipped", "reason": "no database"}
+    ctx = svc.context()
+    with session_scope(svc.engine) as s:
+        last = s.scalar(
+            select(func.max(m.DataJob.completed_at)).where(
+                m.DataJob.job_type == "live_results", m.DataJob.status == "succeeded"
+            )
+        )
+    ds = svc.data.ds
+    why = results_due(ds["gameweeks"], ds["player_match"], ctx.season, last, datetime.now(UTC))
+    if why is None:
+        return {"status": "skipped", "reason": "results up to date"}
+
+    def beat(n: int, total: int) -> None:  # an ~11 min task must not look like a hung scheduler
+        if n % 25 == 0 or n == total:
+            SCHEDULER_HEARTBEAT.touch()
+
+    client = FplApiClient.from_config(load_versioned_config("", "sources").data)
+    store = RawStore(ingest_cli.data_dir() / "raw")
+    res = ingest_live_results(svc.engine, client, store, ctx.season, on_progress=beat)
+    if res.status != "succeeded":
+        return {"status": res.status, "reason": why, "job_id": res.job_id}
+    rc = ingest_cli.main(["export-snapshot"])
+    if rc != 0:
+        return {"status": "failed", "exit_code": rc}
+    svc.data.refresh()  # precompute the new snapshot's forecast so the API can promote it
+    return {
+        "status": "succeeded",
+        "reason": why,
+        "job_id": res.job_id,
+        "forecast": task_forecast_precompute(svc, jobs, b),
+    }
+
+
 TASKS: dict[str, Callable[[AppServices, JobBackend, str], dict[str, Any]]] = {
     "forecast_precompute": task_forecast_precompute,
     "alerts": task_alerts,
     "live_refresh": task_live_refresh,
     "retention": task_retention,
+    "live_results": task_live_results,
 }
 
 

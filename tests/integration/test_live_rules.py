@@ -81,3 +81,24 @@ def test_scoring_table(official: dict[str, Any]) -> None:
         sc["short_play"],
         sc["long_play"],
     )
+
+
+def test_live_player_histories_pass_the_archive_contract() -> None:
+    """``element-summary`` histories are the archive's ``merged_gw`` rows (§6.1, live results)."""
+    from fpl_domain.enums import Severity
+    from fpl_ingestion.live import results_frames
+
+    client = FplApiClient.from_config(load_versioned_config("", "sources").data)
+    boot_raw, _ = client.bootstrap_static()
+    fx_raw, fixtures = client.fixtures()
+    boot = json.loads(boot_raw.content)
+    played = {f.id for f in fixtures if f.finished_provisional or f.finished}
+    picks = [e["id"] for e in boot["elements"] if e["element_type"] in (1, 2, 3, 4)][:3]
+    histories = {}
+    for eid in picks:
+        raw, summary = client.element_summary(eid)
+        assert all(h.element == eid for h in summary.history)
+        histories[eid] = [h for h in json.loads(raw.content)["history"] if h["fixture"] in played]
+    frames = results_frames("2026-27", boot, json.loads(fx_raw.content), histories)
+    assert not [i.message for i in frames.issues if i.severity is Severity.CRITICAL]
+    assert len(frames.merged_gw) == sum(len(h) for h in histories.values())

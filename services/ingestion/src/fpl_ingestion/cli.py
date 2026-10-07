@@ -5,6 +5,7 @@ Examples::
     fpl-ingest historical --all                 # pinned historical seasons → PostgreSQL
     fpl-ingest historical --season 2025-26 --local-dir data/fixtures/vaastav
     fpl-ingest live --season 2026-27            # live FPL API capture (degrades gracefully)
+    fpl-ingest live-results --season 2026-27    # completed-match results of the live season
     fpl-ingest export-snapshot                  # reproducible Parquet snapshot (+ DB record)
     fpl-ingest dq-report --limit 50
 """
@@ -23,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from fpl_domain.config import load_versioned_config
 from fpl_ingestion.logs import configure_logging
-from fpl_ingestion.pipeline import ingest_historical_season, ingest_live
+from fpl_ingestion.pipeline import ingest_historical_season, ingest_live, ingest_live_results
 from fpl_ingestion.sources.fpl_api import FplApiClient
 from fpl_ingestion.sources.historical import HistoricalRepoSource, LocalDirTransport
 from fpl_storage import models as m
@@ -73,6 +74,14 @@ def _cmd_live(args: argparse.Namespace) -> int:
         json.dumps({"status": res.status, "job_id": res.job_id, "counts": res.counts}, default=str)
     )
     return 0 if res.status == "succeeded" else 4
+
+
+def _cmd_live_results(args: argparse.Namespace) -> int:
+    cfg = load_versioned_config("", "sources").data
+    client = FplApiClient.from_config(cfg)
+    res = ingest_live_results(make_engine(), client, RawStore(data_dir() / "raw"), args.season)
+    print(json.dumps({"status": res.status, "job_id": res.job_id, "counts": res.counts}))
+    return {"succeeded": 0, "quarantined": 3}.get(res.status, 4)
 
 
 def _cmd_export(args: argparse.Namespace) -> int:
@@ -133,6 +142,9 @@ def main(argv: list[str] | None = None) -> int:
     lv = sub.add_parser("live", help="capture live FPL API state")
     lv.add_argument("--season", required=True)
     lv.set_defaults(func=_cmd_live)
+    lr = sub.add_parser("live-results", help="load completed-match results of the live season")
+    lr.add_argument("--season", required=True)
+    lr.set_defaults(func=_cmd_live_results)
     ex = sub.add_parser("export-snapshot", help="export a reproducible Parquet snapshot")
     ex.add_argument("--seasons", nargs="*")
     ex.add_argument("--out", default=str(data_dir() / "snapshots"))

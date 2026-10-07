@@ -13,12 +13,15 @@ Every step is idempotent: re-running a job with the same source revision changes
 from __future__ import annotations
 
 import io
+import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
 import structlog
+from pydantic import ValidationError
 from sqlalchemy import Engine
 
 from fpl_domain.config import load_versioned_config
@@ -27,7 +30,7 @@ from fpl_domain.rules import load_ruleset
 from fpl_ingestion.canonical import CanonicalSeason, PitPolicy, canonicalize
 from fpl_ingestion.contracts import CONTRACTS, Issue
 from fpl_ingestion.http import SourceUnavailableError
-from fpl_ingestion.live import canonicalize_bootstrap
+from fpl_ingestion.live import canonicalize_bootstrap, results_frames
 from fpl_ingestion.load import load_canonical
 from fpl_ingestion.quality import SeasonFrames, run_quality_gates
 from fpl_ingestion.sources.historical import FILES, HistoricalRepoSource
@@ -245,6 +248,9 @@ def ingest_live(
         fx_raw, fixtures = client.fixtures()
     except SourceUnavailableError as exc:
         return finish("failed", [{"stage": "extract", "error": str(exc)}])
+    except ValidationError as exc:  # schema drift: keep serving the last validated snapshot
+        result.issues.append(Issue("schema_type", Severity.CRITICAL, "bootstrap", str(exc)[:300]))
+        return finish("quarantined", [{"stage": "validate", "critical": [str(exc)[:300]]}])
     with session_scope(engine) as s:
         for key, p in (("bootstrap", boot_raw), ("fixtures", fx_raw)):
             path = raw_store.put(p)
@@ -274,6 +280,130 @@ def ingest_live(
     except Exception as exc:
         log.exception("ingest_live.load_failed")
         return finish("failed", [{"stage": "load", "error": repr(exc)[:500]}])
+    result.issues.extend(conflict_issues(conflicts))
+    return finish("succeeded", [])
+
+
+RESULT_TABLES = ("seasons", "player_match", "team_match")
+
+
+def ingest_live_results(
+    engine: Engine,
+    client: Any,
+    raw_store: RawStore,
+    season: str,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> IngestionResult:
+    """Load completed-match results of the live season (``element-summary`` histories).
+
+    One request per player (paced by the HTTP client), bundled into one raw payload for
+    lineage. Only fixtures the API reports as played (``finished_provisional``) are taken, and
+    only the results tables are loaded: deadlines, schedule availability and players stay as the
+    hourly bootstrap capture recorded them (schedule rule S1). Rows carry the same point-in-time
+    stamps as archive rows (``available_at`` = kickoff + provisional lag), so the PIT view and
+    backtests treat them identically — and historical evaluation never sees them, because it
+    is pinned to its own snapshot.
+    """
+    cfg = load_versioned_config("", "sources").data
+    params = {"season": season}
+    with session_scope(engine) as s:
+        job = JobRecorder(s, job_type="live_results", source="fpl_api", params=params)
+        job.start()
+    result = IngestionResult(job_id=job.job_id, season=season, status="running")
+
+    def finish(status: str, errors: list[Any]) -> IngestionResult:
+        with session_scope(engine) as s:
+            rec = JobRecorder(s, "live_results", "fpl_api", params, job_id=result.job_id)
+            for i in result.issues:
+                rec.record_issue(
+                    issue_code=i.code,
+                    severity=i.severity.value,
+                    entity_type=i.entity_type,
+                    entity_id=i.entity_id,
+                    details={"message": i.message, "count": i.count, **i.details},
+                )
+            rec.finish(status, result.counts, errors)
+        result.status = status
+        log.info("ingest_live_results.finished", season=season, status=status)
+        return result
+
+    try:
+        boot_raw, boot = client.bootstrap_static()
+        fx_raw, fixtures = client.fixtures()
+        played = {f.id for f in fixtures if f.finished_provisional or f.finished}
+        wanted = [e.id for e in boot.elements if e.element_type in (1, 2, 3, 4)]
+        bodies: dict[int, str] = {}
+        histories: dict[int, list[dict[str, Any]]] = {}
+        last = boot_raw.retrieved_at
+        for n, eid in enumerate(wanted, 1):
+            raw, _ = client.element_summary(eid)  # typed validation of the identifying fields
+            bodies[eid] = raw.content.decode("utf-8")
+            hist = json.loads(raw.content)["history"]
+            histories[eid] = [h for h in hist if h["fixture"] in played]
+            last = max(last, raw.retrieved_at)
+            if on_progress is not None:
+                on_progress(n, len(wanted))
+    except SourceUnavailableError as exc:
+        return finish("failed", [{"stage": "extract", "error": str(exc)}])
+    except ValidationError as exc:  # schema drift: quarantine the batch, load nothing
+        result.issues.append(
+            Issue("schema_type", Severity.CRITICAL, "player_gw_stats", str(exc)[:300])
+        )
+        return finish("quarantined", [{"stage": "validate", "critical": [str(exc)[:300]]}])
+    bundle = RawPayload(
+        source=boot_raw.source,
+        resource=f"element-summary-bundle/{season}",
+        url=boot_raw.url.replace("bootstrap-static/", "element-summary/{id}/"),
+        retrieved_at=last,  # the bundle is complete only once its last member arrived
+        content=json.dumps(bodies, sort_keys=True).encode("utf-8"),  # members byte-for-byte
+        content_type="application/json",
+        source_version=boot_raw.source_version,
+        schema_version=boot_raw.schema_version,
+    )
+    with session_scope(engine) as s:
+        for key, p in (("players_raw", boot_raw), ("fixtures", fx_raw), ("merged_gw", bundle)):
+            path = raw_store.put(p)
+            record_raw_snapshot(s, _raw_meta(p, str(path), result.job_id))
+            result.raw_ids[key] = p.snapshot_id
+    result.raw_ids["teams"] = result.raw_ids["players_raw"]
+
+    frames = results_frames(
+        season, json.loads(boot_raw.content), json.loads(fx_raw.content), histories
+    )
+    pit = cfg.get("point_in_time", {})
+    if frames.gate_passed:
+        frames = run_quality_gates(frames, pit.get("derived_deadline_offset_minutes", 90))
+    result.issues = frames.issues
+    if not frames.gate_passed:
+        crit = [i.message for i in frames.issues if i.severity is Severity.CRITICAL]
+        return finish("quarantined", [{"stage": "validate", "critical": crit}])
+    canonical = canonicalize(
+        frames, load_ruleset(season), PitPolicy.from_config(cfg), last, source="fpl_api"
+    )
+    result.canonical = canonical
+    full = canonical.frames()
+    results_only = CanonicalDataset({t: full[t] for t in RESULT_TABLES})
+    conflicts: list[dict[str, Any]] = []
+    try:
+        with session_scope(engine) as s:
+            result.counts = load_canonical(
+                s,
+                results_only,
+                result.raw_ids,
+                source="fpl_api",
+                source_priority=_live_priority(),
+                conflicts=conflicts,
+            )
+    except Exception as exc:  # load failures must be recorded, never swallowed silently
+        log.exception("ingest_live_results.load_failed", season=season)
+        return finish("failed", [{"stage": "load", "error": repr(exc)[:500]}])
+    gws = full["player_match"]["gw"].astype(int)
+    result.counts["element_summaries"] = {
+        "players": len(wanted),
+        "rows": len(gws),
+        "gameweeks": int(gws.nunique()),
+        "last_gw": int(gws.max()) if len(gws) else 0,
+    }
     result.issues.extend(conflict_issues(conflicts))
     return finish("succeeded", [])
 
