@@ -4,6 +4,23 @@ What this system does **not** do, what has only been checked against snapshots o
 where its numbers come with caveats (§92). Every item names the evidence; numbers live in the
 generated reports so they cannot drift from this page.
 
+## At a glance (V1)
+
+* **Uncertain inputs.** Forecasts are probabilistic and lineups, minutes and injuries are often
+  wrong; news-driven availability is uncalibrated (§4).
+* **Selection bias.** The design was iterated on the evaluated seasons; 2026-27 is the first
+  unseen season (§3).
+* **Optimiser limits.** Chip-open solves run to the 60 s limit and return validated incumbents,
+  labelled "best found within the solver limit; not proven optimal" (§5).
+* **Latency.** Recommendations take 42–90 s as worker jobs; the replacement picker 13–49 s (§5).
+* **Single-tenant.** One shared API key behind the web proxy; a public site sits behind one
+  login, with no per-user accounts (§6).
+* **External source.** The live FPL API is unofficial and can change or go away (§2).
+* **Laptop sleep.** Long jobs on a sleeping development machine are interrupted and re-run (§7).
+* **Webhooks.** A DNS-rebinding window remains between validation and connection (§6).
+* **One machine.** Every timing comes from one development machine and its Docker VM (§5).
+* **Not yet public.** Deployment is verified locally, TLS included; no public URL exists yet (§7).
+
 ## 1. What has been verified against real FPL data — and what has not
 
 | Verified against real data | Evidence |
@@ -90,7 +107,9 @@ generated reports so they cannot drift from this page.
 ## 5. Optimisation and computation
 
 * MILP solves are exact within a 60 s limit (`mip_rel_gap` 0); a time-limited solve returns a
-  polished, independently validated incumbent without an optimality proof. Measured timings,
+  polished, independently validated incumbent without an optimality proof, and the plan says so
+  (API `optimality`, report and UI: "proven optimal" or "best found within the solver limit (…);
+  not proven optimal"). Measured timings,
   timeout frequency and the cost of candidate pooling: `ml/reports/optimizer_benchmark.md`.
 * Measured on 48 realistic squad states (`ml/reports/optimizer_benchmark.md`): every chip-open
   solve (all usable chips, 5 GW) ran to the 60 s limit (48 of 48; p50 63.8 s wall) and returns a
@@ -107,8 +126,9 @@ generated reports so they cannot drift from this page.
   benchmark ran partly on battery power (recorded per run, with CPU time ≈ wall time showing no
   sleep); an earlier attempt that the machine slept through was discarded, not reported.
 * Heavy requests are slow. Deployed recommendation jobs (worker with 4 solver processes, live
-  GW6 data) take 42 s at 3 GW and 90 s at 5 GW; the replacement picker takes ~14 s and a 5-GW
-  what-if ~8 s, holding an HTTP request open for that long (the API solves serially).
+  GW6 data) take 42 s at 3 GW and 90 s at 5 GW. The replacement picker holds an HTTP request open
+  while it solves serially: 12.5–13.8 s for one outgoing player in the stage report, 48.9 s for
+  another (232 candidates screened) on the deployed API; a 5-GW what-if takes ~8 s.
   `ml/reports/performance_stages.md` shows where the time goes: after parallelising independent
   solves (161 s → 105 s for a 5-GW recommendation, identical output), the floor is the slowest
   single stability perturbation (two exact MILP solves, ~20 s on the development machine) and
@@ -127,7 +147,11 @@ generated reports so they cannot drift from this page.
   holding an API key — including every user of the web UI, whose proxy holds the key — can read
   or erase any manager's data by key. Suitable for a personal or trusted-group deployment, not a
   public multi-user service (that needs real user authentication and per-user authorisation).
-* No TLS termination in the compose file (documented: put a reverse proxy in front).
+  The public overlay therefore puts the whole site behind one login at the TLS proxy (HTTP Basic
+  over TLS): everyone given the login shares the same rights, and there is no lockout after
+  failed attempts (use a long random password).
+* TLS: `docker-compose.public.yml` (Caddy) terminates TLS with automatic certificates; verified
+  locally with Caddy's internal CA. Publicly trusted issuance is only exercised on a real domain.
 * Webhook SSRF defence: HTTPS-only, no credentials, exact host allow-list, port 443, every
   resolved address global (IPv4-mapped and NAT64 forms unwrapped), no redirects, 5 s timeout.
   **Residual risk:** DNS is resolved again by the HTTP client at connect time, so a rebinding
@@ -140,7 +164,11 @@ generated reports so they cannot drift from this page.
 
 ## 7. Engineering scope not covered
 
-* No automated backups or multi-replica rate limiting (runbook only).
+* Backups are a tested script, not a managed service: scheduling, off-host copies and their
+  retention are the operator's. The restore was tested on the same machine into fresh volumes,
+  not onto another host or across an image upgrade; the Redis job queue is not backed up (jobs in
+  flight at backup time are closed as abandoned after a restore). Rate limiting is per API
+  replica.
 * **Host sleep (development laptops).** When the Mac sleeps, the Colima VM pauses; on wake its
   clock jumps and RQ judges running jobs past their timeout and kills them. Observed overnight
   on the local stack: four jobs were closed as `interrupted` and the next scheduler buckets
@@ -148,7 +176,8 @@ generated reports so they cannot drift from this page.
   real deployment (server/VM that does not sleep) is not affected. Long local runs used
   `caffeinate`.
 * The release workflow publishes images from tags; it has not been executed against a real
-  registry or cloud environment in this project — deployment is verified locally with Docker
-  Compose only.
+  registry or cloud environment in this project. Deployment — the public TLS topology included —
+  is verified locally with Docker Compose only; there is no public URL until a host, domain and
+  secrets are provided (`docs/DEPLOYMENT.md` → *Operator inputs*).
 * §43 research extensions (RL policies, rival-response simulation, contextual bandits) are not
   implemented.

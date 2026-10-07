@@ -24,14 +24,15 @@ Legend: ☑ done **and** verified · ◐ partial (see notes) · ✗ not done (re
 | M9 | Explainability: evidence, counterfactuals | ☑ | No unsupported reasons | evidence tests; E2E recommendation |
 | M10 | Walk-forward backtesting, benchmarks, reports | ☑ | No-lookahead audit passes | `ml/reports/backtest.md`: 3 seasons, 0 violations, rule S1 (leak found and fixed in M14) |
 | M11 | API + async jobs + cache | ☑ | Contract tests pass | `tests/integration/test_api.py`, `test_worker.py` |
-| M12 | UI (Next.js) + e2e | ☑ | End-to-end flow works | dev flows 7/7 + 18/18 production-topology flows |
+| M12 | UI (Next.js) + e2e | ☑ | End-to-end flow works | dev flows 7/7 + 19/19 production-topology flows (through the TLS proxy) |
 | M13 | Production hardening | ☑ | Clean production smoke test | Docker Compose verified locally (health, persistence, crash recovery, E2E) |
 | M14 | Final verification, audit, limitations, portfolio docs | ☑ | A reviewer can reproduce core claims | `docs/FINAL_AUDIT.md`, `docs/KNOWN_LIMITATIONS.md`, README, this file |
 
 The specification audit (`docs/FINAL_AUDIT.md`) is stricter than this table: it counts every
-requirement and marks partial work as PARTIAL (99 requirements: 80 COMPLETE, 14 PARTIAL, 4 NOT IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE).
+requirement and marks partial work as PARTIAL (99 requirements: 81 COMPLETE, 14 PARTIAL, 3 NOT IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE).
 V1 release work after M14 is planned and logged in `docs/V1_RELEASE_PLAN.md`; its verification
-record is §2a.
+records are §2a and §2b (final). Public deployment waits on operator inputs (host, domain,
+secrets); everything else for V1 is done.
 
 ## 2. M14 verification record (2026-10-04 – 06, local machine)
 
@@ -129,6 +130,41 @@ record is §2a.
     manager key is discarded.
 33. A bootstrap payload failing its schema raised out of the live capture and left its job
     `running`; it is now quarantined like any other contract failure.
+
+## 2b. V1 release verification (2026-10-07, final images)
+
+Images: engine `930b0f48…` (api, worker, scheduler), web `bbcaaa05…`, Caddy 2.10.2
+(`caddy@sha256:4c6e91c6…`); public overlay with `FPL_PUBLIC_DOMAIN=fpl.localhost`,
+`FPL_TLS=internal`.
+
+| Area | Result |
+|---|---|
+| CI | green on `7eab35d` (lint, test, optimizer-suite, web-e2e, security, containers) before this work; the release commit's run is checked after the push |
+| Python | fast tier 384 passed, 0 failed (6 deselected); slow + network tiers 6 passed (official points on all historical rows; live-API contracts); ingestion / live / worker / retention set 64 passed |
+| Lint / types | ruff, ruff format, mypy (110 files), import-linter 4/4, `tsc`, `next build`: clean |
+| Playwright | production topology 19/19 through Caddy (TLS + login) → web proxy → API → Postgres / Redis / worker; development flows 7/7 |
+| TLS | chain valid against the CA, TLS 1.3, TLS 1.1 refused; HTTP `308` → HTTPS with path and query; `401` without / with a wrong login; HSTS, nosniff, frame, referrer and permissions headers; no `Server` / `X-Powered-By`; API, web, Postgres, Redis on loopback only; smoke test through the public origin 5/5 |
+| Backup / restore | backup with writers paused: 16.0 MB dump (38 tables with data), 82.5 MB data archive, checksums; restored into a new Compose project with empty volumes (full public topology) in 78 s; restored dump: 40/40 row-count lines equal; manager squad, settings, recommendation id, decision, optimality equal; trace complete; new recommendation + alert jobs succeeded; restored scheduler captured live data; new TLS certificate served behind the login |
+| Live data | GW1–GW5 3,216 rows, lineage to the succeeded bundle job, 0 conflicts, GW1 revisions provenance-only, deadlines equal to the live API, historical seasons vaastav-only, pinned evaluation snapshot unchanged (GW1 only), no job stuck `running` |
+| Security | log scan of 10 containers after the final run: 0 lines with any of 6 secrets, 0 raw manager keys; gitleaks over the full history (29 commits): no leaks; webhook SSRF tests in the fast tier; export / delete / audit exercised (E2E and manual erasure of test managers) |
+| Retention | 28 successful retention jobs in two days; 26 snapshots on disk; pinned evaluation snapshot kept |
+| Observability | Prometheus: api and worker targets up, 12 alert rules loaded, none firing; request, freshness, forecast, job, queue, optimisation, recommendation, model-metric and security series present |
+| Performance | `ml/reports/performance_stages.md`; deployed recommendation jobs 42 s (3 GW), 90 s (5 GW); replacement picker 12.5–48.9 s |
+
+### Defects found and fixed in the V1 release pass
+
+34. Plans were never labelled with their optimality: a time-limited incumbent looked the same as
+    a proven optimum, and the squad builder always said "Optimal squad". The API, report and UI
+    now say "proven optimal" or "best found within the solver limit; not proven optimal".
+35. The overview showed a red "0%" confidence next to every HOLD (the probability that holding
+    beats holding) — read as "0% confidence". HOLD now shows why no move was chosen.
+36. Replacement candidates did not show when their plan was time-limited.
+37. The new TLS proxy's error log printed request URIs, which carry manager keys — found by
+    provoking an upstream failure before release; URIs are now dropped from its logs.
+38. The running Prometheus predated one alert rule (rule files load at start-up): restarted;
+    the runbook now says so.
+39. The smoke test required direct API access, which a public deployment does not expose; it
+    now also runs through the public origin, behind the site login.
 
 ## 3. Environment
 

@@ -3,7 +3,8 @@
 Every major requirement of *FPL Decision Engine — Flagship Project Specification* mapped to its
 implementation, the test or measured artifact that supports it, and an honest status. Audited on
 the repository state of this commit, on 2026-10-06, after the M14 verification work; updated on
-2026-10-07 for the V1 release work (`docs/V1_RELEASE_PLAN.md`).
+2026-10-07 for the V1 release work (`docs/V1_RELEASE_PLAN.md`) — the V1 release status is at the
+end.
 
 **Status rules.** COMPLETE = implemented, integrated, and backed by an automated test or a
 reproducible measured artifact. PARTIAL = implemented in part, or implemented but not reachable /
@@ -12,7 +13,8 @@ NOT VERIFIABLE = implemented, but the evidence would need an environment or data
 does not have. Code existing is never enough for COMPLETE.
 
 Abbreviations: `T:` test file(s); `R:` generated report; `E2E` = production-topology Playwright
-suite `apps/web/e2e-prod/production.spec.ts` (18/18 against Docker Compose).
+suite `apps/web/e2e-prod/production.spec.ts` (19/19 against Docker Compose, through the TLS proxy
+and its login).
 
 ## Data
 
@@ -52,7 +54,7 @@ suite `apps/web/e2e-prod/production.spec.ts` (18/18 against Docker Compose).
 |---|---|---|---|---|---|---|
 | HOLD always valid; hold vs transfer vs hit vs chip | §18, §86.1 | paired-gain thresholds vs HOLD | `fpl_decision/engine.py` | T: `test_decision_engine.py`; R: backtest action table | COMPLETE | |
 | Replacement picker (whole-squad rebuild, alternatives) | §17, §60 | universe screen → shortlist → MILP re-optimisation | `replacement.py` | T: `test_api.py::test_lineup_optimize_replacement`; E2E transfer workflow | COMPLETE | |
-| Transfer optimiser with all constraints | §16, §61 | MILP + independent validator | `fpl_optimizer/milp.py`, `validate.py` | T: `test_milp_vs_bruteforce.py`, `test_club_moves_milp.py`; R: `optimizer_benchmark.md` | COMPLETE | |
+| Transfer optimiser with all constraints | §16, §61 | MILP + independent validator | `fpl_optimizer/milp.py`, `validate.py` | T: `test_milp_vs_bruteforce.py`, `test_club_moves_milp.py`; R: `optimizer_benchmark.md` | COMPLETE | V1: every plan states "proven optimal" or "best found within the solver limit; not proven optimal" (API, report, UI; T: time-limited incumbent test, E2E) |
 | Multi-GW planning | §22, §62 | horizons 1–8 served (`horizon_max`, configurable) | `milp.py` | R: optimiser benchmark (1/3/5/8 GW); backtest plan stability | COMPLETE | 8-GW solves: p95 43.5 s, 1 of 36 hit the 60 s limit |
 | Captain / vice / bench / formation | §19, §20, §63 | exact lineup solver, captaincy analysis | `lineup.py`, `captaincy.py` | T: `test_lineup_and_initial.py`, `test_captaincy.py`, property auto-sub tests; E2E pitch matches `/lineup` (captain, vice, bench order) | COMPLETE | |
 | Ownership-adjusted captain option | §20 | — | | | NOT IMPLEMENTED | expected / safe / high-variance options exist |
@@ -107,12 +109,12 @@ suite `apps/web/e2e-prod/production.spec.ts` (18/18 against Docker Compose).
 | API keys (hashed, constant time) incl. manager-linked reads | §35, §75 | | `security.py` | T: `test_api.py` key tests; E2E missing / invalid / valid | COMPLETE | single-tenant model (KNOWN_LIMITATIONS §6) |
 | Rate limiting | §75 | token buckets before auth | `security.py` | T: `test_api.py`; E2E 429 + Retry-After through proxy | COMPLETE | per replica; shared bucket behind the proxy |
 | Webhook SSRF protection | §75 | https only, no credentials, allow-list, port 443, every resolved address global (incl. IPv4-mapped / NAT64), no redirects, 5 s timeout | `store.py` | T: `test_webhook.py` (30 cases: malformed URLs, ports, private / loopback / link-local / CGNAT / multicast, DNS failure, redirect, timeouts, 4xx/5xx); E2E unsafe URLs rejected | COMPLETE | M14: malformed URLs (`https://[::1`, port 99999) raised a 500 → now rejected (422). DNS-rebinding window documented |
-| Security event logs without secrets | §75 | manager keys in logged paths pseudonymised (`loggable_path`) | `app.py`, `security.py` | log scan of every container after the full E2E run: 0 API keys, proxy key or DB password; T: `test_api.py` (captured logs of rejected requests) | COMPLETE | M14 found and fixed two leaks: uvicorn access log, and rejected-request paths (`/managers/{key}/export`) |
+| Security event logs without secrets | §75 | manager keys in logged paths pseudonymised (`loggable_path`); TLS proxy logs no URIs | `app.py`, `security.py`, `Caddyfile` | log scan of all 10 containers after the final E2E run (V1, 2026-10-07): 0 lines with any of 6 secrets (API keys, proxy key, DB password, site login), 0 raw manager keys; T: `test_api.py` (captured logs of rejected requests) | COMPLETE | M14 fixed two leaks (uvicorn access log, rejected-request paths); V1 found and fixed a third: the proxy's error log printed request URIs with manager keys |
 | Audit log with hashed identifiers | §75 | | `privacy.py` | `pg_dump`: raw manager key absent after deletion | COMPLETE | |
 | Export / deletion | §75 | | `privacy.py` | T: `test_api.py` (incl. two managers with identical squads keep separate, separately erasable records); E2E download + delete | COMPLETE | M14: identical squads shared one recommendation record across managers → per-manager ids |
-| Secrets not committed | §86.2 | `.env` git-ignored, `.env.example` placeholders | | gitleaks: 23 commits, no leaks | COMPLETE | |
+| Secrets not committed | §86.2 | `.env`, `auth.caddy`, `backups/` git-ignored; `.env.example` placeholders | | gitleaks over the full history: 29 commits, no leaks (2026-10-07) | COMPLETE | |
 | Dependency scanning | §78 | pip-audit, npm audit | CI `security` job | pip-audit: no known vulnerabilities; npm audit: 0 | COMPLETE | |
-| TLS in transit | §75 | — | | | NOT IMPLEMENTED | documented: terminate TLS in front of api/web |
+| TLS in transit | §75 | Caddy reverse proxy (public overlay): automatic certificates, HTTP→HTTPS, HSTS and security headers, site login; the only public listener | `docker-compose.public.yml`, `infra/deployment/caddy/` | local verification with Caddy's internal CA: chain valid, TLS 1.3, TLS 1.1 refused, 308 redirect, 401 without login; E2E 19/19 and smoke 5/5 through the proxy | COMPLETE | V1. Publicly trusted issuance (Let's Encrypt) is exercised only on a real domain |
 | Short-lived tokens; encryption at rest | §75 | — | | | NOT IMPLEMENTED | static API keys; spec says "where possible / required" |
 
 ## Platform
@@ -120,7 +122,7 @@ suite `apps/web/e2e-prod/production.spec.ts` (18/18 against Docker Compose).
 | Requirement | Spec | Implementation | Files | Test/Evidence | Status | Notes |
 |---|---|---|---|---|---|---|
 | REST API with the §72 capabilities | §32, §72 | FastAPI | `apps/api/` | T: `test_api.py` (18 tests); OpenAPI + `docs/API.md` | COMPLETE | |
-| Frontend screens (§73.1) | §30, §73 | Next.js | `apps/web/app/` | E2E 17/17 (incl. Backtest Lab: rendered tables, every figure a report references loads); dev-topology flows | COMPLETE | M14: reports were shown as raw Markdown with a hard-coded, stale figure list |
+| Frontend screens (§73.1) | §30, §73 | Next.js | `apps/web/app/` | E2E 19/19 through the TLS proxy (incl. Backtest Lab: rendered tables, every figure a report references loads); dev-topology flows | COMPLETE | M14: reports were shown as raw Markdown with a hard-coded, stale figure list |
 | Server-side proxy (key never in browser) | §75 | `/backend/*` route | `apps/web/app/backend/` | E2E topology test | COMPLETE | |
 | Worker, queue, job status | §33 | RQ + durable job rows + reaper | `jobs.py`, `fpl_worker/cli.py` | T: `test_worker.py` (real Redis, SIGKILLed horse); Docker crash recovery 32 s | COMPLETE | |
 | Interrupted vs failed jobs; no partial results | §33, §82 | `failure` = `error` / `interrupted`; results published at the end (one transaction, atomic renames) | `jobs.py`, `services.py`, `dataset.py` | T: `test_worker.py` (timeout, SIGKILL, callback), `test_atomic_publish.py`; jobs killed by host sleep on the local stack were closed as interrupted and retried | COMPLETE | |
@@ -129,12 +131,12 @@ suite `apps/web/e2e-prod/production.spec.ts` (18/18 against Docker Compose).
 | Scheduler (idempotent buckets) | §33 | | `fpl_worker/cli.py` | T: `test_schedule.py`; Compose live refresh | COMPLETE | |
 | Caching by snapshot + model | §80 | memory/disk forecast cache, promotion | `services.py` | R: `performance.md`; T: promotion test | COMPLETE | |
 | Database migrations | §86.2 | Alembic | `db/migrations/` | T: `test_migrations.py`; Compose `migrate` | COMPLETE | |
-| Docker images and Compose deployment | §34, §86.2 | | `infra/docker/`, `docker-compose.yml` | built and run locally; health checks; persistence; restart; E2E | COMPLETE | verified locally only |
+| Docker images and Compose deployment | §34, §86.2 | | `infra/docker/`, `docker-compose.yml`, `docker-compose.public.yml`, `infra/scripts/backup.sh`, `restore.sh` | built and run locally; health checks; persistence; restart; E2E; backup restored into a new project with empty volumes: all table row counts equal, manager data and traces intact, worker and scheduler working (`docs/DEPLOYMENT.md`) | COMPLETE | verified locally only; no public host yet |
 | CI | §78 | lint, types, layering, tests, optimiser suite, e2e, security, containers | `.github/workflows/ci.yml` | GitHub Actions green on every pushed commit | COMPLETE | |
-| CD (deploy from green main, release) | §78 | tag-triggered image publish + smoke test | `.github/workflows/deploy.yml` | never executed | NOT VERIFIABLE | needs a registry / target environment |
+| CD (deploy from green main, release) | §78 | tag-triggered image publish + smoke test (web-only through the TLS proxy supported) | `.github/workflows/deploy.yml` | never executed | NOT VERIFIABLE | needs a registry / target environment |
 | Changelog | §78 | | `CHANGELOG.md` | | COMPLETE | |
 | Metrics (§76.1) | §76 | API + worker (multiprocess) exporters | `observability.py`, worker | T: `test_ops_config.py`, forked-metrics test; Docker worker `/metrics` | COMPLETE | |
-| Monitoring and alert rules | §37, §76 | Prometheus rules, runbook | `infra/deployment/prometheus/` | promtool: config valid, 12 rules; Prometheus in Compose scraped api + worker (both up), rules loaded | PARTIAL | no Alertmanager / paging; rules never fired in anger |
+| Monitoring and alert rules | §37, §76 | Prometheus rules, runbook | `infra/deployment/prometheus/` | promtool: config valid, 12 rules; Prometheus in Compose scraped api + worker (both up), 12 rules loaded (V1 check found the running instance predating one rule: rule files load at start-up, now in the runbook) | PARTIAL | no Alertmanager / paging; rules never fired in anger |
 | Product modes (Quick Pick, Deep, Planner, Research, What-If) | §84 | as screens/routes, not as explicit modes | | | PARTIAL | |
 
 ## Evaluation
@@ -169,24 +171,62 @@ Counts over the rows above (99 requirements):
 
 | Status | Count |
 |---|---|
-| COMPLETE | 80 |
+| COMPLETE | 81 |
 | PARTIAL | 14 |
-| NOT IMPLEMENTED | 4 |
+| NOT IMPLEMENTED | 3 |
 | BLOCKED | 0 |
 | NOT VERIFIABLE | 1 |
 
 Nothing is BLOCKED any more: the live FPL API, Docker and Playwright — blocked in the earlier
 cloud environment — all ran on the local machine.
 
-### V1 release classification of the 19 remaining items (2026-10-07)
+# V1 RELEASE STATUS
 
-| Class | Items | Reason |
+Status on 2026-10-07, branch `claude/modest-noether-qauiji`.
+
+**Release blockers remaining**
+
+1. **Public deployment** — no public URL exists. The repository is ready (TLS proxy, site login,
+   tested backup and restore, smoke test for the public origin); it needs operator inputs no
+   repository change can supply: a host, a domain with DNS access, an ACME e-mail address, a
+   site password and production secrets (`docs/DEPLOYMENT.md` → *Operator inputs*).
+
+**Resolved for V1**
+
+| Blocker | Resolution | Evidence |
 |---|---|---|
-| **V1 release blocker** | TLS in transit | required before the stack is exposed to the internet; a TLS reverse proxy is the next release item (R3 in `docs/V1_RELEASE_PLAN.md`) |
-| V1 acceptable (ships, documented) | degraded mode without a baseline-forecast fallback (the last good forecast keeps serving); drift monitors not yet run on live outcomes (possible now that results are ingested); availability layer uncalibrated (no historical news); injury / suspension / doubt alerts not yet seen on real status changes; Prometheus rules without Alertmanager paging; product modes as screens; no curated decision-playback walkthrough; no demo GIF | none affects the correctness of a recommendation; each is stated in `docs/KNOWN_LIMITATIONS.md` |
-| V1.1 | ingestion-level drift gate; league awareness and template exposure through the API/UI; per-decision regret attribution (closed feedback loop) | library code or monitoring exists; exposure and evaluation are follow-up work |
-| V2 | ownership-adjusted captaincy; ownership in the decision engine; differential strategy; short-lived tokens (multi-user authentication) | need an ownership model or a multi-user security model |
-| Environmental / verified at deployment | webhook delivery to a real endpoint (needs an endpoint the operator controls); CD from green main (needs a registry and a host); encryption at rest (the host's disk encryption) | cannot be proven without the operator's infrastructure |
+| Live completed-gameweek results | ingested from `element-summary` histories | 3,216 rows GW1–GW5; GW1 equal to the archive; re-run unchanged; API not degraded |
+| TLS in transit | Caddy overlay with automatic certificates and a site login | chain, protocol, redirect, headers and login verified; E2E 19/19 through it |
+| Backup and restore | `backup.sh` / `restore.sh` | restore into fresh volumes: 40/40 row-count lines equal; manager data, traces, worker, scheduler, TLS verified |
+| Interactive performance | independent MILPs solved in parallel processes | 5-GW recommendation 161 s → 105 s, identical output (`performance_stages.md`) |
+| Optimiser honesty | every plan states proven optimal vs best found within the limit | API, report, UI; tests |
+| Settings data loss | fields and Save locked until the stored values load; stale responses ignored | three regression tests, each failing on the vulnerable code |
 
-Public deployment is therefore blocked by TLS (repository work) and by operator inputs no
-repository change can supply: a host, a domain with DNS access, and production secrets.
+**Deferred items** (the 18 non-complete rows above)
+
+| Item | Status | Why deferred | User impact | Target |
+|---|---|---|---|---|
+| Ingestion-level drift gate | PARTIAL | contracts and quality gates already reject malformed data; distribution drift is monitored on features and models | a slow shift in source data is caught at the model, not at ingestion | V1.1 |
+| Degraded mode: baseline-forecast fallback | PARTIAL | the last good forecast keeps serving, which is safer than a weaker model | none while a good forecast exists; a failing model stops new forecasts until fixed | V1.1 |
+| Drift monitors on live outcomes | PARTIAL | possible only now that results are ingested; needs several gameweeks | model decay on 2026-27 is not yet measured | V1.1 (prospective evaluation) |
+| Ownership-adjusted captaincy | NOT IMPLEMENTED | needs an ownership/rank model | no "differential captain" option | V2 |
+| Injuries / news calibration | PARTIAL | no historical news to fit | availability adjustments are judgement, not calibrated probabilities | V1.1 |
+| Ownership in the decision engine | PARTIAL | needs a rank objective | plans maximise points, not rank | V2 |
+| League awareness (head-to-head) | PARTIAL | library only | not usable from the UI | V1.1 |
+| Differential strategy | NOT IMPLEMENTED | needs ownership modelling | setting has no effect | V2 |
+| Template exposure | PARTIAL | library only | not shown | V1.1 |
+| Injury / suspension / doubt alerts on real data | PARTIAL | no real status change observed yet | logic unit-tested, not yet seen live | V1.1 (observe live) |
+| Webhook delivery to a real endpoint | PARTIAL | needs an endpoint the operator controls | success path unproven against a real receiver | at deployment |
+| Short-lived tokens; encryption at rest | NOT IMPLEMENTED | single-tenant V1; disk encryption is the host's | one shared key; protect the host disk | V2 (multi-user auth) |
+| CD from green main | NOT VERIFIABLE | needs a registry and a host | releases are rolled out by the documented manual procedure | at deployment |
+| Alertmanager / paging | PARTIAL | optional for a single operator | alerts are visible in Prometheus, not pushed | V1.1 |
+| Product modes | PARTIAL | screens cover the modes | no explicit mode switch | V2 |
+| Closed feedback loop | PARTIAL | needs a season of live decisions | regret is not attributed per decision | V1.1 |
+| Decision playback example | PARTIAL | documentation | no curated walkthrough | V1.1 |
+| Demo GIF | PARTIAL | optional | screenshots only | V1.1 |
+
+The V1.1 / V2 backlog is `docs/BACKLOG.md`.
+
+**Deployment status:** verified end to end on the development machine with Docker Compose,
+including the public TLS topology (Caddy with its internal CA on `fpl.localhost`). Not deployed
+publicly.

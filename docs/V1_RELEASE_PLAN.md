@@ -38,13 +38,13 @@ Classes: **A** release blocker · **B** important, ships in V1 as is (documented
 |---|---|---|---|
 | R1 | Live completed-gameweek results ingested point-in-time correctly, strictly separate from historical evaluation (#1) | A | **done** 2026-10-07 (`docs/BUILD_STATUS.md` §2a) |
 | R2 | Interactive performance: profile, then speed up recommendation / replacement / player analysis without changing results | A | **done** 2026-10-07: profiled (`ml/reports/performance_stages.md`); independent solves parallel (5-GW recommendation 161 s → 105 s, identical output); remaining floors documented, deeper work (targeted re-simulation, cross-snapshot feature cache) is V1.1 |
-| R3 | Public deployment preparation: TLS reverse proxy, environment docs, migrations/startup, tested backup **and restore**, production smoke test (#13) | A | open |
-| R4 | Optimiser status shown honestly ("best found within the time limit" vs "proven optimal"); timeouts safe | A | open |
-| R5 | Evaluation claims: model/configuration freeze + prospective 2026-27 protocol; selection-bias warning kept | B | open |
-| R6 | Real-data checks of injury alerts (#11) and drift monitors (#4) on live captures | B | open |
-| R7 | UI walkthrough as a manager; fix confusing or unreliable core flows | B | open |
-| R8 | Final test matrix, regenerated performance report, FINAL_AUDIT / KNOWN_LIMITATIONS / README, CI green, tag | A | open |
-| R9 | Public deployment live at a URL (needs operator inputs: host, domain, DNS, secrets) | A | blocked on inputs |
+| R3 | Public deployment preparation: TLS reverse proxy, environment docs, migrations/startup, tested backup **and restore**, production smoke test (#13) | A | **done** 2026-10-07: Caddy overlay (TLS, site login), `backup.sh` / `restore.sh` with a restore into empty volumes verified, smoke test through the public origin (`docs/DEPLOYMENT.md`) |
+| R4 | Optimiser status shown honestly ("best found within the time limit" vs "proven optimal"); timeouts safe | A | **done** 2026-10-07: API, report and UI label every plan |
+| R5 | Evaluation claims: model/configuration freeze + prospective 2026-27 protocol; selection-bias warning kept | B | selection-bias warning kept (README, KNOWN_LIMITATIONS); the prospective 2026-27 evaluation moved to V1.1 (`docs/BACKLOG.md`) |
+| R6 | Real-data checks of injury alerts (#11) and drift monitors (#4) on live captures | B | moved to V1.1: needs real status changes and several gameweeks of outcomes |
+| R7 | UI walkthrough as a manager; fix confusing or unreliable core flows | B | **done** 2026-10-07: HOLD "0 %" confidence, optimality labels, time-limited candidates; settings races fixed earlier |
+| R8 | Final test matrix, regenerated performance report, FINAL_AUDIT / KNOWN_LIMITATIONS / README, CI green, tag | A | **done** 2026-10-07 except the tag (with the public release) — `docs/BUILD_STATUS.md` §2b, `FINAL_AUDIT.md` → *V1 RELEASE STATUS* |
+| R9 | Public deployment live at a URL (needs operator inputs: host, domain, DNS, secrets) | A | **blocked on operator inputs** (`docs/DEPLOYMENT.md` → *Operator inputs*) |
 
 ## 3. Session log
 
@@ -52,4 +52,5 @@ Classes: **A** release blocker · **B** important, ships in V1 as is (documented
 |---|---|---|
 | 2026-10-06 | Classification (this file); R1 | live results implemented; real run 3,216 rows GW1–GW5; API no longer degraded |
 | 2026-10-07 | Finish R1; settings race found by the production suite | settings race reproduced on the pre-fix image and fixed (held-response regression + failed-load test); real-data re-run unchanged; production E2E 18/18, dev 7/7, fast tier 379 passed |
-| 2026-10-07 | R2 performance triage | profile: MILP solves ~76 % of a recommendation, feature building 71 % of a cold forecast; parallel independent solves (identical output) 161 s → 105 s; production E2E 18/18 and fast tier 384 passed on the new image. Next: R3 (public deployment preparation) |
+| 2026-10-07 | R2 performance triage | profile: MILP solves ~76 % of a recommendation, feature building 71 % of a cold forecast; parallel independent solves (identical output) 161 s → 105 s; production E2E 18/18 and fast tier 384 passed on the new image |
+| 2026-10-07 | Final V1 release pass: R3, R4, R7, R8 | TLS overlay and tested restore; optimality labels; UI fixes; production E2E 19/19 through TLS, dev 7/7, fast 384, slow + network 6; scope frozen (`docs/BACKLOG.md`). Remaining: R9 (operator inputs) |

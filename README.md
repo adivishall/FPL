@@ -2,8 +2,8 @@
 
 [![ci](https://github.com/adivishall/FPL/actions/workflows/ci.yml/badge.svg?branch=claude/modest-noether-qauiji)](https://github.com/adivishall/FPL/actions/workflows/ci.yml)
 
-An uncertainty-aware decision engine for Fantasy Premier League. It starts from a manager's real
-squad, forecasts each player's minutes and **point distribution**, searches legal transfer and
+A decision-support system for Fantasy Premier League that makes transfer, captaincy and chip
+decisions under uncertainty. It starts from a manager's real squad, forecasts each player's minutes and **point distribution**, searches legal transfer and
 chip paths over several gameweeks with a mixed-integer program, compares every plan against
 **doing nothing**, stress-tests the choice, and explains it from stored evidence — with every
 recommendation traceable back to the exact data snapshot, model versions and source revision.
@@ -156,19 +156,22 @@ Measured on the final code (`docs/BUILD_STATUS.md`):
 
 | Suite | Result |
 |---|---|
-| Python fast tier — unit, Hypothesis property tests, integration on real PostgreSQL and Redis | 379 passed, 0 failed, 0 skipped |
+| Python fast tier — unit, Hypothesis property tests, integration on real PostgreSQL and Redis | 384 passed, 0 failed, 0 skipped |
 | Slow tier — official points reproduced on all 113,870 historical player-match rows | 2 passed |
 | Network tier — versioned 2026-27 ruleset and per-player match histories vs the live FPL API | 4 passed |
-| Playwright, production topology — browser → Next.js proxy → API key → API → PostgreSQL / Redis / worker, on the Docker Compose stack | 18 passed |
+| Playwright, production topology — browser → TLS proxy (login) → Next.js proxy → API key → API → PostgreSQL / Redis / worker, on the Docker Compose stack | 19 passed |
 | Playwright, development flows | 7 passed |
-| ruff, mypy (109 files), import-linter (4 layering contracts), `tsc` | clean |
+| Backup → restore into a new stack with empty volumes | every table's row count equal (40/40 lines); manager data, traces, worker, scheduler and TLS verified |
+| ruff, mypy (110 files), import-linter (4 layering contracts), `tsc`, `next build` | clean |
 
 The production suite covers key enforcement (missing / invalid / valid), that the proxy key never
 reaches the browser, squad build, captain / vice / bench, worker-generated recommendations,
 price predictions, replacement → what-if without mutating state, alert de-duplication,
 time-zone and webhook validation, settings that cannot be edited or saved before the stored
-values arrive (a held-response race regression) or after a failed load, traceability, export and erasure, the Backtest Lab, API error /
-auth / outage states and rate limiting. GitHub Actions runs lint, types, tests, the optimiser
+values arrive (a held-response race regression), after a failed load, or be overwritten by a late
+response for a previous manager, the optimiser's "proven optimal / not proven optimal" label,
+traceability, export and erasure, the Backtest Lab, API error / auth / outage states and rate
+limiting. GitHub Actions runs lint, types, tests, the optimiser
 suite, e2e, dependency and secret scans and container builds on every push.
 
 ## Deployment and operations
@@ -182,6 +185,13 @@ promotes a new snapshot only once its forecast is ready), evaluates alerts and p
 snapshots and caches. Failed jobs are classified as code `error` or environmental `interrupted`
 (killed, lost, timed out); results are published atomically, so an interrupted job leaves
 nothing partial and is simply re-run.
+
+Public deployment adds one service (`docker-compose.public.yml`): a Caddy reverse proxy that is
+the only public listener — automatic TLS certificates, HTTP→HTTPS, HSTS and security headers, and
+one site login, because V1 is single-tenant. Backups (`infra/scripts/backup.sh`) cover the
+database and the canonical snapshots and raw captures; a restore into empty volumes was tested
+end to end (`docs/DEPLOYMENT.md`). **No public URL exists yet**: it needs a host, a domain and
+secrets from the operator.
 
 Security model: hashed API keys (constant-time check) on every write and every manager-linked
 read; the browser never sees a key (server-side proxy); token-bucket rate limits; SSRF-guarded
@@ -200,27 +210,56 @@ cp .env.example .env                            # set keys/passwords, then:
 docker compose up -d                            # full stack on :3000 (web) / :8000 (API)
 ```
 
-Serving performance on one development machine (`ml/reports/performance.md`, Apple M4):
+Measured performance on one development machine (Apple M4; Docker VM with 4 vCPUs):
 
-| | measured |
-|---|---|
-| Deployed reads through the web proxy (p50 / p95) | 22 / 25 ms (`/gameweeks/current`), 42 / 45 ms (`/players`), 37 / 41 ms (player forecast) |
-| Forecast, cold (train + 667 players × 8 GW × 1,000 samples) / warm disk / warm memory | 71.8 s / 0.03 s / 0.06 ms |
-| Replacement picker (1 player, 5 GW) / what-if (1 scenario) | p50 17.7 s / 8.1 s |
-| Full recommendation (alternatives, stability, scenarios, chips; worker job) | 48 s at 3 GW deployed; 136–178 s at 5 GW in-process, by profile |
-| Alert evaluation job round trip via RQ worker | 1.6 s |
+| | measured | source |
+|---|---|---|
+| Reads through the web proxy (p50 / p95) | 22 / 25 ms (`/gameweeks/current`), 42 / 45 ms (`/players`), 37 / 41 ms (player forecast) | `performance.md`, 2026-10-05 |
+| Forecast, cold (667 players × 8 GW × 1,000 samples) / warm disk / warm memory | 70.6 s (feature building 49.8 s) / 0.03 s / 0.06 ms | `performance_stages.md` 2026-10-07; `performance.md` |
+| Recommendation job (alternatives, stability, scenarios, chips), deployed worker | 42 s at 3 GW, 90 s at 5 GW | 2026-10-07 |
+| 5-GW recommendation with 1 vs 4 solver processes | 161 s → 105 s, identical output | `performance_stages.md` |
+| Replacement picker (1 player, 5 GW; solved in the request) | 12.5–48.9 s, depending on the player | 2026-10-07 |
+| What-if (1 scenario, 5 GW) / alert evaluation job round trip | 8.1 s / 1.6 s | `performance.md`, 2026-10-05 |
 
-Where the time goes (`ml/reports/performance_stages.md`, worker container, 4 vCPUs, live 2026-27
-GW6 data, 2026-10-07): the cold forecast is 71 % feature building, 24 % training and 6 % Monte
-Carlo; a 5-GW recommendation is mostly exact MILP solves (stability perturbations, chip weeks)
-and fixture-shock re-simulations. Solving the independent MILPs in parallel worker processes
-cut it from 161 s to 105 s with identical output (every field but timings and timestamp);
-deployed jobs now take 42 s (3 GW) and 90 s (5 GW).
+The cold forecast is computed by the worker before a snapshot goes live, so no request waits for
+it. A recommendation is mostly exact MILP solves (stability perturbations, chip weeks) and
+fixture-shock re-simulations; independent solves run in parallel processes.
 
 Recommendations therefore run as background jobs; heavy requests are minutes, not milliseconds.
 
+## What the evidence supports
+
+**Proven in this repository** (tested or measured):
+
+* Every returned plan is legal: 100 % of 634 benchmark plans and of every backtest decision pass
+  independent validation; time-limited plans are labelled "not proven optimal".
+* No look-ahead in the backtests (0 violations, with the schedule leak found and fixed); official
+  points reproduced from components on all 113,870 historical player-match rows.
+* Over three seasons, probabilistic forecasting + optimisation beats the simple heuristics:
+  `form` +742, `fpl_style_heuristic` +732, `simple_xp` +626, `hold` +1905 (95 % CIs exclude 0).
+* The production topology works end to end — TLS proxy, server-side key, API, worker, scheduler —
+  and a backup restores into a new stack with every row intact.
+
+**Supported but limited:**
+
+* Chip timing adds value over the three seasons (+306 [+28, +593]) but not in any single season.
+* Live 2026-27 data is captured and ingested (results GW1–GW5); the models have not yet been
+  evaluated on 2026-27 outcomes.
+* Timings come from one machine.
+
+**Not proven:**
+
+* That multi-gameweek planning beats a one-week optimiser on the same forecast (+223,
+  CI [−126, +584]).
+* Anything about rank: the archive has no distribution of other managers' scores.
+* Performance on 2026-27, the first season not used during development (selection bias).
+* Public, multi-user operation.
+
 ## Status and limitations
 
-Specification audit: `docs/FINAL_AUDIT.md` (99 requirements: 80 COMPLETE, 14 PARTIAL, 4 NOT IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE). What is not done or not proven —
-including the single-tenant security model, the ~11-minute live results capture, selection bias from developing on the evaluated seasons, and development-machine
-timings — is in `docs/KNOWN_LIMITATIONS.md`. Progress record: `docs/BUILD_STATUS.md`.
+Specification audit: `docs/FINAL_AUDIT.md` (99 requirements: 81 COMPLETE, 14 PARTIAL, 3 NOT
+IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE), ending with the **V1 release status**: every release
+blocker is resolved except a public URL, which waits on operator inputs (host, domain,
+secrets). What is not done or not proven — single-tenant security, latency of heavy requests,
+selection bias, development-machine timings and more — is in `docs/KNOWN_LIMITATIONS.md`; future
+work in `docs/BACKLOG.md`; progress record in `docs/BUILD_STATUS.md`.
