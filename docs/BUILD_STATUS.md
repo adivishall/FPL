@@ -139,17 +139,27 @@ Images: engine `930b0f48…` (api, worker, scheduler), web `bbcaaa05…`, Caddy 
 
 | Area | Result |
 |---|---|
-| CI | green on `7eab35d` (lint, test, optimizer-suite, web-e2e, security, containers) before this work; the release commit's run is checked after the push |
+| CI | green on the release commit `b925d72` (lint, test, optimizer-suite, web-e2e, security, containers), run 37590591025 |
 | Python | fast tier 384 passed, 0 failed (6 deselected); slow + network tiers 6 passed (official points on all historical rows; live-API contracts); ingestion / live / worker / retention set 64 passed |
 | Lint / types | ruff, ruff format, mypy (110 files), import-linter 4/4, `tsc`, `next build`: clean |
 | Playwright | production topology 19/19 through Caddy (TLS + login) → web proxy → API → Postgres / Redis / worker; development flows 7/7 |
 | TLS | chain valid against the CA, TLS 1.3, TLS 1.1 refused; HTTP `308` → HTTPS with path and query; `401` without / with a wrong login; HSTS, nosniff, frame, referrer and permissions headers; no `Server` / `X-Powered-By`; API, web, Postgres, Redis on loopback only; smoke test through the public origin 5/5 |
 | Backup / restore | backup with writers paused: 16.0 MB dump (38 tables with data), 82.5 MB data archive, checksums; restored into a new Compose project with empty volumes (full public topology) in 78 s; restored dump: 40/40 row-count lines equal; manager squad, settings, recommendation id, decision, optimality equal; trace complete; new recommendation + alert jobs succeeded; restored scheduler captured live data; new TLS certificate served behind the login |
 | Live data | GW1–GW5 3,216 rows, lineage to the succeeded bundle job, 0 conflicts, GW1 revisions provenance-only, deadlines equal to the live API, historical seasons vaastav-only, pinned evaluation snapshot unchanged (GW1 only), no job stuck `running` |
-| Security | log scan of 10 containers after the final run: 0 lines with any of 6 secrets, 0 raw manager keys; gitleaks over the full history (29 commits): no leaks; webhook SSRF tests in the fast tier; export / delete / audit exercised (E2E and manual erasure of test managers) |
+| Security | log scan of 10 containers after the final run: 0 lines with any of 6 secrets, 0 raw manager keys; gitleaks over the full history (32 commits): no leaks; pip-audit and `npm audit` (production dependencies): no known vulnerabilities; webhook SSRF tests in the fast tier; export / delete / audit exercised (E2E and manual erasure of test managers) |
 | Retention | 28 successful retention jobs in two days; 26 snapshots on disk; pinned evaluation snapshot kept |
 | Observability | Prometheus: api and worker targets up, 12 alert rules loaded, none firing; request, freshness, forecast, job, queue, optimisation, recommendation, model-metric and security series present |
 | Performance | `ml/reports/performance_stages.md`; deployed recommendation jobs 42 s (3 GW), 90 s (5 GW); replacement picker 12.5–48.9 s |
+
+**Re-verified on the release commit `b925d72` (2026-10-07, after CI went green)**, same images,
+public overlay rebuilt from scratch (new internal CA): ruff, mypy, import-linter clean; fast tier
+384 passed; slow + network tiers 6 passed; `tsc`, `next build` clean; TLS chain, TLS 1.3, TLS 1.1
+refused, `308` redirect, `401` gate and headers re-checked from the host; smoke test through the
+public origin 5/5; production Playwright 19/19 through Caddy; only Caddy publishes ports; a probe
+request with a manager key in its path, query and header left no trace in the Caddy, web or API
+logs; worker, scheduler, API and web restarted together — all healthy in 33 s, the next forecast
+and retention jobs succeeded; Prometheus: both targets up, 12 rules, none firing; live data:
+GW1–GW5 finalized (3,216 result rows, one capture each), GW6 upcoming with the live deadline.
 
 ### Defects found and fixed in the V1 release pass
 

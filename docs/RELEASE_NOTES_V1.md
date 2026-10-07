@@ -24,13 +24,14 @@ archive commit; evaluation is pinned to its own snapshot and never sees live dat
 
 | Check | Result |
 |---|---|
+| CI on the release commit `b925d72` | green: lint, test, optimizer-suite, web-e2e, security, containers |
 | Python fast tier | 384 passed, 0 failed |
 | Slow + network tiers (official points on 113,870 rows; live FPL API contracts) | 6 passed |
 | Playwright, production topology through TLS and the site login | 19 passed |
 | Playwright, development flows | 7 passed |
 | ruff, mypy, import-linter, `tsc`, `next build` | clean |
 | Backup → restore into empty volumes | 40/40 row-count lines equal; data, traces, worker, scheduler, TLS verified |
-| Secret scans | gitleaks over 29 commits: none; container logs: no secrets or raw manager keys |
+| Secret and dependency scans | gitleaks over 32 commits: none; pip-audit and `npm audit`: no known vulnerabilities; container logs: no secrets or raw manager keys |
 | Live data | 2026-27 GW1–GW5 results ingested, idempotent, GW1 equal to the archive |
 
 **Backtest** (three seasons, 114 gameweeks, walk-forward, 0 look-ahead violations,
