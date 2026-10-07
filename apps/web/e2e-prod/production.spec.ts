@@ -180,28 +180,88 @@ test("alerts are evaluated by the worker; re-evaluating unchanged data adds noth
   expect(first).toMatch(/Evaluated \(alerts:\d+\/\d+/);
 });
 
-test("settings: timezone persists, invalid zone and unsafe webhooks are rejected", async ({ page }) => {
+const isSettings = (url: URL) => url.pathname === "/backend/settings";
+
+test("settings: stored values load before editing; timezone persists; invalid zone and unsafe webhooks are rejected", async ({ page }) => {
   await asManager(page);
-  await page.goto("/settings");
   const tz = page.getByLabel("Time zone (deadline reminders)");
   const hook = page.getByLabel("Webhook (HTTPS, allow-listed host)");
+  const save = page.getByTestId("save-settings");
+  const savePost = () => page.waitForRequest((r) => r.method() === "POST" && isSettings(new URL(r.url())));
+  await page.goto("/settings");
   await tz.fill("Asia/Kolkata");
-  await page.getByTestId("save-settings").click();
+  await save.click();
+  await expect(page.getByTestId("settings-msg")).toHaveText("Saved.");
+
+  // Race regression: hold the stored settings in flight. Edits made before they arrived used to be
+  // overwritten by the late response, so Save posted the stored value instead of the edit.
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  let held = 0;
+  await page.route(isSettings, async (route) => {
+    if (route.request().method() === "GET") {
+      held += 1;
+      await gate;
+    }
+    await route.continue();
+  });
+  await page.reload();
+  await expect.poll(() => held, { message: "the settings GET is intercepted and held" }).toBe(1);
+  await expect(page.getByTestId("notification-settings").getByText("Loading…")).toBeVisible();
+  await expect(tz).toBeDisabled({ timeout: 10_000 });
+  await expect(save).toBeDisabled({ timeout: 10_000 });
+  const early = await tz.fill("Europe/Paris", { timeout: 1000 }).then(() => true, () => false);
+  expect(early, "a server-backed field accepted an edit before the stored values arrived").toBe(false);
+  release();
+  await expect(tz).toBeEnabled();
+  await expect(tz).toHaveValue("Asia/Kolkata"); // the stored value, not a default
+  await tz.fill("America/New_York");
+  const [posted] = await Promise.all([savePost(), save.click()]);
+  expect(posted.postDataJSON().timezone).toBe("America/New_York");
   await expect(page.getByTestId("settings-msg")).toHaveText("Saved.");
   await page.reload();
-  await expect(tz).toHaveValue("Asia/Kolkata");
+  await expect(tz).toHaveValue("America/New_York");
+
   await tz.fill("Mars/Olympus_Mons");
-  await page.getByTestId("save-settings").click();
+  await save.click();
   await expect(page.getByTestId("settings-msg")).toContainText("server rejected");
-  await tz.fill("Asia/Kolkata");
+  await tz.fill("America/New_York");
   for (const url of ["http://hooks.example.com/x", "https://169.254.169.254/latest", "https://10.0.0.5/hook", "https://127.0.0.1/hook", "https://evil.example.net/hook", "not a url"]) {
     await hook.fill(url);
-    await page.getByTestId("save-settings").click();
+    await save.click();
     await expect(page.getByTestId("settings-msg"), url).toContainText("server rejected");
   }
   const srv = await (await api.get(`/api/v1/settings?manager_key=${MANAGER}`, { headers: { "x-api-key": OPS_KEY } })).json();
-  expect(srv.settings.timezone).toBe("Asia/Kolkata");
+  expect(srv.settings.timezone).toBe("America/New_York");
   expect(srv.settings.webhook_url ?? null).toBeNull(); // nothing unsafe was stored
+});
+
+test("settings: a failed load cannot save defaults over the stored values; retry recovers", async ({ page }) => {
+  await asManager(page);
+  const tz = page.getByLabel("Time zone (deadline reminders)");
+  const save = page.getByTestId("save-settings");
+  let fail = true;
+  let posts = 0;
+  await page.route(isSettings, async (route) => {
+    if (route.request().method() === "POST") posts += 1;
+    if (route.request().method() === "GET" && fail) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "API unavailable" }) });
+      return;
+    }
+    await route.continue();
+  });
+  await page.goto("/settings");
+  await expect(page.getByTestId("notification-settings").getByRole("alert")).toContainText("Stored settings could not be loaded");
+  await expect(tz).toBeDisabled({ timeout: 10_000 });
+  await expect(save).toBeDisabled({ timeout: 10_000 });
+  fail = false;
+  await page.getByTestId("retry-settings").click();
+  await expect(tz).toBeEnabled();
+  await expect(tz).toHaveValue("America/New_York");
+  await expect(page.getByTestId("retry-settings")).toHaveCount(0);
+  expect(posts).toBe(0);
+  const srv = await (await api.get(`/api/v1/settings?manager_key=${MANAGER}`, { headers: { "x-api-key": OPS_KEY } })).json();
+  expect(srv.settings.timezone).toBe("America/New_York");
 });
 
 test("traceability: the stored recommendation walks back to its pinned source", async ({ page }) => {
@@ -271,8 +331,9 @@ test("API error states are shown, not swallowed", async ({ page }) => {
 test("authentication error from the API is surfaced by the UI", async ({ page }) => {
   test.skip(!BAD_KEY_WEB, "E2E_BADKEY_WEB_URL not provided");
   await page.goto(`${BAD_KEY_WEB}/settings`);
-  await page.getByTestId("save-settings").click();
-  await expect(page.getByTestId("settings-msg")).toContainText("invalid API key");
+  // the stored settings cannot be read: the rejection is shown on load and nothing can be saved
+  await expect(page.getByTestId("notification-settings").getByRole("alert")).toContainText("invalid API key");
+  await expect(page.getByTestId("save-settings")).toBeDisabled({ timeout: 10_000 });
 });
 
 test("API outage is surfaced by the UI", async ({ page }) => {

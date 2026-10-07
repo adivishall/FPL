@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { Card } from "@/components/ui";
-import { api, del, post } from "@/lib/api";
+import { Card, State } from "@/components/ui";
+import { ApiError, api, del, post } from "@/lib/api";
 import { type UiSettings, loadSettings, saveSettings } from "@/lib/settings";
 
 interface ServerSettings {
@@ -19,12 +19,31 @@ export default function Settings() {
   const [s, setS] = useState<UiSettings>(loadSettings);
   const [srv, setSrv] = useState<ServerSettings>(SERVER_DEFAULTS);
   const [msg, setMsg] = useState<string | null>(null);
+  // Server-backed fields (and Save, which posts all of them) stay disabled until the stored values
+  // have arrived: an edit made earlier was overwritten by the late response, and a save after a
+  // failed load would have replaced the stored values with these defaults. A response for a
+  // previous manager key is discarded.
+  const [loaded, setLoaded] = useState(false);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const key = encodeURIComponent(s.managerKey);
   useEffect(() => {
+    let current = true;
+    setLoaded(false);
+    setLoadErr(null);
     api<{ settings: Partial<ServerSettings> }>(`/settings?manager_key=${key}`)
-      .then((r) => setSrv({ ...SERVER_DEFAULTS, ...r.settings }))
-      .catch(() => undefined);
-  }, [key]);
+      .then((r) => {
+        if (!current) return;
+        setSrv({ ...SERVER_DEFAULTS, ...r.settings });
+        setLoaded(true);
+      })
+      .catch((e) => {
+        if (current) setLoadErr(`Stored settings could not be loaded (${e instanceof ApiError ? e.message : String(e)}); nothing can be saved until they are.`);
+      });
+    return () => {
+      current = false;
+    };
+  }, [key, attempt]);
   async function save() {
     saveSettings(s);
     try {
@@ -76,17 +95,19 @@ export default function Settings() {
         <p className="small">Profiles change objective weights and decision thresholds only — never the rules (config/optimizer/*.yaml).</p>
       </Card>
       <Card title="Notifications" testId="notification-settings">
+        <State loading={!loaded && !loadErr} error={loadErr} />
+        {loadErr ? <button className="secondary" onClick={() => setAttempt((n) => n + 1)} data-testid="retry-settings">Retry</button> : null}
         <div className="kv">
           <label htmlFor="tz">Time zone (deadline reminders)</label>
-          <input id="tz" value={srv.timezone} onChange={(e) => setSrv({ ...srv, timezone: e.target.value })} />
+          <input id="tz" disabled={!loaded} value={srv.timezone} onChange={(e) => setSrv({ ...srv, timezone: e.target.value })} />
           <label htmlFor="mg">Re-plan alert threshold (points)</label>
-          <input id="mg" type="number" min={0} max={20} step={0.5} value={srv.notify_min_gain} onChange={(e) => setSrv({ ...srv, notify_min_gain: Number(e.target.value) })} />
+          <input id="mg" disabled={!loaded} type="number" min={0} max={20} step={0.5} value={srv.notify_min_gain} onChange={(e) => setSrv({ ...srv, notify_min_gain: Number(e.target.value) })} />
           <label htmlFor="inj">Injury / role alerts</label>
-          <input id="inj" type="checkbox" checked={srv.notify_injuries} onChange={(e) => setSrv({ ...srv, notify_injuries: e.target.checked })} />
+          <input id="inj" disabled={!loaded} type="checkbox" checked={srv.notify_injuries} onChange={(e) => setSrv({ ...srv, notify_injuries: e.target.checked })} />
           <label htmlFor="wh">Webhook (HTTPS, allow-listed host)</label>
-          <input id="wh" value={srv.webhook_url ?? ""} placeholder="optional" onChange={(e) => setSrv({ ...srv, webhook_url: e.target.value })} />
+          <input id="wh" disabled={!loaded} value={srv.webhook_url ?? ""} placeholder="optional" onChange={(e) => setSrv({ ...srv, webhook_url: e.target.value })} />
         </div>
-        <button onClick={save} data-testid="save-settings">Save</button> {msg ? <span role="status" data-testid="settings-msg">{msg}</span> : null}
+        <button onClick={save} disabled={!loaded} data-testid="save-settings">Save</button> {msg ? <span role="status" data-testid="settings-msg">{msg}</span> : null}
       </Card>
       <Card title="Your data" testId="privacy">
         <p className="small">
