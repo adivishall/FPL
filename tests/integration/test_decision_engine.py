@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from fpl_decision.engine import DecisionContext, recommend
@@ -148,6 +150,20 @@ def test_injured_starter_triggers_a_justified_transfer(base) -> None:  # type: i
     # the package serialises (API contract)
     js = pkg.model_dump(mode="json")
     assert js["decision"]["action"] == d["action"]
+
+
+def test_parallel_solves_change_nothing(base) -> None:  # type: ignore[no-untyped-def]
+    # stability perturbations and chip weeks solved by worker processes: the same package
+    fc, pool, table, state, cfg, sq, feats = base
+    idx = table.index()
+    star = max(sq.lineup.starters, key=lambda c: table.ev[idx[c], 0])
+    hurt = perturb_forecast(fc, ScenarioSpec(name="injury", kind="injury_shock", players=(star,)))
+    ctx = _ctx(hurt, pool, state, cfg, feats)
+    serial = recommend(ctx, n_alternatives=2, run_scenarios=False)
+    parallel = recommend(replace(ctx, workers=3), n_alternatives=2, run_scenarios=False)
+    assert serial.stability is not None and serial.chips
+    volatile = {"timings", "generated_at"}
+    assert parallel.model_dump(exclude=volatile) == serial.model_dump(exclude=volatile)
 
 
 def test_profiles_change_thresholds_not_constraints(base) -> None:  # type: ignore[no-untyped-def]

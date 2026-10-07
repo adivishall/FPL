@@ -675,7 +675,12 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         full = svc.table(ctx, fc, svc.horizon(body.horizon), st)
         prob = replace(prob, players=full)
         res = find_replacements(
-            prob, body.out_player, fc.simulation, fc.summary, n_return=body.candidates
+            prob,
+            body.out_player,
+            fc.simulation,
+            fc.summary,
+            n_return=body.candidates,
+            workers=settings.solver_workers,
         )
         names = svc.data.names(ctx.season)
         hold_id = res.hold.stats.get("status", "hold")
@@ -741,7 +746,9 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                     for p in sol.plans
                 ],
             }
-        out["chips"] = [c.model_dump() for c in plan_chips(prob, base, fc)]
+        out["chips"] = [
+            c.model_dump() for c in plan_chips(prob, base, fc, workers=settings.solver_workers)
+        ]
         return out
 
     @r.post("/scenarios")

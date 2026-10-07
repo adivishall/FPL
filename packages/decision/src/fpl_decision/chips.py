@@ -32,6 +32,7 @@ from fpl_domain.enums import ChipType, Position
 from fpl_domain.rules import Ruleset
 from fpl_domain.squad import Lineup
 from fpl_optimizer.milp import OptimizationError, Solution, build_and_solve
+from fpl_optimizer.parallel import map_ordered
 from fpl_optimizer.problem import OptimizationProblem
 from fpl_simulation.engine import SimulationResult
 from fpl_simulation.lineup_eval import score_lineup
@@ -83,23 +84,59 @@ def _lineup_samples(
     return score_lineup(lineup, positions, pts, mins, ruleset, chip).astype(float)
 
 
+def _solve_or_none(p: OptimizationProblem) -> Solution | None:
+    try:
+        return build_and_solve(p)
+    except OptimizationError:
+        return None
+
+
 def plan_chips(
     prob: OptimizationProblem,
     base: Solution,
     forecast: Any,  # fpl_forecasting.pipeline.Forecast
     min_prob_positive: float = 0.6,
     sensitivity: bool = True,
+    workers: int = 1,
 ) -> list[ChipPlan]:
-    """``sensitivity=False`` skips the fixture-postponement re-simulation (backtests)."""
+    """``sensitivity=False`` skips the fixture-postponement re-simulation (backtests).
+    ``workers`` solves the chip-week plans in parallel processes; the result does not depend
+    on it."""
     rs = prob.ruleset
     sim = forecast.simulation
     positions = prob.players.positions_map()
     gws = prob.gameweeks
     base_s = plan_samples(sim, base.plans, positions, rs)
+    chips = [
+        c
+        for c in prob.state.chips
+        if c.status.value == "available" and c.chip_type is not ChipType.ASSISTANT_MANAGER
+    ]
+    # squad-changing chips need a re-optimised plan per week: independent solves, done up front
+    chip_weeks = [
+        (chip.chip_id, g)
+        for chip in chips
+        if chip.chip_type not in (ChipType.TRIPLE_CAPTAIN, ChipType.BENCH_BOOST)
+        for g in gws
+        if chip.first_gameweek <= g <= chip.last_gameweek
+        and base.plans[gws.index(g)].chip_id is None
+    ]
+    solved = dict(
+        zip(
+            chip_weeks,
+            map_ordered(
+                _solve_or_none,
+                [
+                    replace(prob, forced_chips={cid: g}, chip_options={cid: (g,)})
+                    for cid, g in chip_weeks
+                ],
+                workers,
+            ),
+            strict=True,
+        )
+    )
     out: list[ChipPlan] = []
-    for chip in prob.state.chips:
-        if chip.status.value != "available" or chip.chip_type is ChipType.ASSISTANT_MANAGER:
-            continue
+    for chip in chips:
         weeks = [g for g in gws if chip.first_gameweek <= g <= chip.last_gameweek]
         values: list[ChipWeekValue] = []
         for g in weeks:
@@ -161,12 +198,8 @@ def plan_chips(
                     )
                 )
             else:
-                p2 = replace(
-                    prob, forced_chips={chip.chip_id: g}, chip_options={chip.chip_id: (g,)}
-                )
-                try:
-                    sol = build_and_solve(p2)
-                except OptimizationError:
+                sol = solved[(chip.chip_id, g)]
+                if sol is None:  # infeasible with the chip that week
                     continue
                 s2 = plan_samples(sim, sol.plans, positions, rs)
                 d = paired_gain(s2, base_s)

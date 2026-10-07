@@ -55,3 +55,15 @@ A move is recommended only if `E[gain] ≥ min_gain` **and** `P(gain > 0) ≥ mi
 
 - Correctness rests on the validator + brute-force tests, not on solver trust.
 - Large instances (deep decision with stress tests and stability) run asynchronously.
+
+## Addendum (V1): parallel independent solves
+
+Stability perturbations, Wildcard / Free Hit chip weeks and replacement candidates are
+independent MILPs. `fpl_optimizer.parallel.map_ordered` runs them in spawned worker processes
+and returns results in input order; every solve is deterministic (fixed seed, one solver thread)
+and aggregation happens in the parent in the original order, so the output does not depend on
+the number of processes (tests compare whole recommendation packages). Processes are spawned,
+not forked, because jobs run inside forked RQ work horses whose solver and BLAS threads make
+`fork` unsafe. The worker uses `FPL_SOLVER_WORKERS` processes per job; the API uses one, so
+synchronous requests never spawn processes. Plan alternatives stay sequential: each one's
+no-good cuts depend on the previous solutions.

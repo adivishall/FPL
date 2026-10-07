@@ -49,6 +49,13 @@ class Settings(BaseSettings):
         "sets False and serves only precomputed forecasts (ADR-0009)",
     )
     sync_horizon_limit: int = Field(5, description="larger optimisations run as async jobs")
+    solver_workers: int = Field(
+        1,
+        ge=1,
+        le=32,
+        description="processes one request uses for independent MILP solves (stability, chip "
+        "weeks, replacement candidates); changes wall time only, never the result",
+    )
     # security (§35, §75)
     require_api_key: bool = False
     api_keys_sha256: list[str] = Field(default_factory=list)

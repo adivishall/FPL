@@ -110,6 +110,27 @@ def test_replacement_engine_end_to_end(setup) -> None:  # type: ignore[no-untype
     assert "top screened gain" in reasons
 
 
+def test_replacement_does_not_depend_on_workers(setup) -> None:  # type: ignore[no-untyped-def]
+    fc, prob, sq = setup
+    pl = prob.players
+    idx = pl.index()
+    out = max(sq.lineup.starters, key=lambda c: pl.ev[idx[c], 0])
+    ev = pl.ev.copy()
+    ev[idx[out], :] = 0.0
+    prob = replace(prob, players=replace(pl, ev=ev))
+    serial = find_replacements(prob, out, fc.simulation, fc.summary, n_return=4)
+    parallel = find_replacements(prob, out, fc.simulation, fc.summary, n_return=4, workers=3)
+
+    def key(r):  # type: ignore[no-untyped-def]
+        return [
+            (c.in_code, c.objective_gain, c.gain_horizon, c.gain_1gw, c.follow_up, c.valid)
+            for c in r.candidates
+        ]
+
+    assert serial.candidates and key(parallel) == key(serial)
+    assert parallel.hold.objective == serial.hold.objective and parallel.notes == serial.notes
+
+
 def test_paired_gain_of_identical_plans_is_zero(setup) -> None:  # type: ignore[no-untyped-def]
     fc, prob, _ = setup
     hold = build_and_solve(replace(prob, preferences=replace(prob.preferences, hold_first_gw=True)))

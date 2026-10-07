@@ -206,6 +206,7 @@ class DecisionContext:
     team_names: dict[int, str] | None = None
     preferences: Preferences = field(default_factory=Preferences)
     chip_options: dict[str, tuple[int, ...]] | None = None
+    workers: int = 1  # processes for independent solves (wall time only, never the result)
 
 
 def _action(plan_first: Any) -> Action:
@@ -424,7 +425,7 @@ def recommend(
     stab: StabilityReport | None = None
     if (run_stability and chosen.label != "hold") or run_stability:
         t2 = time.perf_counter()
-        r = stability(prob, frozenset(chosen.sells), frozenset(chosen.buys))
+        r = stability(prob, frozenset(chosen.sells), frozenset(chosen.buys), ctx.workers)
         stab = StabilityReport(
             perturbations=r.perturbations,
             share_same_action=r.share_same_action,
@@ -453,7 +454,7 @@ def recommend(
     chip_plans: list[ChipPlan] = []
     if run_chips:
         t4 = time.perf_counter()
-        chip_plans = plan_chips(prob, sol, fc, cfg.decision.min_prob_positive)
+        chip_plans = plan_chips(prob, sol, fc, cfg.decision.min_prob_positive, workers=ctx.workers)
         timings["chips"] = time.perf_counter() - t4
 
     # evidence and explanation

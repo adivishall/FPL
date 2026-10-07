@@ -30,6 +30,7 @@ from fpl_decision.paired import PairedGain, confidence_label, paired_gain, plan_
 from fpl_domain.enums import ChipType
 from fpl_optimizer.alternatives import hold_problem
 from fpl_optimizer.milp import OptimizationError, Solution, build_and_solve
+from fpl_optimizer.parallel import map_ordered
 from fpl_optimizer.pool import candidate_pool
 from fpl_optimizer.problem import OptimizationProblem
 from fpl_optimizer.validate import gameweek_value, validate_solution
@@ -108,6 +109,14 @@ def _affordable_universe(prob: OptimizationProblem, out_code: int) -> list[int]:
     return out
 
 
+def _solve(p: OptimizationProblem) -> Solution | str:
+    """The plan, or why it is infeasible (a picklable result for worker processes)."""
+    try:
+        return build_and_solve(p)
+    except OptimizationError as exc:
+        return str(exc)
+
+
 def _screen(prob: OptimizationProblem, out_code: int, universe: list[int]) -> pd.DataFrame:
     w = prob.config.objective
     base_codes = tuple(prob.state.codes)
@@ -135,7 +144,10 @@ def find_replacements(
     n_enablers: int = 2,
     n_return: int = 5,
     use_pool: bool = True,
+    workers: int = 1,
 ) -> ReplacementResult:
+    """``workers`` solves HOLD and the shortlisted moves in parallel processes; the result does
+    not depend on it."""
     if out_code not in prob.state.codes:
         raise ValueError(f"{out_code} is not in the squad")
     notes: list[str] = []
@@ -177,16 +189,8 @@ def find_replacements(
         )
         base = replace(prob, players=pooled)
     hold_prob = hold_problem(base)
-    hold = build_and_solve(hold_prob)
-    if not validate_solution(hold_prob, hold).valid:
-        notes.append("HOLD plan failed validation")
-    positions = prob.players.positions_map()
-    hold_s = plan_samples(sim, hold.plans, positions, prob.ruleset)
-    # paired gains are reported in undiscounted points; the optimiser objective is discounted
-    thresholds = prob.config.decision
-    cands: list[ReplacementCandidate] = []
-    for c, reason in picks.items():
-        p = replace(
+    moves = {
+        c: replace(
             base,
             preferences=replace(
                 base.preferences,
@@ -195,10 +199,24 @@ def find_replacements(
                 hold_first_gw=False,
             ),
         )
-        try:
-            sol = build_and_solve(p)
-        except OptimizationError as exc:
-            notes.append(f"{out_code}->{c}: infeasible ({exc})")
+        for c in picks
+    }
+    hold_r, *move_r = map_ordered(_solve, [hold_prob, *moves.values()], workers)
+    if isinstance(hold_r, str):
+        raise OptimizationError(hold_r)
+    hold = hold_r
+    if not validate_solution(hold_prob, hold).valid:
+        notes.append("HOLD plan failed validation")
+    positions = prob.players.positions_map()
+    hold_s = plan_samples(sim, hold.plans, positions, prob.ruleset)
+    # paired gains are reported in undiscounted points; the optimiser objective is discounted
+    thresholds = prob.config.decision
+    cands: list[ReplacementCandidate] = []
+    for (c, reason), (p, sol) in zip(
+        picks.items(), zip(moves.values(), move_r, strict=True), strict=True
+    ):
+        if isinstance(sol, str):
+            notes.append(f"{out_code}->{c}: infeasible ({sol})")
             continue
         val = validate_solution(p, sol)
         samples = plan_samples(sim, sol.plans, positions, prob.ruleset)

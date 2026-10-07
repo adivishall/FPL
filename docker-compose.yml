@@ -42,6 +42,7 @@ services:
     environment:   # serve precomputed forecasts only; promote a snapshot once its forecast exists
       FPL_FORECAST_ON_DEMAND: "false"
       FPL_SERVE_READY_SNAPSHOTS_ONLY: "true"
+      FPL_SOLVER_WORKERS: "1"   # synchronous requests never spawn solver processes
     ports: ["127.0.0.1:8000:8000"]
     volumes: [data:/data]
     depends_on:
@@ -57,6 +58,8 @@ services:
     environment:   # jobs run in forked work horses: aggregate their metrics (scrape :9101)
       PROMETHEUS_MULTIPROC_DIR: /tmp/fpl-metrics
       FPL_WORKER_METRICS_PORT: "9101"
+      # processes per recommendation job for independent solves (set to the worker's vCPUs)
+      FPL_SOLVER_WORKERS: ${FPL_SOLVER_WORKERS:-2}
     volumes: [data:/data]
     healthcheck:   # the image's default probe is the API's HTTP check; workers serve no HTTP
       test: ["CMD", "fpl-worker", "healthcheck", "work"]

@@ -172,6 +172,7 @@ def build_recommendation(
         team_names=svc.data.teams(ctx.season),
         preferences=preferences or Preferences(),
         price_probs=prices,
+        workers=svc.settings.solver_workers,
     )
     t0 = time.perf_counter()
     try:
