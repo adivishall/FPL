@@ -252,6 +252,12 @@ validator, as background jobs bound to the exact squad state.
 | Latency (development machine, Docker stack, `infra/scripts/workbench_latency.py`) | `GET /workbench/context` p50 / p95 20 / 21 ms; `POST /workbench/evaluate` answers in 20–24 ms (`202`); the default question (HOLD + 3 replacements + best + 1 alternative, 6 plans) is served **10.4 s** after submission at 3 GW (solver 5.5 s, of which optimise 2.6 s) and **64 s** at 5 GW on a worker that had just restarted (solver 14.7 s; the rest was the worker's cold start and the squad-analysis job queued ahead of it on the single worker); the same question again 17–19 ms; `GET /workbench/runs/{id}` p50 / p95 12 / 12 ms |
 | Tests | fast tier 430 passed, 6 deselected (new: 19 above); migrations 3/3; dev browser flows 11 passed (workbench flow: engine shortlist → details → specific replacement as an exact transfer); production browser suite against the rebuilt images (migration 0003 applied by the `migrate` service): 21 passed, 0 failed (1.4 min), including the workbench evaluated as a worker job through the proxy, the stored run served again to its owner, and the live FPL-ID import; the two auxiliary web containers were recreated for the run and removed afterwards |
 
+CI: `949ec7b` (closeout) success; `b06d561` (M1.2 commits `ae1c635`, `ad85c20`, `9fcfcb9`,
+`9f1f7b5`, docs) failed in the test job on `test_golden_parity` only (every other job green);
+`eacb083` success on all jobs (lint, security, test with the golden skipped on linux-x86_64 and
+its package uploaded, web-e2e, optimizer-suite, containers); the runner that computed it was an
+AMD EPYC 9V45 with numpy dispatching AVX512_ICL.
+
 Decisions and defects: 49. The first version of the workbench evaluated a named transfer with
 `forced_in` / `forced_out` alone, which lets the optimiser add further moves in the same
 gameweek; `first_gw_exact` makes "your transfer" mean exactly that. 50. Chip alternatives and
