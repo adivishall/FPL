@@ -262,4 +262,5 @@ IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE), ending with the **V1 release status**
 blocker is resolved except a public URL, which waits on operator inputs (host, domain,
 secrets). What is not done or not proven — single-tenant security, latency of heavy requests,
 selection bias, development-machine timings and more — is in `docs/KNOWN_LIMITATIONS.md`; future
-work in `docs/BACKLOG.md`; progress record in `docs/BUILD_STATUS.md`.
+work in `docs/BACKLOG.md`; product gap analysis, competitor comparison and roadmap in
+`docs/PRODUCT_GAP_ANALYSIS.md`; progress record in `docs/BUILD_STATUS.md`.

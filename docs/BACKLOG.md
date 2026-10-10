@@ -3,7 +3,9 @@
 Nothing here is required for V1. Each item says what it would change and the evidence that
 motivates it; V1.1 items build on what exists, V2 items need a new capability. Measurements are
 in `ml/reports/performance_stages.md`, open audit items in `docs/FINAL_AUDIT.md` → *V1 RELEASE
-STATUS*.
+STATUS*. The product gap analysis, competitor comparison and the roadmap that re-orders
+these items around user value (and adds identity, beta access and analytics as launch-critical)
+is `docs/PRODUCT_GAP_ANALYSIS.md`.
 
 ## V1.1
 
