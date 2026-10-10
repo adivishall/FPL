@@ -29,8 +29,9 @@ test("capture the decision workflow", async ({ page }) => {
 
   await page.goto("/transfers");
   await page.locator("[data-testid^='out-']").nth(5).click();
-  await expect(page.getByTestId("candidates").locator("tbody tr").first()).toBeVisible();
-  await page.screenshot({ path: `${OUT}/transfer-lab.png`, fullPage: true });
+  await page.getByTestId("evaluate").click();
+  await expect(page.getByTestId("plan-hold")).toBeVisible({ timeout: 420_000 });
+  await page.screenshot({ path: `${OUT}/transfer-workbench.png`, fullPage: true });
 
   await page.goto("/journal");
   await page.getByTestId("journal").locator("tbody tr a").first().click();

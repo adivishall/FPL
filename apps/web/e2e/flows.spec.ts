@@ -28,12 +28,34 @@ test("overview shows degraded freshness and a recommendation with evidence", asy
   await expect(page.getByText("If you do nothing")).toBeVisible();
 });
 
-test("transfer lab returns legal replacement candidates", async ({ page }) => {
+test("transfer workbench compares legal whole-squad plans against holding", async ({ page }) => {
   await page.goto("/transfers");
+  await expect(page.getByTestId("wb-state")).toContainText("free transfer");
   const first = page.locator("[data-testid^='out-']").first();
   await first.click();
-  await expect(page.getByTestId("candidates").locator("tbody tr").first()).toBeVisible();
-  await expect(page.getByTestId("candidates")).toContainText("affordable, club-legal candidates screened");
+  await expect(page.getByTestId("out-name")).toBeVisible();
+  await page.getByTestId("evaluate").click();
+  await expect(page.getByTestId("run-status")).toBeVisible();
+  await expect(page.getByTestId("plan-hold")).toBeVisible({ timeout: 240_000 });
+  await expect(page.getByTestId("plans")).toContainText("replacements screened");
+  const rows = page.getByTestId("plans").locator("tbody tr");
+  expect(await rows.count()).toBeGreaterThan(1);
+  await expect(page.getByTestId("wb-trace")).toContainText("snapshot");
+  await expect(page.getByTestId("plans")).not.toContainText("illegal");
+  const rep = page.locator("[data-testid^='plan-replace-']").first();
+  await expect(rep).toBeVisible();
+  const label = (await rep.getAttribute("data-testid"))!.replace("plan-", "");
+  await page.getByTestId(`details-${label}`).click();
+  await expect(page.getByTestId("plan-details")).toContainText("Squad after");
+  // a specific replacement through the picker is evaluated as an exact single transfer
+  await page.getByTestId("mode-transfer").check();
+  await page.getByTestId("wb-picker").getByTestId("picker-search").fill("a");
+  await page.getByTestId("wb-picker").locator("[role=option]").first().click();
+  await expect(page.getByTestId("incoming")).not.toContainText("pick a player");
+  await page.getByTestId("include-best").uncheck();
+  await page.getByTestId("evaluate").click();
+  await expect(page.getByTestId("plan-your transfer")).toBeVisible({ timeout: 240_000 });
+  await expect(page.getByTestId("plan-your transfer")).toContainText("TRANSFER");
 });
 
 test("future planner, player lab, backtest lab and data health render real data", async ({ page }) => {

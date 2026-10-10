@@ -10,7 +10,7 @@ import { pct, when } from "@/lib/format";
 
 const NAV: [string, string][] = [
   ["/", "Overview"],
-  ["/transfers", "Transfer Lab"],
+  ["/transfers", "Transfer Workbench"],
   ["/squad", "Squad Planner"],
   ["/planner", "Future Planner"],
   ["/players", "Player Lab"],

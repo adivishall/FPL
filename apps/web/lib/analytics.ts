@@ -15,6 +15,8 @@ export type EventName =
   | "squad_analysis_viewed"
   | "recommendation_opened"
   | "transfer_comparison_completed"
+  | "workbench_evaluated"
+  | "workbench_plan_selected"
   | "recommendation_followed"
   | "recommendation_dismissed"
   | "return_visit";

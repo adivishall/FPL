@@ -191,17 +191,31 @@ test("player page shows engine and official price-change predictions separately,
   await expect(risk).toContainText("never blended");
 });
 
-test("transfer workflow: replacement picker → what-if vs hold, without mutating the saved squad", async ({ page }) => {
+test("transfer workbench: whole-squad plans vs hold as a job → what-if, without mutating the saved squad", async ({ page }) => {
   await asManager(page);
   const before = await (await api.get(`/api/v1/squad?manager_key=${MANAGER}`, { headers: { "x-api-key": OPS_KEY } })).json();
   await page.goto("/transfers");
+  await expect(page.getByTestId("wb-state")).toContainText("free transfer");
   const out = page.locator("[data-testid^='out-']").first();
   const outCode = (await out.getAttribute("data-testid"))!.replace("out-", "");
   await out.click();
-  const firstIn = page.getByTestId("candidates").locator("tbody tr a").first();
-  await expect(firstIn).toBeVisible();
-  await expect(page.getByTestId("candidates")).toContainText("affordable, club-legal candidates screened");
-  const inCode = (await firstIn.getAttribute("href"))!.split("/").pop()!;
+  await page.getByTestId("evaluate").click();
+  await expect(page.getByTestId("run-status")).toBeVisible();
+  await expect(page.getByTestId("plan-hold")).toBeVisible({ timeout: 420_000 }); // queued → worker → served
+  await expect(page.getByTestId("plans")).toContainText("replacements screened");
+  await expect(page.getByTestId("plans")).not.toContainText("illegal");
+  await expect(page.getByTestId("wb-trace")).toContainText("squad state " + before.state_id);
+  const rep = page.locator("[data-testid^='plan-replace-']").first();
+  await expect(rep).toBeVisible();
+  const inCode = (await rep.locator("a").nth(1).getAttribute("href"))!.split("/").pop()!;
+  const label = (await rep.getAttribute("data-testid"))!.replace("plan-", "");
+  await page.getByTestId(`details-${label}`).click();
+  await expect(page.getByTestId("plan-details")).toContainText("Squad after");
+  // the run is the owner's and is served again without recomputation
+  const runId = (await page.getByTestId("run-status").textContent())!.match(/Run (\S+)/)![1];
+  const again = await web.get(`/backend/workbench/runs/${runId}`);
+  expect(again.status()).toBe(200);
+  expect((await again.json()).result.result.plans[0].label).toBe("hold");
   await page.goto("/what-if");
   await page.getByLabel("player").selectOption({ index: 1 });
   await page.getByLabel("sell").fill(outCode);

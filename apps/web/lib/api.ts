@@ -395,3 +395,155 @@ export interface Trace {
   checks: TraceCheck[];
   chain: Record<string, Record<string, unknown>>;
 }
+
+// ---------------------------------------------------------------- Transfer Workbench (M1.2)
+export interface WorkbenchPlayer {
+  player_code: number;
+  name: string;
+  team: string;
+  team_code: number;
+  position: string;
+  purchase_price: number;
+  price: number;
+  selling_price: number;
+  xp_next: number;
+  xp_horizon: number;
+  p_start_next: number;
+  status: string;
+  chance_of_playing: number | null;
+}
+
+export interface WorkbenchContext {
+  manager_key: string;
+  state_id: string;
+  season: string;
+  gameweek: number;
+  horizon: number;
+  horizon_max: number;
+  state: {
+    bank: number;
+    free_transfers: number;
+    transfers_made: number;
+    manager_id: number | null;
+    source: string;
+    chips_available: string[];
+    squad_value: number;
+    selling_value: number;
+  };
+  rules: { hit_cost: number; max_per_club: number; selling_price_rule: string; ruleset_version: string };
+  players: WorkbenchPlayer[];
+  weak_spots: { kind: string; severity: string; message: string; players: number[] }[];
+  forecast_key: string;
+  snapshot_id: string;
+  freshness: Freshness;
+}
+
+export type PlanKind = "hold" | "transfer" | "replace" | "best";
+
+export interface PlanSpec {
+  kind: PlanKind;
+  label?: string;
+  sells?: number[];
+  buys?: number[];
+  out_player?: number;
+  candidates?: number;
+  max_transfers?: number | null;
+  allow_hits?: boolean;
+  alternatives?: number;
+}
+
+export interface PlayerMove {
+  player_code: number;
+  name: string;
+  position: string;
+  team: string;
+  price: number;
+  selling_price: number | null;
+  xp_next: number;
+  xp_horizon: number;
+  p_start_next: number | null;
+}
+
+export interface WorkbenchPlan {
+  label: string;
+  kind: PlanKind;
+  requested_by: "manager" | "engine";
+  reason: string;
+  action: string;
+  sells: number[];
+  buys: number[];
+  moves_out: PlayerMove[];
+  moves_in: PlayerMove[];
+  valid: boolean;
+  issues: string[];
+  optimality: string;
+  proven_optimal: boolean;
+  transfers_now: number;
+  hit_now: number;
+  hits_total: number;
+  hit_cost_vs_hold: number;
+  expected_points_1gw: number;
+  expected_points_horizon: number;
+  gain_1gw: Gain;
+  gain_horizon: Gain;
+  gross_gain_horizon: number;
+  objective_gain_vs_hold: number;
+  passes_thresholds: boolean;
+  bank_after: number;
+  free_transfers_after: number;
+  squad_after: number[];
+  lineup: { starters: number[]; bench: number[]; captain: number; vice_captain: number };
+  timeline: PlanStep[];
+  follow_up: { gameweek: number; out: number[]; in: number[]; chip: string | null; hit_points: number }[];
+}
+
+export interface WorkbenchResult {
+  version: string;
+  season: string;
+  gameweek: number;
+  horizon: number;
+  plans: WorkbenchPlan[];
+  excluded: { label: string; reason: string; sells?: number[]; buys?: number[] }[];
+  notes: string[];
+  n_simulations: number;
+  simulation_seed: number | null;
+  assumptions: string[];
+  config_ref: string;
+  ruleset_version: string;
+  problem: Record<string, unknown>;
+  timings: Record<string, number>;
+}
+
+export interface WorkbenchRun {
+  id: string;
+  manager_key: string;
+  state_id: string;
+  snapshot_id: string;
+  forecast_key: string;
+  version: string;
+  horizon: number;
+  profile: string;
+  request: { plans: PlanSpec[]; horizon: number; profile: string };
+  status: "queued" | "running" | "succeeded" | "failed";
+  job_id: string | null;
+  result: {
+    run_id: string;
+    snapshot_id: string;
+    forecast_key: string;
+    prediction_run_id: string;
+    forecast: { cutoff: string; latest_source_at: string; n_simulations: number | null; simulation_seed: number | null; model_versions: Record<string, string> };
+    computed_at: string;
+    horizon: number;
+    profile: string;
+    result: WorkbenchResult;
+  } | null;
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+  stale_state: boolean;
+  latest_state_id: string | null;
+  stale_snapshot: boolean;
+  job: { status: string; error: string | null; failure: string | null } | null;
+  names: Record<string, string | null>;
+  freshness: Freshness;
+}
