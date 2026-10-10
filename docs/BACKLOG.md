@@ -16,6 +16,7 @@ is `docs/PRODUCT_GAP_ANALYSIS.md`.
 | Faster stability analysis | the slowest single perturbation (two exact solves, ~20 s) bounds the parallel stage | stage report: stability 41.8 s with 4 processes |
 | Replacement picker latency | 13–49 s on the deployed API, solved serially in the request | `docs/KNOWN_LIMITATIONS.md` §5 |
 | Better chip planning | chip-open solves always reach the 60 s limit and return validated incumbents | `ml/reports/optimizer_benchmark.md` (48 of 48) |
+| Longer planning horizon (8 GW) | serving is capped at the validated 5-GW horizon; extending needs training horizons 0–7 and a re-run of the forecast evaluation for h5–h7 before anything longer is served | `docs/MODEL_CARD.md` → *Served horizon*; `docs/BUILD_STATUS.md` defect 40 |
 | Prospective 2026-27 evaluation | the first unseen season; frozen configuration evaluated gameweek by gameweek, drift monitors on live outcomes | selection-bias warning in `ml/reports/backtest.md` |
 | Calibrate injury / news availability | the status layer is configuration, not a fitted model | no historical news; capture live status changes first |
 | Observe availability alerts on real status changes | alert logic is unit-tested only | `docs/KNOWN_LIMITATIONS.md` §1 |

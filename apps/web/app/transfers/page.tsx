@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Badge, Card, PlayerName, State, confidenceTone, useApi } from "@/components/ui";
 import { ApiError, post, type SquadState } from "@/lib/api";
 import { money, pct, signed } from "@/lib/format";
-import { loadSettings } from "@/lib/settings";
+import { effectiveHorizon, loadSettings } from "@/lib/settings";
 
 interface Candidate {
   in: { player_id: number };
@@ -42,7 +42,7 @@ export default function TransferLab() {
     setErr(null);
     setRes(null);
     try {
-      setRes(await post("/replacements", { manager_key: settings.managerKey, out_player: code, profile: settings.profile, horizon: settings.horizon, candidates: 6 }));
+      setRes(await post("/replacements", { manager_key: settings.managerKey, out_player: code, profile: settings.profile, horizon: await effectiveHorizon(settings), candidates: 6 }));
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
     } finally {

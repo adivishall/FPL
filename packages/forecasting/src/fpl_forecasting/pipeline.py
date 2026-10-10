@@ -45,6 +45,11 @@ from fpl_storage.pit import PointInTimeView
 
 POS_INDEX = {p.value: i for i, p in enumerate(POSITIONS)}
 TRAIN_HORIZONS = (0, 1, 2, 3, 4)  # mirrors config/models/points.yaml (training.horizons)
+# Serving contract: a forecast covers target horizons 0 … max(TRAIN_HORIZONS), i.e. this many
+# gameweeks from the decision gameweek. Beyond it the minutes model would extrapolate its
+# ``horizon`` feature outside the trained range and nothing is evaluated (forecast_eval reports
+# h0–h4), so the API refuses longer horizons (fpl_api.settings, fpl_api.schemas).
+SUPPORTED_HORIZON = max(TRAIN_HORIZONS) + 1
 MODEL_VERSION = "points-decomposed-1.0.0"
 
 

@@ -27,7 +27,12 @@ from pydantic import ValidationError
 from sqlalchemy import func, select, text
 
 from fpl_api import schemas as s
-from fpl_api.container import AppServices, build_recommendation, optimization_problem
+from fpl_api.container import (
+    AppServices,
+    UnsupportedHorizon,
+    build_recommendation,
+    optimization_problem,
+)
 from fpl_api.jobs import JobBackend
 from fpl_api.lineage import trace
 from fpl_api.privacy import audit, delete_manager, export_manager
@@ -152,6 +157,10 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             headers={"Retry-After": "60"},
         )
 
+    @app.exception_handler(UnsupportedHorizon)
+    async def _horizon(_: Request, exc: UnsupportedHorizon) -> JSONResponse:
+        return JSONResponse({"detail": str(exc), "code": "unsupported_horizon"}, status_code=422)
+
     @app.exception_handler(RuleViolation)
     async def _rule(_: Request, exc: RuleViolation) -> JSONResponse:
         return JSONResponse({"detail": str(exc), "code": exc.code}, status_code=422)
@@ -270,6 +279,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             "gameweek": ctx.gameweek,
             "deadline": ctx.deadline.isoformat(),
             "decision_cutoff": ctx.cutoff.isoformat(),
+            "horizon_max": settings.horizon_max,
             "freshness": ctx.block(svc.data.snapshot_id),
         }
 
@@ -821,11 +831,14 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     # ------------------------------------------------------------------ recommendations
     @r.post("/recommendations/generate")
     def generate(body: s.RecommendationIn) -> JSONResponse:
-        sid, _ = load_state(body.manager_key)
-        job = jobs.submit(
-            "recommendation",
-            {**body.model_dump(), "state_id": sid, "horizon": svc.horizon(body.horizon)},
-        )
+        latest_sid, _ = load_state(body.manager_key)
+        sid = body.state_id or latest_sid
+        assert svc.states is not None
+        if body.state_id and svc.states.get(sid, body.manager_key) is None:
+            raise HTTPException(404, f"squad state {sid} is not stored for this manager")
+        params = {**body.model_dump(exclude={"state_id"}), "state_id": sid}
+        params["horizon"] = svc.horizon(body.horizon)
+        job = jobs.submit("recommendation", params)
         return JSONResponse({"job_id": job, "job": jobs.get(job)}, status_code=202)
 
     @r.get("/recommendations/current")
@@ -839,7 +852,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                 404,
                 f"no recommendation yet for GW{ctx.gameweek}; POST {API}/recommendations/generate",
             )
-        return {**rec, "names": rec_names(rec), "freshness": fresh()}
+        return {**rec, **state_staleness(rec), "names": rec_names(rec), "freshness": fresh()}
 
     @r.get("/recommendations/{rec_id}")
     def get_rec(rec_id: str) -> dict[str, Any]:
@@ -848,7 +861,19 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         rec = svc.recs.get(rec_id)
         if rec is None:
             raise HTTPException(404, f"recommendation {rec_id} not found")
-        return {**rec, "names": rec_names(rec), "freshness": fresh()}
+        return {**rec, **state_staleness(rec), "names": rec_names(rec), "freshness": fresh()}
+
+    def state_staleness(rec: dict[str, Any]) -> dict[str, Any]:
+        """Whether the manager's squad changed since this recommendation was computed. The
+        record names the exact state it evaluated; a newer saved state means the plan no longer
+        describes the current squad and should be regenerated."""
+        latest = svc.states.latest(rec["manager_key"]) if svc.states is not None else None
+        latest_id = latest[0] if latest else None
+        used = rec.get("state_id")
+        return {
+            "stale_state": bool(used and latest_id and used != latest_id),
+            "latest_state_id": latest_id,
+        }
 
     def rec_names(rec: dict[str, Any]) -> dict[str, str | None]:
         """Names of every player an alternative sells or buys (incoming players are not in the

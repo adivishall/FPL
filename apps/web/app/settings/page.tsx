@@ -26,6 +26,11 @@ export default function Settings() {
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // The longest horizon the deployment serves (the validated forecast range); never offer more.
+  const [horizonMax, setHorizonMax] = useState(5);
+  useEffect(() => {
+    api<{ horizon_max?: number }>("/gameweeks/current").then((g) => g.horizon_max && setHorizonMax(g.horizon_max)).catch(() => undefined);
+  }, []);
   const key = encodeURIComponent(s.managerKey);
   useEffect(() => {
     let current = true;
@@ -48,7 +53,7 @@ export default function Settings() {
     saveSettings(s);
     try {
       await post(`/settings?manager_key=${key}`, {
-        horizon: s.horizon,
+        horizon: Math.min(s.horizon, horizonMax),
         profile: s.profile,
         notify_min_gain: srv.notify_min_gain,
         notify_injuries: srv.notify_injuries,
@@ -90,7 +95,8 @@ export default function Settings() {
             <option value="aggressive">aggressive — upside-seeking</option>
           </select>
           <label htmlFor="hz">Planning horizon (GWs)</label>
-          <input id="hz" type="number" min={1} max={10} value={s.horizon} onChange={(e) => setS({ ...s, horizon: Number(e.target.value) })} />
+          <input id="hz" type="number" min={1} max={horizonMax} value={Math.min(s.horizon, horizonMax)} onChange={(e) => setS({ ...s, horizon: Math.max(1, Math.min(horizonMax, Number(e.target.value))) })} />
+          <span className="small">1–{horizonMax}: forecasts are validated this far ahead; longer horizons are not served.</span>
         </div>
         <p className="small">Profiles change objective weights and decision thresholds only — never the rules (config/optimizer/*.yaml).</p>
       </Card>

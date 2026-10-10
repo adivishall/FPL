@@ -66,10 +66,14 @@ def _job_forecast(svc: AppServices, p: dict[str, Any]) -> str:
 def _job_recommendation(svc: AppServices, p: dict[str, Any]) -> str:
     if svc.states is None:
         raise RuntimeError("database required")
-    latest = svc.states.latest(p["manager_key"])
-    if latest is None:
-        raise LookupError(f"no squad stored for {p['manager_key']}")
-    state_id, state = latest
+    state_id = p.get("state_id")
+    if not state_id:
+        raise LookupError(f"recommendation job for {p['manager_key']} names no squad state")
+    state = svc.states.get(state_id, p["manager_key"])
+    if state is None:
+        # Never substitute another state for the one the request named (it may have been
+        # erased since): the result would be traced to a squad that was not evaluated.
+        raise LookupError(f"squad state {state_id} is not available for {p['manager_key']}")
     rec_id, _ = build_recommendation(
         svc,
         p["manager_key"],

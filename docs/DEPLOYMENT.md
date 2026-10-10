@@ -338,10 +338,13 @@ stored but flagged `valid=false`.
 
 ### Model drift
 
-`ForecastCalibrationDrift`. Published calibration fell outside the promotion band. Re-run
-`ml/experiments/forecast_eval.py` on the newest data; the retraining policy
-(`config/models/points.yaml → retraining`) and PSI drift checks decide whether to retrain or
-roll back (see *Upgrades and rollback → Models*).
+`ForecastCalibrationDrift`. The *published* calibration is outside the promotion band. The
+`fpl_model_metric` gauge exports the figures from `ml/reports/forecast_eval.json`, not live
+measurements, so this fires only after a new report is published. Re-run
+`ml/experiments/forecast_eval.py` on the newest data and apply the retraining policy
+(`config/models/points.yaml → retraining`; the PSI checks in `fpl_forecasting/governance.py`
+run from that experiment, not at runtime) to decide whether to retrain or roll back (see
+*Upgrades and rollback → Models*).
 
 ### Security events
 

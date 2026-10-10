@@ -42,6 +42,7 @@ from fpl_api.alerts import evaluate_alerts  # noqa: E402
 from fpl_api.app import create_app  # noqa: E402
 from fpl_api.container import AppServices  # noqa: E402
 from fpl_api.settings import Settings  # noqa: E402
+from fpl_forecasting.pipeline import SUPPORTED_HORIZON  # noqa: E402
 from fpl_storage.testing import ephemeral_postgres  # noqa: E402
 
 
@@ -147,8 +148,8 @@ def in_process(snapshot_dir: Path | None) -> dict[str, Any]:
             feature_store_dir=Path(tmp) / "features",
             n_sims=1000,
             horizon_default=5,
-            horizon_max=8,
-            forecast_horizon=8,
+            horizon_max=SUPPORTED_HORIZON,
+            forecast_horizon=SUPPORTED_HORIZON,
             sync_horizon_limit=5,
             rate_limit_per_minute=10**6,
             expensive_rate_limit_per_minute=10**6,
@@ -163,11 +164,11 @@ def in_process(snapshot_dir: Path | None) -> dict[str, Any]:
         }
         ctx = svc.context()
         rss0 = peak_rss_gb()
-        fc, t_cold = timed(lambda: svc.forecast_for(ctx, 8))
+        fc, t_cold = timed(lambda: svc.forecast_for(ctx, SUPPORTED_HORIZON))
         rss1 = peak_rss_gb()
         svc.forecasts._mem.clear()
-        _, t_disk = timed(lambda: svc.forecast_for(ctx, 8))
-        _, t_mem = timed(lambda: svc.forecast_for(ctx, 8))
+        _, t_disk = timed(lambda: svc.forecast_for(ctx, SUPPORTED_HORIZON))
+        _, t_mem = timed(lambda: svc.forecast_for(ctx, SUPPORTED_HORIZON))
         _, t_h5 = timed(lambda: svc.forecast_for(ctx, 5))  # served from the 8-GW forecast
         out["forecast"] = {
             "season": ctx.season,

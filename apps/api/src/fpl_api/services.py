@@ -432,7 +432,11 @@ class StateStore:
     def save(self, manager_key: str, state: ManagerState, source: str) -> str:
         sid = short_id("mstate", {"key": manager_key, "state": state.state_hash})
         with session_scope(self.engine) as s:
-            if s.get(m.ManagerStateRow, sid) is None:
+            existing = s.get(m.ManagerStateRow, sid)
+            if existing is not None:
+                # Content-addressed: saving an earlier squad again makes it the latest again.
+                existing.captured_at = datetime.now(UTC)
+            else:
                 season_id = ensure_season(s, state.season)
                 payload = state.model_dump(mode="json")
                 payload["manager_key"] = manager_key
@@ -464,6 +468,15 @@ class StateStore:
                 return None
             payload = {k: v for k, v in row.state_json.items() if k != "manager_key"}
             return row.id, ManagerState.model_validate(payload)
+
+    def get(self, state_id: str, manager_key: str) -> ManagerState | None:
+        """The exact stored state — only if it belongs to ``manager_key``, never another's."""
+        with session_scope(self.engine) as s:
+            row = s.get(m.ManagerStateRow, state_id)
+            if row is None or row.state_json.get("manager_key") != manager_key:
+                return None
+            payload = {k: v for k, v in row.state_json.items() if k != "manager_key"}
+            return ManagerState.model_validate(payload)
 
 
 @dataclass
@@ -574,6 +587,7 @@ class RecommendationStore:
             return {
                 "id": row.id,
                 "status": row.status,
+                "state_id": row.manager_state_id,
                 "created_at": row.created_at.isoformat(),
                 **row.payload_json,
             }
@@ -595,6 +609,7 @@ class RecommendationStore:
             return {
                 "id": row.id,
                 "status": row.status,
+                "state_id": row.manager_state_id,
                 "created_at": row.created_at.isoformat(),
                 **row.payload_json,
             }
@@ -613,7 +628,12 @@ class RecommendationStore:
             ).first()
             if row is None:
                 return None
-            return {"id": row.id, "status": row.status, **row.payload_json}
+            return {
+                "id": row.id,
+                "status": row.status,
+                "state_id": row.manager_state_id,
+                **row.payload_json,
+            }
 
     def journal(self, manager_key: str, limit: int = 50) -> list[dict[str, Any]]:
         with session_scope(self.engine) as s:

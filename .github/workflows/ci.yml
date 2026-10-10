@@ -1,6 +1,7 @@
 # CI contract (§78): lint + format + types + layering, unit/integration/property tests with real
-# PostgreSQL + Redis, optimizer validity suite, backtest smoke, migration validation, container
-# builds, dependency + secret scanning. Deployment (deploy.yml) runs only from a green main.
+# PostgreSQL + Redis, optimizer validity suite, a bounded backtest smoke (tests/integration/
+# test_backtest.py: four gameweeks on the fixture excerpt, inside the test job), migration
+# validation, container builds, dependency + secret scanning. Deployment (deploy.yml) runs only from a green main.
 name: ci
 
 on:

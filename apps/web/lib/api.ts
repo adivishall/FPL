@@ -44,6 +44,7 @@ export interface Gameweek {
   gameweek: number;
   deadline: string;
   decision_cutoff: string;
+  horizon_max?: number; // longest planning horizon this deployment serves (validated forecast range)
   freshness: Freshness;
 }
 
@@ -164,6 +165,9 @@ export interface ChipPlan {
 }
 
 export interface Recommendation {
+  state_id?: string | null; // the stored squad state this plan evaluated
+  stale_state?: boolean; // the squad was saved again since: the plan describes a previous squad
+  latest_state_id?: string | null;
   id: string;
   /** names of every player an alternative sells or buys (not all are in the squad) */
   names?: Record<string, string | null>;

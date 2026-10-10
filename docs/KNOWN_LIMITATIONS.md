@@ -12,6 +12,8 @@ generated reports so they cannot drift from this page.
   unseen season (§3).
 * **Optimiser limits.** Chip-open solves run to the 60 s limit and return validated incumbents,
   labelled "best found within the solver limit; not proven optimal" (§5).
+* **Planning horizon.** Forecasts are trained and evaluated for five gameweeks (target horizons
+  0–4); the API refuses longer horizons rather than serve an extrapolation (§3).
 * **Latency.** Recommendations take 42–90 s as worker jobs; the replacement picker 13–49 s (§5).
 * **Single-tenant.** One shared API key behind the web proxy; a public site sits behind one
   login, with no per-user accounts (§6).
@@ -98,8 +100,13 @@ generated reports so they cannot drift from this page.
   outcomes and the strict one under-covers (both reported). Squad-level p10–p90 covers 83 % of
   non-chip weeks (nominal 80 %; 5 % below p10, 11 % above p90): slightly wide, slight upside skew.
 * Monte Carlo: 1,000 joint samples per forecast; tail probabilities below ~1 % are noisy.
-* Model drift: models are retrained on a schedule and checked with PSI/ECE monitors, but the
-  2026-27 live models have not yet been evaluated on 2026-27 outcomes beyond GW1.
+* Model drift: serving retrains every model for each new snapshot (the 4-gameweek cadence in
+  `config/models/points.yaml` applies to evaluation only). The PSI feature-drift and
+  retraining-decision functions in `fpl_forecasting/governance.py` are unit-tested but have no
+  runtime caller, and the figures behind the `ForecastCalibrationDrift` alert are the published
+  offline report values, not live-season measurements. Live-season calibration is V1.1
+  (prospective evaluation); the 2026-27 models have not been evaluated on 2026-27 outcomes
+  beyond GW1.
 * The decision engine's thresholds (`min_gain`, `min_prob_positive`) trade activity for
   stability; plans beyond the first week are provisional (most next-week plans change).
 * The "FPL-style heuristic" baseline is an approximation; the official algorithm is not public.

@@ -315,12 +315,12 @@ def test_reports_models_settings(client: TestClient) -> None:
         client.post(
             "/api/v1/settings",
             params={"manager_key": "demo"},
-            json={"horizon": 6, "profile": "conservative"},
+            json={"horizon": 4, "profile": "conservative"},
         ).status_code
         == 200
     )
     got = client.get("/api/v1/settings", params={"manager_key": "demo"}).json()
-    assert got["settings"]["horizon"] == 6 and got["settings"]["profile"] == "conservative"
+    assert got["settings"]["horizon"] == 4 and got["settings"]["profile"] == "conservative"
 
 
 def test_metrics_and_validation(client: TestClient) -> None:

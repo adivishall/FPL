@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Badge, Card, DistBar, FreshnessBanner, PlayerName, Prob, State, confidenceTone, useApi } from "@/components/ui";
 import { ApiError, jobFailureMessage, post, type Gameweek, type Recommendation, type SquadState, waitForJob } from "@/lib/api";
 import { pct, pts, signed, when } from "@/lib/format";
-import { loadSettings } from "@/lib/settings";
+import { effectiveHorizon, loadSettings } from "@/lib/settings";
 
 function Countdown({ iso }: { iso: string }) {
   const [now, setNow] = useState(() => Date.now());
@@ -34,7 +34,7 @@ export default function Overview() {
     setBusy("queued");
     try {
       const r = await post<{ job_id: string }>("/recommendations/generate", {
-        manager_key: settings.managerKey, profile: settings.profile, horizon: settings.horizon,
+        manager_key: settings.managerKey, profile: settings.profile, horizon: await effectiveHorizon(settings),
       });
       const job = await waitForJob(r.job_id, (j) => setBusy(j.status));
       if (job.status === "failed") throw new Error(jobFailureMessage(job));
@@ -72,6 +72,12 @@ export default function Overview() {
             </div>
           ) : null}
           {err ? <p className="error" role="alert">{err}</p> : null}
+          {r?.stale_state ? (
+            <p className="small" role="status" data-testid="stale-state">
+              <Badge tone="warn">squad changed</Badge> This plan was computed for a previous version of your squad (state {r.state_id}); it does not describe the squad you have now.{" "}
+              <button onClick={generate} disabled={!!busy}>{busy ? `Working… (${busy})` : "Regenerate for the current squad"}</button>
+            </p>
+          ) : null}
           {r ? (
             <>
               <div className="row">

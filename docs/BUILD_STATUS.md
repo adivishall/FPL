@@ -176,6 +176,27 @@ GW1–GW5 finalized (3,216 result rows, one capture each), GW6 upcoming with the
 39. The smoke test required direct API access, which a public deployment does not expose; it
     now also runs through the public origin, behind the site login.
 
+### Integrity pass (2026-10-10)
+
+40. Serving accepted planning horizons up to 8 (and request schemas up to 10, silently clamped)
+    while the minutes model is trained on target horizons 0–4 and the forecast evaluation covers
+    h0–h4 only. The contract is now explicit (`fpl_forecasting.pipeline.SUPPORTED_HORIZON` = 5):
+    settings fail at start-up beyond it, request schemas and the container refuse longer
+    horizons with `422 unsupported_horizon` instead of clamping, `/gameweeks/current` reports
+    `horizon_max`, and the performance scripts follow the constant. Extending to 8 GW is a
+    backlog item that requires training and evaluating h5–h7 first.
+41. The recommendation job received a `state_id` but evaluated the manager's *latest* state, so a
+    squad saved while a job was queued was silently substituted. The job now loads exactly the
+    requested state (owned by that manager) and fails clearly when it is unavailable;
+    `/recommendations/generate` accepts an explicit `state_id`; recommendation responses carry
+    `state_id`, `stale_state` and `latest_state_id`; re-saving an earlier squad makes it the
+    latest state again. Tests: `tests/integration/test_state_selection.py`.
+42. `KNOWN_LIMITATIONS.md` said models were "checked with PSI/ECE monitors"; the PSI and
+    retraining-decision functions have no runtime caller and the calibration alert reads published
+    report values. The limitation, the audit rows and the drift runbook now say so.
+43. The CI workflow header promised a "backtest smoke" job; the bounded walk-forward run lives in
+    `tests/integration/test_backtest.py` inside the test job. The header now says exactly that.
+
 ## 3. Environment
 
 Apple M4 (10 logical CPUs), 16 GB RAM, macOS 27.0.1; Python 3.12.15 (uv), Node 22.23, PostgreSQL

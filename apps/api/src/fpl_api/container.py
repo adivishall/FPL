@@ -27,7 +27,7 @@ from fpl_decision.inputs import player_table
 from fpl_decision.render import render_markdown
 from fpl_domain.hashing import short_id
 from fpl_domain.state import ManagerState, with_current_clubs
-from fpl_forecasting.pipeline import Forecast
+from fpl_forecasting.pipeline import SUPPORTED_HORIZON, Forecast
 from fpl_notifications.store import NotificationStore
 from fpl_optimizer.pool import candidate_pool
 from fpl_optimizer.problem import (
@@ -38,6 +38,11 @@ from fpl_optimizer.problem import (
     load_optimizer_config,
 )
 from fpl_storage.db import make_engine
+
+
+class UnsupportedHorizon(ValueError):
+    """A request asked for a planning horizon this deployment does not serve."""
+
 
 log = structlog.get_logger("fpl_api")
 
@@ -83,8 +88,15 @@ class AppServices:
         return self.data.current()
 
     def horizon(self, requested: int | None) -> int:
+        """The planning horizon to use; a request beyond what this deployment serves is refused,
+        never silently shortened (the caller would read a 5-week plan as an 8-week one)."""
         h = requested or self.settings.horizon_default
-        return max(1, min(h, self.settings.horizon_max))
+        if h < 1 or h > self.settings.horizon_max:
+            raise UnsupportedHorizon(
+                f"horizon {h} is not served: this deployment plans 1–{self.settings.horizon_max} "
+                f"gameweeks ahead (validated forecast horizon {SUPPORTED_HORIZON})"
+            )
+        return h
 
     def forecast_for(
         self, ctx: CurrentContext, horizon: int, n_sims: int | None = None

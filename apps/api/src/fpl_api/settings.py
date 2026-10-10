@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from fpl_forecasting.pipeline import SUPPORTED_HORIZON
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]  # source checkout; images set FPL_REPORTS_DIR
 
@@ -37,9 +39,15 @@ class Settings(BaseSettings):
     feature_store_dir: Path | None = None
     # forecasting / decision limits (§80 cost control)
     horizon_default: int = 5
-    horizon_max: int = 8
+    horizon_max: int = Field(
+        SUPPORTED_HORIZON,
+        ge=1,
+        description="longest planning horizon served; never beyond the validated forecast horizon",
+    )
     forecast_horizon: int = Field(
-        8, description="one canonical forecast per gameweek covers every request horizon ≤ it"
+        SUPPORTED_HORIZON,
+        description="one canonical forecast per gameweek covers every request horizon ≤ it; "
+        "capped by the model contract (fpl_forecasting.pipeline.SUPPORTED_HORIZON)",
     )
     n_sims: int = 1000
     n_sims_max: int = 5000
@@ -49,6 +57,27 @@ class Settings(BaseSettings):
         "sets False and serves only precomputed forecasts (ADR-0009)",
     )
     sync_horizon_limit: int = Field(5, description="larger optimisations run as async jobs")
+
+    @model_validator(mode="after")
+    def _horizons_within_model_contract(self) -> Settings:
+        """Fail at start-up rather than serve a horizon the forecast was never trained for."""
+        if self.forecast_horizon > SUPPORTED_HORIZON:
+            raise ValueError(
+                f"forecast_horizon {self.forecast_horizon} exceeds the validated horizon "
+                f"{SUPPORTED_HORIZON} (training target horizons 0–{SUPPORTED_HORIZON - 1})"
+            )
+        if not 1 <= self.horizon_max <= self.forecast_horizon:
+            raise ValueError(
+                f"horizon_max {self.horizon_max} must lie in 1..forecast_horizon "
+                f"({self.forecast_horizon})"
+            )
+        if not 1 <= self.horizon_default <= self.horizon_max:
+            raise ValueError(
+                f"horizon_default {self.horizon_default} must lie in 1..horizon_max "
+                f"({self.horizon_max})"
+            )
+        return self
+
     solver_workers: int = Field(
         1,
         ge=1,

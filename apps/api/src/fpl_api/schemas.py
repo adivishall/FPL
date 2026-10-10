@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from fpl_forecasting.pipeline import SUPPORTED_HORIZON
+
 ManagerKey = str
 
 
@@ -44,7 +46,7 @@ class PreferencesIn(_Req):
 class OptimizeIn(_Req):
     manager_key: ManagerKey
     profile: Literal["default", "conservative", "aggressive"] = "default"
-    horizon: int | None = Field(None, ge=1, le=10)
+    horizon: int | None = Field(None, ge=1, le=SUPPORTED_HORIZON)
     alternatives: int = Field(3, ge=0, le=6)
     preferences: PreferencesIn = Field(default_factory=PreferencesIn)
     chip_options: dict[str, list[int]] = Field(default_factory=dict)
@@ -52,7 +54,7 @@ class OptimizeIn(_Req):
 
 class SquadBuildIn(_Req):
     budget: int = Field(1000, ge=800, le=1100)
-    horizon: int | None = Field(None, ge=1, le=10)
+    horizon: int | None = Field(None, ge=1, le=SUPPORTED_HORIZON)
     profile: Literal["default", "conservative", "aggressive"] = "default"
 
 
@@ -60,7 +62,7 @@ class ReplacementIn(_Req):
     manager_key: ManagerKey
     out_player: int = Field(gt=0)
     profile: Literal["default", "conservative", "aggressive"] = "default"
-    horizon: int | None = Field(None, ge=1, le=10)
+    horizon: int | None = Field(None, ge=1, le=SUPPORTED_HORIZON)
     candidates: int = Field(5, ge=1, le=10)
 
 
@@ -71,7 +73,7 @@ class LineupIn(_Req):
 
 class ChipSimIn(_Req):
     manager_key: ManagerKey
-    horizon: int | None = Field(None, ge=1, le=10)
+    horizon: int | None = Field(None, ge=1, le=SUPPORTED_HORIZON)
     chip_id: str | None = Field(None, description="what-if: force this chip …")
     gameweek: int | None = Field(None, ge=1, le=38, description="… in this gameweek")
 
@@ -95,7 +97,7 @@ class ScenarioIn(_Req):
 class WhatIfIn(_Req):
     manager_key: ManagerKey
     scenarios: list[ScenarioIn] = Field(min_length=1, max_length=8)
-    horizon: int | None = Field(None, ge=1, le=10)
+    horizon: int | None = Field(None, ge=1, le=SUPPORTED_HORIZON)
     sells: list[int] = Field(default_factory=list, description="what-if transfer to compare")
     buys: list[int] = Field(default_factory=list)
 
@@ -103,10 +105,15 @@ class WhatIfIn(_Req):
 class RecommendationIn(_Req):
     manager_key: ManagerKey
     profile: Literal["default", "conservative", "aggressive"] = "default"
-    horizon: int | None = Field(None, ge=1, le=10)
+    horizon: int | None = Field(None, ge=1, le=SUPPORTED_HORIZON)
     stability: bool = True
     scenarios: bool = True
     chips: bool = True
+    state_id: str | None = Field(
+        None,
+        max_length=80,
+        description="evaluate exactly this stored squad state (default: the latest one)",
+    )
 
 
 class FeedbackIn(_Req):
@@ -118,7 +125,7 @@ class FeedbackIn(_Req):
 class BacktestIn(_Req):
     season: str = Field(pattern=r"^\d{4}-\d{2}$")
     gameweeks: list[int] | None = None
-    horizon: int | None = Field(None, ge=1, le=10)
+    horizon: int | None = Field(None, ge=1, le=SUPPORTED_HORIZON)
     n_sims: int = Field(500, ge=100, le=5000)
     profile: Literal["default", "conservative", "aggressive"] = "default"
 
@@ -126,7 +133,7 @@ class BacktestIn(_Req):
 class ManagerSettingsIn(_Req):
     """Settings screen (§73.1): horizon, risk profile, differential tolerance, notifications."""
 
-    horizon: int = Field(5, ge=1, le=10)
+    horizon: int = Field(5, ge=1, le=SUPPORTED_HORIZON)
     profile: Literal["default", "conservative", "aggressive"] = "default"
     differential_tolerance: float = Field(0.0, ge=0.0, le=1.0)
     league_rivals: list[int] = Field(default_factory=list, max_length=20)

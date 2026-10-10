@@ -39,7 +39,7 @@ from fpl_decision.replacement import find_replacements
 from fpl_domain.squad import SquadPick
 from fpl_domain.state import ManagerState, initial_chips
 from fpl_forecasting.model_config import points_spec
-from fpl_forecasting.pipeline import forecast, train_forecast_models
+from fpl_forecasting.pipeline import SUPPORTED_HORIZON, forecast, train_forecast_models
 from fpl_forecasting.walkforward import FeatureCache
 from fpl_optimizer.milp import build_and_solve
 from fpl_optimizer.problem import OptimizationProblem, Preferences, load_optimizer_config
@@ -68,7 +68,7 @@ def main() -> None:
                 feature_store_dir=tmp / "features",
                 n_sims=n_sims,
                 horizon_default=horizon,
-                horizon_max=8,
+                horizon_max=SUPPORTED_HORIZON,
                 solver_workers=workers,
             )
         )
@@ -76,11 +76,11 @@ def main() -> None:
     svc = services(1)
     ctx = svc.context()
     # 1. cold forecast: total, then training alone (features now cached) and the simulation
-    _, t_cold = _timed(lambda: svc.forecast_for(ctx, 8))
+    _, t_cold = _timed(lambda: svc.forecast_for(ctx, SUPPORTED_HORIZON))
     ds = svc.data.ds
     hist = history_cutoffs(ds, ctx.season)
     cut = next(c for c in hist if c.season == ctx.season and c.gw == ctx.gameweek)
-    cache = FeatureCache(ds, 8, tmp / "features")
+    cache = FeatureCache(ds, SUPPORTED_HORIZON, tmp / "features")
     models, t_train = _timed(lambda: train_forecast_models(cache, cut, hist))
     seed = points_spec()[0].simulation.seed
     _, t_sim = _timed(
@@ -208,7 +208,8 @@ def main() -> None:
         f"Snapshot `{ds.snapshot_id}` ({ctx.season} GW{ctx.gameweek}); squad: the initial-squad "
         f"optimum for {horizon} gameweeks; {n_sims:,} simulations.",
         "",
-        f"## Cold forecast ({fc.summary['player_code'].nunique()} players × 8 GW × "
+        f"## Cold forecast ({fc.summary['player_code'].nunique()} players × "
+        f"{SUPPORTED_HORIZON} GW × "
         f"{n_sims:,} samples)",
         "",
         "| phase | seconds |",

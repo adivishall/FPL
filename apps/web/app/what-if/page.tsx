@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Card, useApi } from "@/components/ui";
 import { ApiError, post, type SquadState } from "@/lib/api";
 import { pct, pts, signed } from "@/lib/format";
-import { loadSettings } from "@/lib/settings";
+import { effectiveHorizon, loadSettings } from "@/lib/settings";
 
 const KINDS = ["injury_shock", "minutes_downside", "minutes_upside", "team_attack_downside", "fixture_shock", "price_shock", "conservative"] as const;
 
@@ -38,7 +38,7 @@ export default function WhatIf() {
     try {
       const body = {
         manager_key: settings.managerKey,
-        horizon: settings.horizon,
+        horizon: await effectiveHorizon(settings),
         scenarios: [{ kind, players: player ? [Number(player)] : [], magnitude }],
         sells: sell ? [Number(sell)] : [],
         buys: buy ? [Number(buy)] : [],
@@ -55,7 +55,7 @@ export default function WhatIf() {
     setBusy(true);
     setErr(null);
     try {
-      setChipRes(await post("/chips/simulate", { manager_key: settings.managerKey, horizon: settings.horizon, ...chip }));
+      setChipRes(await post("/chips/simulate", { manager_key: settings.managerKey, horizon: await effectiveHorizon(settings), ...chip }));
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
     } finally {

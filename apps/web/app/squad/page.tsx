@@ -6,7 +6,7 @@ import { Pitch } from "@/components/pitch";
 import { Card, FreshnessBanner, State, useApi } from "@/components/ui";
 import { ApiError, api, post, type ForecastRow, type SquadState } from "@/lib/api";
 import { money, pct, pts } from "@/lib/format";
-import { loadSettings } from "@/lib/settings";
+import { effectiveHorizon, loadSettings } from "@/lib/settings";
 
 interface LineupResp {
   lineup: { starters: number[]; bench: number[]; captain: number; vice_captain: number };
@@ -32,9 +32,13 @@ export default function SquadPlanner() {
     setBank(st.bank);
     setFt(st.free_transfers);
     void post<LineupResp>("/lineup", { manager_key: settings.managerKey }).then(setLineup).catch(() => setLineup(null));
-    void Promise.all(
-      st.squad.map((p) => api<{ gameweeks: ForecastRow[] }>(`/players/${p.player_code}/forecast?horizon=${settings.horizon}`).then((r) => [p.player_code, r.gameweeks] as const)),
-    ).then((rows) => setFixtures(Object.fromEntries(rows)));
+    void effectiveHorizon(settings)
+      .then((h) =>
+        Promise.all(
+          st.squad.map((p) => api<{ gameweeks: ForecastRow[] }>(`/players/${p.player_code}/forecast?horizon=${h}`).then((r) => [p.player_code, r.gameweeks] as const)),
+        ),
+      )
+      .then((rows) => setFixtures(Object.fromEntries(rows)));
   }, [squad.data, settings.managerKey, settings.horizon]);
 
   async function save() {
@@ -56,7 +60,7 @@ export default function SquadPlanner() {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await post<{ squad: { player_code: number }[]; bank_after: number; optimality: string }>("/optimize/squad", { budget: 1000, horizon: settings.horizon, profile: settings.profile });
+      const r = await post<{ squad: { player_code: number }[]; bank_after: number; optimality: string }>("/optimize/squad", { budget: 1000, horizon: await effectiveHorizon(settings), profile: settings.profile });
       setCodes(r.squad.map((p) => p.player_code).join(" "));
       setBank(r.bank_after);
       setMsg(`Squad proposed by the initial-squad optimiser (${r.optimality}) — review, then save.`);

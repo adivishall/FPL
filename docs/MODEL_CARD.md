@@ -64,6 +64,7 @@ per player × GW samples → mean, quantiles, P(≥2/6/10/15), component means, 
 | Seasons | 2022-23 → 2025-26 history; 2026-27 live snapshot (GW2) for live features only |
 | Point-in-time rule | every row carries `available_at`; features/labels use rows with `available_at ≤ cutoff` |
 | Training window | all history before the cutoff; minutes/direct models use multi-horizon rows (h = 0…4) |
+| Served horizon | 5 gameweeks (target horizons 0–4, the trained and evaluated range; `fpl_forecasting.pipeline.SUPPORTED_HORIZON`); the API refuses longer horizons instead of extrapolating the minutes model's horizon feature |
 | Retraining in evaluation | every 4 GWs and at each season start (`retraining.every_gameweeks`) |
 | Feature set | 49 registered features, `FEATURE_VERSION 1.0.0` (AST-fingerprint locked); data dictionary §5 |
 | Seeds | simulation 20260828; LightGBM seeds in configs; split-half / bootstrap seeds in scripts |
