@@ -115,6 +115,11 @@ def export_manager(engine: Engine, manager_key: str) -> dict[str, Any]:
                     )
                 )
             ),
+            "workbench_runs": _rows(
+                s.scalars(
+                    select(m.WorkbenchRunRow).where(m.WorkbenchRunRow.manager_key == manager_key)
+                )
+            ),
         }
     data["counts"] = {k: len(v) for k, v in data.items() if isinstance(v, list)}
     return data
@@ -168,6 +173,11 @@ def delete_manager(engine: Engine, manager_key: str, actor: str | None = None) -
         )
         run(
             "manager_squad", delete(m.ManagerSquadRow).where(m.ManagerSquadRow.state_id.in_(sid)), s
+        )
+        run(
+            "workbench_runs",
+            delete(m.WorkbenchRunRow).where(m.WorkbenchRunRow.manager_key == manager_key),
+            s,
         )
         run(
             "squad_analyses",

@@ -23,6 +23,7 @@ from fpl_api.services import (
 )
 from fpl_api.settings import Settings
 from fpl_api.watch import plan_watch
+from fpl_api.workbench import WorkbenchStore
 from fpl_decision.engine import DecisionContext, RecommendationPackage, recommend
 from fpl_decision.inputs import player_table
 from fpl_decision.render import render_markdown
@@ -59,6 +60,7 @@ class AppServices:
     prices: PriceService | None = None
     notifications: NotificationStore | None = None
     analyses: AnalysisStore | None = None
+    workbench: WorkbenchStore | None = None
     metrics: Metrics = field(default_factory=Metrics)
     extras: dict[str, Any] = field(default_factory=dict)
 
@@ -84,6 +86,7 @@ class AppServices:
             prices=PriceService(settings, data),
             notifications=NotificationStore(engine) if engine else None,
             analyses=AnalysisStore(engine) if engine else None,
+            workbench=WorkbenchStore(engine) if engine else None,
         )
 
     # ------------------------------------------------------------------ shared building blocks

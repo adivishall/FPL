@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from fpl_decision.workbench import PlanSpec
 from fpl_forecasting.pipeline import SUPPORTED_HORIZON
 
 ManagerKey = str
@@ -114,6 +115,16 @@ class RecommendationIn(_Req):
         max_length=80,
         description="evaluate exactly this stored squad state (default: the latest one)",
     )
+
+
+class WorkbenchIn(_Req):
+    """Transfer Workbench (M1.2): evaluate concrete plans for a stored squad state."""
+
+    manager_key: ManagerKey = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_\-]+$")
+    state_id: str | None = Field(None, max_length=80, description="default: the latest state")
+    profile: Literal["default", "conservative", "aggressive"] = "default"
+    horizon: int | None = Field(None, ge=1, le=SUPPORTED_HORIZON)
+    plans: list[PlanSpec] = Field(min_length=1, max_length=8)
 
 
 class RegisterIn(_Req):

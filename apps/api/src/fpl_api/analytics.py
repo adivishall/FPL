@@ -26,13 +26,27 @@ EVENTS = frozenset(
         "squad_analysis_viewed",
         "recommendation_opened",
         "transfer_comparison_completed",
+        "workbench_evaluated",
+        "workbench_plan_selected",
         "recommendation_followed",
         "recommendation_dismissed",
         "return_visit",
     }
 )
 PROPS = frozenset(
-    {"page", "action", "gameweek", "latency_ms", "status", "warnings", "days_since", "source"}
+    {
+        "page",
+        "action",
+        "gameweek",
+        "latency_ms",
+        "status",
+        "warnings",
+        "days_since",
+        "source",
+        "kind",
+        "plans",
+        "horizon",
+    }
 )
 RETENTION_DAYS = 90
 MAX_STR = 64

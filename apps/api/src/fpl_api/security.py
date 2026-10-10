@@ -41,6 +41,7 @@ PRIVILEGED_GET_PREFIXES = (
     "/api/v1/managers/",
     "/api/v1/auth",
     "/api/v1/copilot",
+    "/api/v1/workbench",
     "/api/v1/squad",
     "/api/v1/settings",
     "/api/v1/notifications",

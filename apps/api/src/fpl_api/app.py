@@ -51,6 +51,7 @@ from fpl_api.privacy import audit, delete_manager, export_manager
 from fpl_api.security import Guard, hash_key, loggable_path
 from fpl_api.services import ForecastUnavailable, sources_config
 from fpl_api.settings import Settings
+from fpl_api.workbench import workbench_context
 from fpl_decision.chips import plan_chips
 from fpl_decision.paired import paired_gain, plan_samples
 from fpl_decision.replacement import find_replacements
@@ -339,6 +340,101 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             "job_id": job_id,
             "recommendation": summary,
         }
+
+    # ------------------------------------------------------------------ transfer workbench (M1.2)
+    def workbench_view(run: dict[str, Any]) -> dict[str, Any]:
+        """A stored run for its owner: status, result, whether its inputs are still the
+        manager's current squad state and the current snapshot, and the names it needs."""
+        assert svc.workbench is not None
+        latest = svc.states.latest(run["manager_key"]) if svc.states is not None else None
+        latest_id = latest[0] if latest else None
+        job = jobs.get(run["job_id"]) if run.get("job_id") else None
+        if job is not None and job["status"] == "failed" and run["status"] in ("queued", "running"):
+            svc.workbench.fail(run["id"], job.get("error") or "job failed")  # worker lost
+            run = svc.workbench.get(run["id"]) or run
+        codes: set[int] = set()
+        for pl in ((run.get("result") or {}).get("result") or {}).get("plans", []):
+            for k in ("sells", "buys", "squad_after"):
+                codes.update(int(c) for c in pl.get(k, []))
+        names = svc.data.names(svc.context().season)
+        return {
+            **run,
+            "stale_state": bool(latest_id and run["state_id"] != latest_id),
+            "latest_state_id": latest_id,
+            "stale_snapshot": run["snapshot_id"] != svc.data.snapshot_id,
+            "job": job,
+            "names": {str(c): names.get(c) for c in sorted(codes)},
+            "freshness": fresh(),
+        }
+
+    @r.get("/workbench/context")
+    def workbench_ctx(
+        manager_key: str = Query(..., max_length=64, pattern=KEY_PATTERN),
+    ) -> dict[str, Any]:
+        """The squad as the workbench needs it: purchase and selling prices, expectations over
+        the served horizon, availability, bank, transfers, chips and current weak spots."""
+        sid, st = load_state(manager_key)
+        ctx = svc.context()
+        fc = svc.forecast_for(ctx, settings.horizon_max)
+        return {
+            **workbench_context(svc, manager_key, sid, st, fc, ctx),
+            "horizon_max": settings.horizon_max,
+            "freshness": fresh(),
+        }
+
+    @r.post("/workbench/evaluate")
+    def workbench_evaluate(body: s.WorkbenchIn) -> JSONResponse:
+        """Evaluate concrete plans (HOLD always included) for exactly one stored squad state
+        on the current snapshot and forecast, as a job. The same question on the same inputs
+        returns the same run instead of a second computation."""
+        latest_sid, _ = load_state(body.manager_key)
+        assert svc.states is not None and svc.workbench is not None
+        sid = body.state_id or latest_sid
+        if body.state_id and svc.states.get(sid, body.manager_key) is None:
+            raise HTTPException(404, f"squad state {sid} is not stored for this manager")
+        h = svc.horizon(body.horizon)
+        ctx = svc.context()
+        fc = svc.forecast_for(ctx, h)
+        fkey = str(fc.provenance.get("forecast_key", fc.run_id))
+        request = {
+            "plans": [p.model_dump(mode="json") for p in body.plans],
+            "horizon": h,
+            "profile": body.profile,
+        }
+        run, compute = svc.workbench.create(
+            body.manager_key, sid, svc.data.snapshot_id, fkey, h, body.profile, request
+        )
+        if compute:
+            job = jobs.submit(
+                "workbench", {"manager_key": body.manager_key, "state_id": sid, "run_id": run["id"]}
+            )
+            svc.workbench.set_job(run["id"], job)
+            run = svc.workbench.get(run["id"]) or run  # inline mode: finished now
+        return JSONResponse(
+            _jsonable(workbench_view(run)),
+            status_code=200 if run["status"] == "succeeded" else 202,
+        )
+
+    @r.get("/workbench/runs")
+    def workbench_runs(
+        manager_key: str = Query(..., max_length=64, pattern=KEY_PATTERN),
+        limit: int = Query(10, ge=1, le=50),
+    ) -> dict[str, Any]:
+        need_db()
+        assert svc.workbench is not None
+        return {"runs": svc.workbench.recent(manager_key, limit), "freshness": fresh()}
+
+    @r.get("/workbench/runs/{run_id}")
+    def workbench_run(
+        request: Request, run_id: str = PathParam(..., max_length=80)
+    ) -> dict[str, Any]:
+        need_db()
+        assert svc.workbench is not None
+        run = svc.workbench.get(run_id)
+        if run is None:
+            raise HTTPException(404, f"workbench run {run_id} not found")
+        require_owner(principal_of(request), users, run["manager_key"])
+        return _jsonable(workbench_view(run))
 
     # ------------------------------------------------------------------ system
     @r.get("/health")

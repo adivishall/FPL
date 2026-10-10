@@ -901,6 +901,30 @@ class SquadAnalysisRow(Base):
     )
 
 
+class WorkbenchRunRow(Base):
+    """A Transfer Workbench evaluation (M1.2): the request, the exact squad state, data
+    snapshot and forecast it is computed for, and the result once the job has finished. One
+    row per (manager, state, snapshot, forecast, version, request): the same question on the
+    same inputs is answered once."""
+
+    __tablename__ = "workbench_runs"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)  # wb_<hash>
+    manager_key: Mapped[str] = mapped_column(String(64), index=True)
+    state_id: Mapped[str] = mapped_column(ForeignKey("manager_state.id"))
+    data_snapshot_id: Mapped[str] = mapped_column(String(80))
+    forecast_key: Mapped[str] = mapped_column(String(80))
+    version: Mapped[str] = mapped_column(String(32))
+    horizon: Mapped[int] = mapped_column(Integer)
+    profile: Mapped[str] = mapped_column(String(32))
+    request_json: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(16), index=True)  # queued|running|succeeded|failed
+    job_id: Mapped[str | None] = mapped_column(String(64))
+    result_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created()
+    finished_at: Mapped[datetime | None] = _ts(nullable=True)
+
+
 class ProductEventRow(Base):
     """First-party product analytics: named events with a small allow-listed property set, never
     credentials or manager keys (``fpl_api.analytics``). Pruned by the retention job."""

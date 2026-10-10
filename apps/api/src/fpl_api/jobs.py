@@ -41,6 +41,7 @@ from fpl_api.copilot import compute_squad_analysis
 from fpl_api.retention import prune
 from fpl_api.services import mark_serving_ready
 from fpl_api.settings import Settings
+from fpl_api.workbench import compute_workbench
 from fpl_backtest.runner import default_strategies, run_season
 from fpl_domain.hashing import content_hash
 from fpl_optimizer.problem import load_optimizer_config
@@ -147,6 +148,27 @@ def _job_squad_analysis(svc: AppServices, p: dict[str, Any]) -> str:
     return svc.analyses.save(payload)
 
 
+def _job_workbench(svc: AppServices, p: dict[str, Any]) -> str:
+    """Evaluate a Transfer Workbench run (M1.2) for exactly the squad state it names."""
+    if svc.states is None or svc.workbench is None:
+        raise RuntimeError("database required")
+    run = svc.workbench.get(p["run_id"])
+    if run is None or run["manager_key"] != p["manager_key"] or run["state_id"] != p["state_id"]:
+        raise LookupError(f"workbench run {p['run_id']} is not available for {p['manager_key']}")
+    state = svc.states.get(run["state_id"], run["manager_key"])
+    if state is None:
+        svc.workbench.fail(run["id"], "the squad state this run was made for is no longer stored")
+        raise LookupError(f"squad state {run['state_id']} is not available for {p['manager_key']}")
+    svc.workbench.start(run["id"])
+    try:
+        payload = compute_workbench(svc, run, state)
+    except Exception as exc:
+        svc.workbench.fail(run["id"], f"{type(exc).__name__}: {exc}")
+        raise
+    svc.workbench.finish(run["id"], payload)
+    return str(run["id"])
+
+
 def _job_retention(svc: AppServices, p: dict[str, Any]) -> str:
     return prune(svc.settings, svc.engine).summary()
 
@@ -163,6 +185,7 @@ JOB_KINDS: dict[str, JobFn] = {
     "backtest": _job_backtest,
     "retention": _job_retention,
     "squad_analysis": _job_squad_analysis,
+    "workbench": _job_workbench,
 }
 # Upper bound on a healthy run of each kind: RQ's job timeout and the de-duplication lease.
 JOB_LEASE: dict[str, timedelta] = {
@@ -172,6 +195,7 @@ JOB_LEASE: dict[str, timedelta] = {
     "backtest": timedelta(hours=6),
     "retention": timedelta(minutes=15),
     "squad_analysis": timedelta(minutes=10),
+    "workbench": timedelta(minutes=20),
 }
 ABANDONED = "abandoned: no result within the job lease (worker lost or killed)"
 RQ_GRACE = timedelta(minutes=2)
