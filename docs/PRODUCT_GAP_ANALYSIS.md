@@ -20,9 +20,11 @@ what happened next, no accounts, and no assistant. The recommended first milesto
 access layer** (M1.1a below): it removes the biggest onboarding and latency barriers, touches no
 forecasting or optimiser code, and creates the identity layer every later milestone needs.
 
-**Status (2026-10-10):** M1.1a is implemented and verified locally (`docs/BUILD_STATUS.md` §2c);
-the next milestone is the Transfer Workbench (§6, M1.1d scope first because it is the core weekly
-decision), then invalidation and the journal.
+**Status (2026-10-11):** M1.1a is implemented and verified locally (`docs/BUILD_STATUS.md` §2c),
+and the whole-squad Transfer Workbench (M1.2: HOLD baseline, exact transfers, engine
+replacements, the optimiser's plans with hit accounting, independent legality, job execution
+bound to the squad state) is implemented (§2d); next are invalidation and the journal with
+prospective evaluation. The assistant, mini-league intelligence and the extension are not started.
 
 One naming risk first: **"FPL Copilot" is an existing product** (fplcopilot.com, "AI-Powered
 Fantasy Premier League Optimizer", with a solver, chip strategies and mini-league pages). The

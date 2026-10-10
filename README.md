@@ -207,7 +207,12 @@ no FPL password), and **Copilot Home** shows the situation, squad health signals
 sources, the recommended action, captain profiles, your squad with forecasts and status, and the
 fixture outlook — from an analysis the worker precomputes (first call ~20 ms, warm p95 ~17 ms,
 analysis ready ~2.6 s after a squad change on the development machine). A searchable player
-picker replaces player codes; manual entry remains as a fallback.
+picker replaces player codes; manual entry remains as a fallback. The **Transfer Workbench**
+(M1.2) compares concrete plans for the whole squad against holding — your own transfer, the
+engine's replacements for a player, the optimiser's best plan with or without hits — each solved
+as a full multi-gameweek plan on the same forecast and simulation, validated against the rules,
+with hit costs separated from gross gains, solver status shown, and the run traced to the exact
+squad state, snapshot and forecast it used.
 
 ## Running it
 

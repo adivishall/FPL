@@ -2,6 +2,25 @@
 
 User-visible behaviour changes (§78). Milestones follow `docs/BUILD_STATUS.md`.
 
+## M1.2 — Whole-squad Transfer Workbench (2026-10-11)
+
+### Added
+- **Transfer Workbench** (replaces the one-player Transfer Lab): choose a player to sell, ask for
+  the engine's replacements or name a specific one, include the optimiser's best plan (with or
+  without hits, with a cap on transfers now), pick a horizon up to the served maximum, and compare
+  every plan against *holding* on the whole squad: net gain, gross gain, hit cost, p10/p90,
+  probability of beating hold, bank and free transfers after, solver status (proven optimal or
+  best within the limit), and a details view with the squad after the move, the gameweek
+  timeline and later moves. Illegal requests are listed with the rule they break, never shown as
+  plans. Evaluations run as background jobs bound to the exact squad state; a changed squad or
+  snapshot marks the run stale.
+- API: `GET /workbench/context`, `POST /workbench/evaluate`, `GET /workbench/runs`,
+  `GET /workbench/runs/{id}`; runs are exported and erased with the manager.
+
+### Changed
+- The optimiser accepts two first-gameweek preferences (exact moves now; a cap on transfers now);
+  the defaults leave every existing plan and identifier unchanged (golden parity kept).
+
 ## M1.1a — Copilot Home and beta foundation (2026-10-10)
 
 ### Added

@@ -14,7 +14,9 @@ generated reports so they cannot drift from this page.
   labelled "best found within the solver limit; not proven optimal" (§5).
 * **Planning horizon.** Forecasts are trained and evaluated for five gameweeks (target horizons
   0–4); the API refuses longer horizons rather than serve an extrapolation (§3).
-* **Latency.** Recommendations take 42–90 s as worker jobs; the replacement picker 13–49 s (§5).
+* **Latency.** Recommendations take 42–90 s as worker jobs; the Transfer Workbench runs its
+  plan comparison as a job too (HOLD + 3 replacements + best plan: tens of seconds, §5); the
+  older `POST /replacements` endpoint still holds a request open for 13–49 s (§5).
 * **Invite-only beta accounts.** Users own their manager data (checked server-side on every
   request); there is no password reset, no lockout and no e-mail verification yet (§6).
 * **External source.** The live FPL API is unofficial and can change or go away (§2).
@@ -133,7 +135,12 @@ generated reports so they cannot drift from this page.
   benchmark ran partly on battery power (recorded per run, with CPU time ≈ wall time showing no
   sleep); an earlier attempt that the machine slept through was discarded, not reported.
 * Heavy requests are slow. Deployed recommendation jobs (worker with 4 solver processes, live
-  GW6 data) take 42 s at 3 GW and 90 s at 5 GW. The replacement picker holds an HTTP request open
+  GW6 data) take 42 s at 3 GW and 90 s at 5 GW. The Transfer Workbench (M1.2) runs the same
+  kind of solves — HOLD, each exact transfer, the optimiser's plan — as one worker job per
+  question and serves the stored run afterwards (`docs/BUILD_STATUS.md` §2d has the measured
+  timings); it compares HOLD, exact transfers, engine replacements and the optimiser's plans,
+  but chip alternatives and the §69 stress scenarios are still only in the full
+  recommendation package. The replacement picker endpoint holds an HTTP request open
   while it solves serially: 12.5–13.8 s for one outgoing player in the stage report, 48.9 s for
   another (232 candidates screened) on the deployed API; a 5-GW what-if takes ~8 s.
   `ml/reports/performance_stages.md` shows where the time goes: after parallelising independent

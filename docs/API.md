@@ -51,6 +51,9 @@ handler (ADR-0001 #3).
 | `POST /lineup` | Exact XI/bench/armband + captaincy profiles (expected/safe/high-variance, paired win matrix) | optional chip TC/BB |
 | `POST /replacement`, `POST /replacements` | Replacement engine (§60.3 contract per candidate) | |
 | `POST /chips/simulate` | Chip planner (all chips × weeks, value of waiting, reasons) + optional forced-chip what-if | |
+| `GET /workbench/context?manager_key=` | Transfer Workbench (M1.2): the squad with purchase and selling prices, next-GW and horizon expectations, availability, bank, transfers, chips and current weak spots | |
+| `POST /workbench/evaluate` | Evaluate concrete plans (HOLD always; your transfer, engine replacements for a player, the optimiser's best plan) for one stored squad state as a job; the same question on the same inputs returns the same run | `202` queued, `200` when already computed |
+| `GET /workbench/runs?manager_key=`, `GET /workbench/runs/{id}` | A manager's recent runs; one run with its result, `stale_state` / `stale_snapshot` flags and the names it needs | owner only |
 | `POST /scenarios`, `POST /what-if`, `POST /simulate` | Scenario re-simulation of the squad; optional transfer compared with holding under each scenario | |
 | `POST /recommendations/generate` | Full decision package (stability, scenarios, chips, evidence) as a job | `202` |
 | `GET /recommendations/current?manager_key=` | Active recommendation for the current gameweek | |
@@ -70,6 +73,33 @@ handler (ADR-0001 #3).
 | `DELETE /managers/{key}` | Erase manager-linked rows; audit entry stores only a key hash | |
 | `GET /jobs/{id}` | Job status | |
 | `GET /metrics` (no prefix) | Prometheus metrics (§76.1; see docs/DEPLOYMENT.md) | |
+
+## Transfer Workbench contract (M1.2)
+
+`POST /workbench/evaluate` takes `manager_key`, optional `state_id` (default: the latest stored
+state), `horizon` (≤ the served maximum), `profile` and 1–8 `plans`:
+
+| `kind` | fields | evaluated as |
+|---|---|---|
+| `hold` | — | no transfer this gameweek, optimal afterwards (always included, the baseline) |
+| `transfer` | `sells`, `buys` | exactly these moves now (`first_gw_exact`), optimal afterwards; an illegal request is listed under `excluded` with the rule it breaks (squad size, position quota, club limit, budget with *selling* prices, unknown player) and never solved around |
+| `replace` | `out_player`, `candidates` (≤ 6) | the replacement engine's shortlist (every affordable, club-legal candidate screened; top gain, high upside, cheap enablers), each as an exact single transfer |
+| `best` | `max_transfers`, `allow_hits`, `alternatives` (≤ 4) | the optimiser's best plan, optionally capped in transfers now or forbidden to take hits anywhere; alternatives differ in their first-gameweek move |
+
+The run (`GET /workbench/runs/{id}`) records `state_id`, `snapshot_id`, `forecast_key`,
+`prediction_run_id`, the forecast's cutoff, simulation count and seed, model versions, the
+optimiser config reference and the ruleset version. `result.result.plans` lists HOLD first, then
+valid plans by the optimiser's objective; each plan carries `action`, `sells` / `buys` with
+`moves_out` / `moves_in` (price, selling price, xP, start probability), `valid` + `issues`
+(independent rules replay of the whole plan), `optimality` / `proven_optimal`, `transfers_now`,
+`hit_now`, `hits_total`, `hit_cost_vs_hold`, `gain_1gw` / `gain_horizon` (paired against HOLD on
+the same simulation samples, net of hits: mean, p10/p50/p90, `probability_positive`),
+`gross_gain_horizon` (= net gain + hit cost), `objective_gain_vs_hold`, `passes_thresholds`,
+`bank_after`, `free_transfers_after`, `squad_after`, `lineup`, the per-gameweek `timeline` and
+`follow_up` moves. `excluded` lists what could not be scored and why; `notes` reports how many
+candidates were screened. Status flow: `queued` → `running` → `succeeded` | `failed`
+(`error`, retry by evaluating again); `stale_state` when the manager saved a newer squad,
+`stale_snapshot` when the data snapshot moved on — the run is never silently replaced.
 
 ## Recommendation contract (§72.1)
 

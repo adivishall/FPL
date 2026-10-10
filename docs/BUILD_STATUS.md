@@ -236,6 +236,29 @@ an explicit message unless `FPL_GOLDEN_REQUIRED=1` (set in CI once its golden is
 navigation, so after onboarding switched to the imported manager the Squad page showed the
 seed manager again; the seed is now applied only when no settings exist.
 
+## 2d. M1.2 — Whole-squad Transfer Workbench (2026-10-11)
+
+Scope (`docs/PRODUCT_GAP_ANALYSIS.md` §6, second milestone): evaluate concrete transfer plans for
+the manager's entire squad against HOLD, with the existing forecasts, simulation, optimiser and
+validator, as background jobs bound to the exact squad state.
+
+| Area | Result |
+|---|---|
+| Engine extension | `Preferences.first_gw_exact` (the first gameweek's moves are exactly the forced ones) and `Preferences.first_gw_max_transfers` (a cap on transfers now) in the MILP; both default off and are added to `describe()` only when set, so every existing problem, plan and identifier is unchanged; `solve_with_alternatives` accepts a precomputed HOLD; the replacement shortlist (`shortlist_replacements`) and the per-plan summary (`summarise_option`) are shared, not duplicated. Tests: `tests/unit/optimizer/test_first_gw_preferences.py` (6) |
+| Evaluation | `fpl_decision.workbench.evaluate_plans`: plan kinds `hold` (always), `transfer` (exact moves), `replace` (engine shortlist for one outgoing player, each as an exact single transfer), `best` (optimiser's best plan + distinct alternatives, optional transfer cap, optional no-hits); every plan solved on the same candidate pool, validated by the independent rules replay, scored on the same joint simulation samples as HOLD (paired gains net of hits), with `hit_cost_vs_hold` and `gross_gain_horizon` separated; illegal requests are listed under `excluded` with the rule they break (squad size, position quota, club limit, budget with *selling* prices, unknown player) and never solved around. Tests: `tests/integration/test_workbench_engine.py` (5, incl. "the workbench's HOLD is the engine's HOLD") |
+| API and storage | `workbench_runs` (migration 0003, validated upgrade → downgrade → upgrade); `GET /workbench/context`, `POST /workbench/evaluate` (`202` queued / `200` served; one run per manager × state × snapshot × forecast × version × request, a failed run is re-queued), `GET /workbench/runs`, `GET /workbench/runs/{id}`; `workbench` job (lease 20 min) evaluates exactly the state the run names; `stale_state` / `stale_snapshot` flags; ownership by the router dependency plus `require_owner` on the run route and the job route; runs are exported and erased with the manager. Tests: `tests/integration/test_workbench_api.py` (5, incl. cross-user 403s on run, job, context, list and evaluate) |
+| Web | `/transfers` is the Transfer Workbench: squad with bought / now / **selling** prices, xP next and over the horizon, start probability, status and weak spots from the Copilot Home analysis; choose a player to sell, engine shortlist or a specific replacement through the player picker (position and affordability pre-set), horizon up to the served maximum, the optimiser's best plan with "allow hits" and "max transfers now"; evaluation runs as a job with queued / running / succeeded / failed status, retry, and polling; plans table (action, moves, net vs hold, gross, hit cost, p10/p90, P(>hold), next-GW xP, bank/FT after, proven optimal vs best within limit, details); illegal plans marked, never recommended; details view with moves, squad after, captain, per-gameweek timeline vs hold and later moves; trace line (snapshot, forecast key, squad state, run id, optimiser config, ruleset). Events `workbench_evaluated`, `workbench_plan_selected` |
+| Golden parity | intact on both platforms: `recommendation_package.darwin-arm64.json` byte-exact locally; `recommendation_package.linux-x86_64.json` committed from the CI artifact of `949ec7b` (its 71 value-level differences from the macOS file — simulation means shifted by one sample in 200, objectives by ≤ 0.005 — leave the decision, transfers, action and confidence band identical) and now required in CI (`FPL_GOLDEN_REQUIRED=1`) |
+| Latency (development machine, Docker stack, `infra/scripts/workbench_latency.py`) | `GET /workbench/context` p50 / p95 20 / 21 ms; `POST /workbench/evaluate` answers in 20–24 ms (`202`); the default question (HOLD + 3 replacements + best + 1 alternative, 6 plans) is served **10.4 s** after submission at 3 GW (solver 5.5 s, of which optimise 2.6 s) and **64 s** at 5 GW on a worker that had just restarted (solver 14.7 s; the rest was the worker's cold start and the squad-analysis job queued ahead of it on the single worker); the same question again 17–19 ms; `GET /workbench/runs/{id}` p50 / p95 12 / 12 ms |
+| Tests | fast tier 430 passed, 6 deselected (new: 19 above); migrations 3/3; dev browser flows 11 passed (workbench flow: engine shortlist → details → specific replacement as an exact transfer); production browser suite against the rebuilt images (migration 0003 applied by the `migrate` service): 21 passed, 0 failed (1.4 min), including the workbench evaluated as a worker job through the proxy, the stored run served again to its owner, and the live FPL-ID import; the two auxiliary web containers were recreated for the run and removed afterwards |
+
+Decisions and defects: 49. The first version of the workbench evaluated a named transfer with
+`forced_in` / `forced_out` alone, which lets the optimiser add further moves in the same
+gameweek; `first_gw_exact` makes "your transfer" mean exactly that. 50. Chip alternatives and
+the §69 stress scenarios are not in the comparison yet (backlog); the full recommendation
+package still has them. 51. A single worker runs jobs serially, so an evaluation submitted
+right after a squad change waits behind that squad's Copilot Home analysis.
+
 ## 3. Environment
 
 Apple M4 (10 logical CPUs), 16 GB RAM, macOS 27.0.1; Python 3.12.15 (uv), Node 22.23, PostgreSQL

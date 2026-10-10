@@ -220,7 +220,8 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
   configured (`SMOKE_WEB_AUTH` secret for the site login). Roll out with `docker compose pull &&
   docker compose run --rm migrate && docker compose up -d` (add `-f docker-compose.yml -f
   docker-compose.public.yml` on a public host). Take a backup first.
-* **Database**: migrations are validated upgrade → downgrade → upgrade in CI. To roll back the
+* **Database**: migrations are validated upgrade → downgrade → upgrade in CI (M1.2 adds
+  `0003` `workbench_runs`; the `migrate` service applies it before the API and worker start). To roll back the
   schema: `docker compose run --rm migrate alembic downgrade -1` with the previous image.
 * **Images**: pin the previous tag in `docker-compose.override.yml` and `up -d`.
 * **Forecast horizon or model configuration changes** invalidate the serving forecast's key:
