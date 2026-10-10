@@ -17,6 +17,10 @@ generated reports so they cannot drift from this page.
 * **Latency.** Recommendations take 42–90 s as worker jobs; the Transfer Workbench runs its
   plan comparison as a job too (HOLD + 3 replacements + best plan: tens of seconds, §5); the
   older `POST /replacements` endpoint still holds a request open for 13–49 s (§5).
+* **Reproducibility across machines.** The engine reproduces itself byte-exactly on one machine;
+  on another CPU class the forecasts, objectives and tie-breaks differ, and shared x86_64 CI
+  runners differ from each other (`docs/BUILD_STATUS.md` §2d defect 52). Golden parity is
+  therefore enforced on the development platform, not on shared CI (§5).
 * **Invite-only beta accounts.** Users own their manager data (checked server-side on every
   request); there is no password reset, no lockout and no e-mail verification yet (§6).
 * **External source.** The live FPL API is unofficial and can change or go away (§2).

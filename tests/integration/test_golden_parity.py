@@ -3,14 +3,15 @@ byte-identical to the stored golden package (BUILD_STATUS M1.1a §5). The produc
 around the engine (accounts, onboarding, the Copilot Home read model, analytics) must not change
 a forecast, an optimiser constraint, a recommendation or a simulation.
 
-The golden is keyed by platform (``<sys.platform>-<machine>``): the same engine on another OS or
-CPU architecture reports HiGHS objectives that differ in the last bits (summation order) and
-breaks exact-value ties (bench order, perturbed-table re-solves) differently, so one byte-exact
-file cannot serve every platform and a numerical tolerance would hide real changes. Each
-platform's file is exact for that platform. Regenerate deliberately, and only after an
-independent validation of the change: locally with FPL_UPDATE_GOLDEN=1; for CI's platform from
-the ``golden-package-*`` artifact the test job uploads on every run (FPL_GOLDEN_ACTUAL). With
-FPL_GOLDEN_REQUIRED=1 (CI) a missing platform golden fails instead of skipping.
+The golden is keyed by platform (``<sys.platform>-<machine>``) and is byte-exact only where the
+computation is reproducible: the same engine on another OS or CPU reports HiGHS objectives that
+differ in the last bits, breaks exact-value ties differently, and on shared x86_64 CI runners
+even trains measurably different forecasts from one run to the next (BUILD_STATUS §2d defect
+52). A numerical tolerance would hide real changes, so the test is strict on the development
+platform (its golden is committed) and skips with an explicit message elsewhere while uploading
+the computed package (FPL_GOLDEN_ACTUAL) for inspection. Regenerate deliberately, and only after
+an independent validation of the change, with FPL_UPDATE_GOLDEN=1. FPL_GOLDEN_REQUIRED=1 turns
+the skip into a failure where a golden is expected.
 """
 
 from __future__ import annotations
