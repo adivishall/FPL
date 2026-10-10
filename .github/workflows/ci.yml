@@ -71,6 +71,7 @@ jobs:
         env:
           # golden parity (tests/integration/test_golden_parity.py): the golden is per platform;
           # the computed package is uploaded so the Linux golden can be (re)generated from CI
+          FPL_GOLDEN_REQUIRED: "1"
           FPL_GOLDEN_ACTUAL: golden-package/recommendation_package.linux-x86_64.json
         run: uv run pytest -q -m "not slow and not network" --cov --cov-report=xml --cov-report=term
       - uses: actions/upload-artifact@v4
