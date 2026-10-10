@@ -106,7 +106,7 @@ and its login).
 
 | Requirement | Spec | Implementation | Files | Test/Evidence | Status | Notes |
 |---|---|---|---|---|---|---|
-| API keys (hashed, constant time) incl. manager-linked reads | §35, §75 | | `security.py` | T: `test_api.py` key tests; E2E missing / invalid / valid | COMPLETE | single-tenant model (KNOWN_LIMITATIONS §6) |
+| API keys (hashed, constant time) incl. manager-linked reads | §35, §75 | operator and web key classes; invite-only user accounts with sessions and server-side manager ownership (M1.1a) | `security.py`, `accounts.py` | T: `test_api.py` key tests, `test_identity.py` (cross-user denial on every manager-scoped route, sessions, invites, account erasure); E2E missing / invalid / valid / web-key-without-session / signed-in user | COMPLETE | limits in KNOWN_LIMITATIONS §6 |
 | Rate limiting | §75 | token buckets before auth | `security.py` | T: `test_api.py`; E2E 429 + Retry-After through proxy | COMPLETE | per replica; shared bucket behind the proxy |
 | Webhook SSRF protection | §75 | https only, no credentials, allow-list, port 443, every resolved address global (incl. IPv4-mapped / NAT64), no redirects, 5 s timeout | `store.py` | T: `test_webhook.py` (30 cases: malformed URLs, ports, private / loopback / link-local / CGNAT / multicast, DNS failure, redirect, timeouts, 4xx/5xx); E2E unsafe URLs rejected | COMPLETE | M14: malformed URLs (`https://[::1`, port 99999) raised a 500 → now rejected (422). DNS-rebinding window documented |
 | Security event logs without secrets | §75 | manager keys in logged paths pseudonymised (`loggable_path`); TLS proxy logs no URIs | `app.py`, `security.py`, `Caddyfile` | log scan of all 10 containers after the final E2E run (V1, 2026-10-07): 0 lines with any of 6 secrets (API keys, proxy key, DB password, site login), 0 raw manager keys; T: `test_api.py` (captured logs of rejected requests) | COMPLETE | M14 fixed two leaks (uvicorn access log, rejected-request paths); V1 found and fixed a third: the proxy's error log printed request URIs with manager keys |
@@ -115,7 +115,7 @@ and its login).
 | Secrets not committed | §86.2 | `.env`, `auth.caddy`, `backups/` git-ignored; `.env.example` placeholders | | gitleaks over the full history: 32 commits, no leaks (2026-10-07) | COMPLETE | |
 | Dependency scanning | §78 | pip-audit, npm audit | CI `security` job | pip-audit: no known vulnerabilities; npm audit: 0 | COMPLETE | |
 | TLS in transit | §75 | Caddy reverse proxy (public overlay): automatic certificates, HTTP→HTTPS, HSTS and security headers, site login; the only public listener | `docker-compose.public.yml`, `infra/deployment/caddy/` | local verification with Caddy's internal CA: chain valid, TLS 1.3, TLS 1.1 refused, 308 redirect, 401 without login; E2E 19/19 and smoke 5/5 through the proxy | COMPLETE | V1. Publicly trusted issuance (Let's Encrypt) is exercised only on a real domain |
-| Short-lived tokens; encryption at rest | §75 | — | | | NOT IMPLEMENTED | static API keys; spec says "where possible / required" |
+| Short-lived tokens; encryption at rest | §75 | 30-day hashed session tokens, revocable; passwords scrypt-hashed | `accounts.py` | T: `test_identity.py` (expiry, logout) | PARTIAL | sessions are the only short-lived credential; API keys remain static (operators); disk encryption is the host's |
 
 ## Platform
 
@@ -217,7 +217,7 @@ Status on 2026-10-07, branch `claude/modest-noether-qauiji`.
 | Template exposure | PARTIAL | library only | not shown | V1.1 |
 | Injury / suspension / doubt alerts on real data | PARTIAL | no real status change observed yet | logic unit-tested, not yet seen live | V1.1 (observe live) |
 | Webhook delivery to a real endpoint | PARTIAL | needs an endpoint the operator controls | success path unproven against a real receiver | at deployment |
-| Short-lived tokens; encryption at rest | NOT IMPLEMENTED | single-tenant V1; disk encryption is the host's | one shared key; protect the host disk | V2 (multi-user auth) |
+| Short-lived tokens; encryption at rest | PARTIAL | user sessions are short-lived and revocable (M1.1a); operator API keys stay static; disk encryption is the host's | protect the host disk; rotate operator keys by hand | V1.2 (per-user API tokens for the extension) |
 | CD from green main | NOT VERIFIABLE | needs a registry and a host | releases are rolled out by the documented manual procedure | at deployment |
 | Alertmanager / paging | PARTIAL | optional for a single operator | alerts are visible in Prometheus, not pushed | V1.1 |
 | Product modes | PARTIAL | screens cover the modes | no explicit mode switch | V2 |

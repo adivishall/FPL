@@ -10,6 +10,7 @@ import pandas as pd
 import structlog
 from sqlalchemy import Engine
 
+from fpl_api.copilot import AnalysisStore
 from fpl_api.lineage import LineageStore
 from fpl_api.observability import Metrics
 from fpl_api.services import (
@@ -57,6 +58,7 @@ class AppServices:
     recs: RecommendationStore | None
     prices: PriceService | None = None
     notifications: NotificationStore | None = None
+    analyses: AnalysisStore | None = None
     metrics: Metrics = field(default_factory=Metrics)
     extras: dict[str, Any] = field(default_factory=dict)
 
@@ -81,6 +83,7 @@ class AppServices:
             recs=RecommendationStore(engine) if engine else None,
             prices=PriceService(settings, data),
             notifications=NotificationStore(engine) if engine else None,
+            analyses=AnalysisStore(engine) if engine else None,
         )
 
     # ------------------------------------------------------------------ shared building blocks

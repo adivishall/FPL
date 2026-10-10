@@ -46,3 +46,4 @@ apps/web/prod-results.json
 infra/deployment/caddy/auth.caddy
 # database / data backups (infra/scripts/backup.sh)
 backups/
+apps/web/e2e/.auth/

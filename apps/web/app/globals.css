@@ -72,3 +72,17 @@ ol.trace code { font-size: 0.8rem; }
 ul.alerts { list-style: none; padding: 0; }
 ul.alerts li { border-top: 1px solid rgba(139,152,165,.25); padding: 0.6rem 0; }
 ul.alerts li.read { opacity: 0.6; }
+
+/* M1.1a: player picker, onboarding steps, account */
+.picker-list { max-height: 18rem; overflow-y: auto; border: 1px solid var(--border, #ddd); border-radius: 6px; margin: 0.5rem 0; }
+.picker-list li { padding: 0.35rem 0.6rem; cursor: pointer; }
+.picker-list li.active, .picker-list li:hover { background: var(--accent-soft, #eef); }
+ol.steps { display: flex; gap: 1rem; list-style: none; padding: 0; margin: 0 0 1rem; }
+ol.steps li { padding: 0.25rem 0.6rem; border-radius: 999px; background: var(--muted-bg, #f2f2f2); color: var(--muted); }
+ol.steps li.active { background: var(--accent); color: white; }
+ol.steps li.done { background: var(--accent-soft, #eef); }
+.nav .account { margin-left: auto; }
+.fdr { display: inline-block; margin: 0 0.25rem 0.15rem 0; padding: 0 0.35rem; border-radius: 4px; font-size: 0.85em; background: var(--muted-bg, #f2f2f2); }
+.fdr-easy { background: #d9f2dd; }
+.fdr-mid { background: #f3efc9; }
+.fdr-hard { background: #f6d5d5; }

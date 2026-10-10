@@ -1,0 +1,2250 @@
+{
+ "alternatives": [
+  {
+   "action": "HIT",
+   "buys": [
+    83299,
+    169432,
+    191866,
+    204580,
+    244723,
+    466525,
+    489639
+   ],
+   "chip": null,
+   "gain_1gw": {
+    "mean": 4.08,
+    "p10": -11.0,
+    "p50": 3.0,
+    "p90": 19.0,
+    "probability_positive": 0.59
+   },
+   "gain_horizon": {
+    "mean": 24.065,
+    "p10": -1.0999999999999979,
+    "p50": 25.0,
+    "p90": 48.19999999999999,
+    "probability_positive": 0.89
+   },
+   "label": "best",
+   "objective": 65.27143000000022,
+   "objective_gain_vs_hold": 22.439520000000222,
+   "optimality": "proven optimal",
+   "passes_thresholds": false,
+   "sells": [
+    21205,
+    80178,
+    105717,
+    115556,
+    153366,
+    171270,
+    500957
+   ],
+   "timeline": [
+    {
+     "action": "HIT",
+     "bank_after": 0,
+     "captain": 466525,
+     "chip": null,
+     "expected_delta_vs_hold": 4.08,
+     "expected_points": 19.69,
+     "free_transfers": 1,
+     "gameweek": 2,
+     "hit_points": 24,
+     "p10": 4.900000000000002,
+     "p90": 36.0,
+     "probability_delta_positive": 0.59,
+     "squad_blanks": [],
+     "squad_doubles": [],
+     "transfers_in": [
+      83299,
+      169432,
+      191866,
+      204580,
+      244723,
+      466525,
+      489639
+     ],
+     "transfers_out": [
+      21205,
+      80178,
+      105717,
+      115556,
+      153366,
+      171270,
+      500957
+     ],
+     "vice_captain": 169432
+    },
+    {
+     "action": "TRANSFER",
+     "bank_after": 0,
+     "captain": 169432,
+     "chip": null,
+     "expected_delta_vs_hold": 19.985,
+     "expected_points": 48.965,
+     "free_transfers": 1,
+     "gameweek": 3,
+     "hit_points": 0,
+     "p10": 31.0,
+     "p90": 68.1,
+     "probability_delta_positive": 0.9,
+     "squad_blanks": [],
+     "squad_doubles": [],
+     "transfers_in": [
+      243413
+     ],
+     "transfers_out": [
+      108413
+     ],
+     "vice_captain": 191866
+    }
+   ],
+   "valid": false
+  },
+  {
+   "action": "HIT",
+   "buys": [
+    83299,
+    169432,
+    191866,
+    204580,
+    244723,
+    466525,
+    489639
+   ],
+   "chip": null,
+   "gain_1gw": {
+    "mean": 4.08,
+    "p10": -11.0,
+    "p50": 3.0,
+    "p90": 19.0,
+    "probability_positive": 0.59
+   },
+   "gain_horizon": {
+    "mean": 24.065,
+    "p10": -1.0999999999999979,
+    "p50": 25.0,
+    "p90": 48.19999999999999,
+    "probability_positive": 0.89
+   },
+   "label": "alt-1",
+   "objective": 65.27113000000007,
+   "objective_gain_vs_hold": 22.43922000000007,
+   "optimality": "proven optimal",
+   "passes_thresholds": false,
+   "sells": [
+    40383,
+    80178,
+    105717,
+    115556,
+    153366,
+    171270,
+    500957
+   ],
+   "timeline": [
+    {
+     "action": "HIT",
+     "bank_after": 0,
+     "captain": 466525,
+     "chip": null,
+     "expected_delta_vs_hold": 4.08,
+     "expected_points": 19.69,
+     "free_transfers": 1,
+     "gameweek": 2,
+     "hit_points": 24,
+     "p10": 4.900000000000002,
+     "p90": 36.0,
+     "probability_delta_positive": 0.59,
+     "squad_blanks": [],
+     "squad_doubles": [],
+     "transfers_in": [
+      83299,
+      169432,
+      191866,
+      204580,
+      244723,
+      466525,
+      489639
+     ],
+     "transfers_out": [
+      40383,
+      80178,
+      105717,
+      115556,
+      153366,
+      171270,
+      500957
+     ],
+     "vice_captain": 169432
+    },
+    {
+     "action": "TRANSFER",
+     "bank_after": 0,
+     "captain": 169432,
+     "chip": null,
+     "expected_delta_vs_hold": 19.985,
+     "expected_points": 48.965,
+     "free_transfers": 1,
+     "gameweek": 3,
+     "hit_points": 0,
+     "p10": 31.0,
+     "p90": 68.1,
+     "probability_delta_positive": 0.9,
+     "squad_blanks": [],
+     "squad_doubles": [],
+     "transfers_in": [
+      243413
+     ],
+     "transfers_out": [
+      108413
+     ],
+     "vice_captain": 191866
+    }
+   ],
+   "valid": false
+  },
+  {
+   "action": "HIT",
+   "buys": [
+    83299,
+    169432,
+    191866,
+    243413,
+    244723,
+    466525,
+    489639
+   ],
+   "chip": null,
+   "gain_1gw": {
+    "mean": 4.065,
+    "p10": -10.0,
+    "p50": 2.0,
+    "p90": 21.0,
+    "probability_positive": 0.57
+   },
+   "gain_horizon": {
+    "mean": 24.05,
+    "p10": -1.0,
+    "p50": 24.0,
+    "p90": 48.0,
+    "probability_positive": 0.885
+   },
+   "label": "alt-3",
+   "objective": 65.25613,
+   "objective_gain_vs_hold": 22.42422,
+   "optimality": "proven optimal",
+   "passes_thresholds": true,
+   "sells": [
+    40383,
+    80178,
+    105717,
+    115556,
+    153366,
+    171270,
+    500957
+   ],
+   "timeline": [
+    {
+     "action": "HIT",
+     "bank_after": 5,
+     "captain": 466525,
+     "chip": null,
+     "expected_delta_vs_hold": 4.065,
+     "expected_points": 19.675,
+     "free_transfers": 1,
+     "gameweek": 2,
+     "hit_points": 24,
+     "p10": 4.0,
+     "p90": 36.0,
+     "probability_delta_positive": 0.57,
+     "squad_blanks": [],
+     "squad_doubles": [],
+     "transfers_in": [
+      83299,
+      169432,
+      191866,
+      243413,
+      244723,
+      466525,
+      489639
+     ],
+     "transfers_out": [
+      40383,
+      80178,
+      105717,
+      115556,
+      153366,
+      171270,
+      500957
+     ],
+     "vice_captain": 169432
+    },
+    {
+     "action": "TRANSFER",
+     "bank_after": 0,
+     "captain": 169432,
+     "chip": null,
+     "expected_delta_vs_hold": 19.985,
+     "expected_points": 48.965,
+     "free_transfers": 1,
+     "gameweek": 3,
+     "hit_points": 0,
+     "p10": 31.0,
+     "p90": 68.1,
+     "probability_delta_positive": 0.9,
+     "squad_blanks": [],
+     "squad_doubles": [],
+     "transfers_in": [
+      204580
+     ],
+     "transfers_out": [
+      108413
+     ],
+     "vice_captain": 191866
+    }
+   ],
+   "valid": true
+  }
+ ],
+ "assumptions": [
+  "decision cutoff 2026-08-28T16:00:00+00:00; latest source data used 2026-08-28 09:47:53+00:00",
+  "horizon 2 gameweeks (GW2\u2013GW3); objective profile 'default' (optimizer/default@1.0.0#19ba5141)",
+  "200 joint simulations (seed 20260828); gains are paired per sample",
+  "prices held at current values inside the horizon (price risk shown separately)",
+  "live availability (FPL status / chance of playing) enters through an uncalibrated adjustment layer",
+  "recommendation thresholds: E[gain] \u2265 0.5 pts and P(gain > 0) \u2265 0.6",
+  "data expired: serving the last validated snapshot"
+ ],
+ "captaincy": {
+  "expected": 169432,
+  "high_variance": 169432,
+  "options": [
+   {
+    "captain_mean": 9.5,
+    "mean_total": 43.675,
+    "p25_total": 34.0,
+    "p90_total": 60.0,
+    "p_beats_expected_choice": 0.39,
+    "p_captain_haul": 0.225,
+    "player": 466525,
+    "vice_captain": 169432
+   },
+   {
+    "captain_mean": 9.46,
+    "mean_total": 43.81,
+    "p25_total": 34.0,
+    "p90_total": 62.19999999999999,
+    "p_beats_expected_choice": 0.0,
+    "p_captain_haul": 0.335,
+    "player": 169432,
+    "vice_captain": 466525
+   },
+   {
+    "captain_mean": 8.63,
+    "mean_total": 43.385,
+    "p25_total": 34.75,
+    "p90_total": 59.0,
+    "p_beats_expected_choice": 0.445,
+    "p_captain_haul": 0.225,
+    "player": 191866,
+    "vice_captain": 466525
+   },
+   {
+    "captain_mean": 8.61,
+    "mean_total": 43.335,
+    "p25_total": 33.75,
+    "p90_total": 60.0,
+    "p_beats_expected_choice": 0.425,
+    "p_captain_haul": 0.23,
+    "player": 108416,
+    "vice_captain": 466525
+   },
+   {
+    "captain_mean": 8.09,
+    "mean_total": 42.97,
+    "p25_total": 33.0,
+    "p90_total": 59.19999999999999,
+    "p_beats_expected_choice": 0.335,
+    "p_captain_haul": 0.195,
+    "player": 83299,
+    "vice_captain": 466525
+   },
+   {
+    "captain_mean": 8.06,
+    "mean_total": 43.095,
+    "p25_total": 34.0,
+    "p90_total": 59.0,
+    "p_beats_expected_choice": 0.365,
+    "p_captain_haul": 0.185,
+    "player": 244723,
+    "vice_captain": 466525
+   }
+  ],
+  "safe": 191866
+ },
+ "chips": [
+  {
+   "best_gameweek": 2,
+   "best_value": 31.285,
+   "by_gameweek": [
+    {
+     "fixture_shock_uplift": null,
+     "gameweek": 2,
+     "method": "optimizer+paired_simulation",
+     "objective_gain": 31.130674,
+     "probability_positive": 0.995,
+     "uplift_mean": 31.285,
+     "uplift_p10": 15.0,
+     "uplift_p90": 48.099999999999994
+    },
+    {
+     "fixture_shock_uplift": null,
+     "gameweek": 3,
+     "method": "optimizer+paired_simulation",
+     "objective_gain": 5.889564000000064,
+     "probability_positive": 0.63,
+     "uplift_mean": 6.65,
+     "uplift_p10": -16.0,
+     "uplift_p90": 28.0
+    }
+   ],
+   "chip_id": "wildcard_1",
+   "chip_type": "wildcard",
+   "expires_in_horizon": false,
+   "reason": "GW2 is the best week in the horizon: +31.3 pts (P>0 0.99); later weeks offer at most +6.7",
+   "recommendation": "play now",
+   "value_now": 31.285,
+   "value_of_waiting": 0.0,
+   "window": [
+    2,
+    19
+   ]
+  },
+  {
+   "best_gameweek": 3,
+   "best_value": 5.93,
+   "by_gameweek": [
+    {
+     "fixture_shock_uplift": null,
+     "gameweek": 2,
+     "method": "optimizer+paired_simulation",
+     "objective_gain": 6.75573,
+     "probability_positive": 0.615,
+     "uplift_mean": 5.335,
+     "uplift_p10": -23.0,
+     "uplift_p90": 29.0
+    },
+    {
+     "fixture_shock_uplift": null,
+     "gameweek": 3,
+     "method": "optimizer+paired_simulation",
+     "objective_gain": 5.628007999999994,
+     "probability_positive": 0.6,
+     "uplift_mean": 5.93,
+     "uplift_p10": -17.0,
+     "uplift_p90": 28.099999999999994
+    }
+   ],
+   "chip_id": "free_hit_1",
+   "chip_type": "free_hit",
+   "expires_in_horizon": false,
+   "reason": "GW3 offers +5.9 pts vs +5.3 now (value of waiting +0.6)",
+   "recommendation": "wait",
+   "value_now": 5.335,
+   "value_of_waiting": 0.5949999999999998,
+   "window": [
+    2,
+    19
+   ]
+  },
+  {
+   "best_gameweek": 3,
+   "best_value": 0.5,
+   "by_gameweek": [
+    {
+     "fixture_shock_uplift": 0.01,
+     "gameweek": 2,
+     "method": "paired_simulation",
+     "objective_gain": null,
+     "probability_positive": 0.075,
+     "uplift_mean": 0.22,
+     "uplift_p10": 0.0,
+     "uplift_p90": 0.0
+    },
+    {
+     "fixture_shock_uplift": 0.0,
+     "gameweek": 3,
+     "method": "paired_simulation",
+     "objective_gain": null,
+     "probability_positive": 0.2,
+     "uplift_mean": 0.5,
+     "uplift_p10": 0.0,
+     "uplift_p90": 2.0
+    }
+   ],
+   "chip_id": "bench_boost_1",
+   "chip_type": "bench_boost",
+   "expires_in_horizon": false,
+   "reason": "GW3 offers +0.5 pts vs +0.2 now (value of waiting +0.3)",
+   "recommendation": "wait",
+   "value_now": 0.22,
+   "value_of_waiting": 0.28,
+   "window": [
+    1,
+    19
+   ]
+  },
+  {
+   "best_gameweek": 3,
+   "best_value": 4.925,
+   "by_gameweek": [
+    {
+     "fixture_shock_uplift": 4.73,
+     "gameweek": 2,
+     "method": "paired_simulation",
+     "objective_gain": null,
+     "probability_positive": 1.0,
+     "uplift_mean": 4.79,
+     "uplift_p10": 2.0,
+     "uplift_p90": 10.099999999999994
+    },
+    {
+     "fixture_shock_uplift": 4.75,
+     "gameweek": 3,
+     "method": "paired_simulation",
+     "objective_gain": null,
+     "probability_positive": 0.975,
+     "uplift_mean": 4.925,
+     "uplift_p10": 1.0,
+     "uplift_p90": 11.099999999999994
+    }
+   ],
+   "chip_id": "triple_captain_1",
+   "chip_type": "triple_captain",
+   "expires_in_horizon": false,
+   "reason": "GW3 offers +4.9 pts vs +4.8 now (value of waiting +0.1)",
+   "recommendation": "wait",
+   "value_now": 4.79,
+   "value_of_waiting": 0.1349999999999998,
+   "window": [
+    1,
+    19
+   ]
+  },
+  {
+   "best_gameweek": null,
+   "best_value": null,
+   "by_gameweek": [],
+   "chip_id": "wildcard_2",
+   "chip_type": "wildcard",
+   "expires_in_horizon": false,
+   "reason": "not playable inside the planning horizon",
+   "recommendation": "keep",
+   "value_now": null,
+   "value_of_waiting": null,
+   "window": [
+    20,
+    38
+   ]
+  },
+  {
+   "best_gameweek": null,
+   "best_value": null,
+   "by_gameweek": [],
+   "chip_id": "free_hit_2",
+   "chip_type": "free_hit",
+   "expires_in_horizon": false,
+   "reason": "not playable inside the planning horizon",
+   "recommendation": "keep",
+   "value_now": null,
+   "value_of_waiting": null,
+   "window": [
+    20,
+    38
+   ]
+  },
+  {
+   "best_gameweek": null,
+   "best_value": null,
+   "by_gameweek": [],
+   "chip_id": "bench_boost_2",
+   "chip_type": "bench_boost",
+   "expires_in_horizon": false,
+   "reason": "not playable inside the planning horizon",
+   "recommendation": "keep",
+   "value_now": null,
+   "value_of_waiting": null,
+   "window": [
+    20,
+    38
+   ]
+  },
+  {
+   "best_gameweek": null,
+   "best_value": null,
+   "by_gameweek": [],
+   "chip_id": "triple_captain_2",
+   "chip_type": "triple_captain",
+   "expires_in_horizon": false,
+   "reason": "not playable inside the planning horizon",
+   "recommendation": "keep",
+   "value_now": null,
+   "value_of_waiting": null,
+   "window": [
+    20,
+    38
+   ]
+  }
+ ],
+ "chosen": {
+  "action": "HIT",
+  "buys": [
+   83299,
+   169432,
+   191866,
+   243413,
+   244723,
+   466525,
+   489639
+  ],
+  "chip": null,
+  "gain_1gw": {
+   "mean": 4.065,
+   "p10": -10.0,
+   "p50": 2.0,
+   "p90": 21.0,
+   "probability_positive": 0.57
+  },
+  "gain_horizon": {
+   "mean": 24.05,
+   "p10": -1.0,
+   "p50": 24.0,
+   "p90": 48.0,
+   "probability_positive": 0.885
+  },
+  "label": "alt-2",
+  "objective": 65.25643000000001,
+  "objective_gain_vs_hold": 22.42452000000001,
+  "optimality": "proven optimal",
+  "passes_thresholds": true,
+  "sells": [
+   21205,
+   80178,
+   105717,
+   115556,
+   153366,
+   171270,
+   500957
+  ],
+  "timeline": [
+   {
+    "action": "HIT",
+    "bank_after": 5,
+    "captain": 466525,
+    "chip": null,
+    "expected_delta_vs_hold": 4.065,
+    "expected_points": 19.675,
+    "free_transfers": 1,
+    "gameweek": 2,
+    "hit_points": 24,
+    "p10": 4.0,
+    "p90": 36.0,
+    "probability_delta_positive": 0.57,
+    "squad_blanks": [],
+    "squad_doubles": [],
+    "transfers_in": [
+     83299,
+     169432,
+     191866,
+     243413,
+     244723,
+     466525,
+     489639
+    ],
+    "transfers_out": [
+     21205,
+     80178,
+     105717,
+     115556,
+     153366,
+     171270,
+     500957
+    ],
+    "vice_captain": 169432
+   },
+   {
+    "action": "TRANSFER",
+    "bank_after": 0,
+    "captain": 169432,
+    "chip": null,
+    "expected_delta_vs_hold": 19.985,
+    "expected_points": 48.965,
+    "free_transfers": 1,
+    "gameweek": 3,
+    "hit_points": 0,
+    "p10": 31.0,
+    "p90": 68.1,
+    "probability_delta_positive": 0.9,
+    "squad_blanks": [],
+    "squad_doubles": [],
+    "transfers_in": [
+     204580
+    ],
+    "transfers_out": [
+     108413
+    ],
+    "vice_captain": 191866
+   }
+  ],
+  "valid": true
+ },
+ "config_refs": {
+  "config_minutes": "models/minutes@1.0.0#8df02161",
+  "config_points": "models/points@1.1.0#d2ac692b",
+  "optimizer": "optimizer/default@1.0.0#19ba5141"
+ },
+ "decision": {
+  "action": "HIT",
+  "chip": null,
+  "confidence": 0.885,
+  "expected_gain_vs_hold": 24.05,
+  "expected_points": 19.675,
+  "optimality": "proven optimal",
+  "p10": 4.0,
+  "p50": 19.5,
+  "p90": 36.0,
+  "stability": null,
+  "transfers_in": [
+   83299,
+   169432,
+   191866,
+   243413,
+   244723,
+   466525,
+   489639
+  ],
+  "transfers_out": [
+   21205,
+   80178,
+   105717,
+   115556,
+   153366,
+   171270,
+   500957
+  ]
+ },
+ "decision_id": "dec_4d3cb222ec271fa0",
+ "evidence": [
+  {
+   "baseline": 0.79,
+   "direction": "positive",
+   "evidence_id": "ev_4bfe22c546f1baba",
+   "feature": "expected_points",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.8503170619765709,
+   "label": "expected points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": 58.45
+  },
+  {
+   "baseline": 0.6550000011920929,
+   "direction": "positive",
+   "evidence_id": "ev_33117d9a2f9ce188",
+   "feature": "xp_appearance",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.37922135365536747,
+   "label": "appearance points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": 26.37000000476837
+  },
+  {
+   "baseline": 0.08499999810010195,
+   "direction": "positive",
+   "evidence_id": "ev_42d9f3d635f607dd",
+   "feature": "xp_clean_sheet",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.17239345254701047,
+   "label": "clean-sheet points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": 11.775000020861626
+  },
+  {
+   "baseline": 0.05000000074505806,
+   "direction": "positive",
+   "evidence_id": "ev_92fb1fc20ebd5da8",
+   "feature": "xp_goals",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.1302167835806441,
+   "label": "goal points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": 8.880000099539757
+  },
+  {
+   "baseline": 0.04499999899417162,
+   "direction": "positive",
+   "evidence_id": "ev_a352902c4737bcf6",
+   "feature": "xp_assists",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.08051909738454252,
+   "label": "assist points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": 5.504999995231628
+  },
+  {
+   "baseline": 0.019999999552965164,
+   "direction": "positive",
+   "evidence_id": "ev_e7cd3b809aa67bc5",
+   "feature": "xp_bonus",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.07646364749436886,
+   "label": "bonus points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": 5.204999938607216
+  },
+  {
+   "baseline": 0.06999999843537807,
+   "direction": "positive",
+   "evidence_id": "ev_cdce1128b9a1e910",
+   "feature": "xp_defensive_contribution",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.06813154433272241,
+   "label": "defensive-contribution points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": 4.690000021830201
+  },
+  {
+   "baseline": -0.06999999843537807,
+   "direction": "negative",
+   "evidence_id": "ev_a5d8a0aeec926c93",
+   "feature": "xp_goals_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.038563633502527915,
+   "label": "goals-conceded deductions over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": -2.6849999874830246
+  },
+  {
+   "baseline": -0.06499999854713678,
+   "direction": "negative",
+   "evidence_id": "ev_1944caa76ada8ce5",
+   "feature": "xp_yellow_cards",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.031190090069333733,
+   "label": "yellow-card deductions over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": -2.1800000071525574
+  },
+  {
+   "baseline": 0.0,
+   "direction": "positive",
+   "evidence_id": "ev_edd643bd7b9e06ad",
+   "feature": "xp_saves",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.014894557737524416,
+   "label": "save points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": 1.0099999606609344
+  },
+  {
+   "baseline": 0.0,
+   "direction": "positive",
+   "evidence_id": "ev_07da75023aa1ce9a",
+   "feature": "xp_penalty_saves",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0033180946417641637,
+   "label": "penalty-save points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": 0.22499999776482582
+  },
+  {
+   "baseline": 0.0,
+   "direction": "negative",
+   "evidence_id": "ev_dff9e847afa2d256",
+   "feature": "xp_own_goals",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.001917121324768738,
+   "label": "own-goal deductions over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": -0.12999999709427357
+  },
+  {
+   "baseline": 0.0,
+   "direction": "negative",
+   "evidence_id": "ev_c2e3aefffdff43ac",
+   "feature": "xp_penalty_misses",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0016221795824966246,
+   "label": "penalty-miss deductions over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": -0.1099999975413084
+  },
+  {
+   "baseline": 0.0,
+   "direction": "negative",
+   "evidence_id": "ev_158f5f46a9df458a",
+   "feature": "xp_red_cards",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0015484441469285962,
+   "label": "red-card deductions over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": null,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "points",
+   "value": -0.10499999765306711
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_343bdce803b95bc4",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Dunk (in)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 83299,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.98
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_7f0256b75de3677b",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 McBurnie (in)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 169432,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.885
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_698beb7d60299f03",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Ajer (in)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 191866,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.945
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_9665ed67120d7ba8",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Slater (in)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 243413,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.945
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_57deb85c657db55b",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Mitchell (in)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 244723,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.95
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_cbf5b3efd9be30eb",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Stach (in)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 466525,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.97
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_60cd35bbd7c4538e",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Verbruggen (in)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 489639,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.935
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_4bda112853359d35",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Heaton (out)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 21205,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_ae9a64924276404a",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Bidwell (out)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 80178,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.015
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_30c1c3750b2dd14e",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Masuaku (out)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 105717,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_58f92ac72457eede",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Davies (out)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 115556,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_4fe5c0394a7d5f98",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Reed (out)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 153366,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_3b682752f948ae0b",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Dowell (out)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 171270,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.04
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_f2e04be0dd5eef80",
+   "feature": "start_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(start) GW2 \u2014 Destan (out)",
+   "model_version": "points-decomposed-1.0.0",
+   "player_id": 500957,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_84e6fed89084b4ac",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Dunk (in)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 83299,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.1873147374605622
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_014701f248353407",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 McBurnie (in)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 169432,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.8046451500067247
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_7851920d269b4bea",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Ajer (in)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 191866,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.1969078298528242
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_434d1eca1715712f",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Slater (in)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 243413,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.8046451500067247
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_5789a1126f776bb4",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Mitchell (in)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 244723,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.2006135205578472
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_bcb2fe33f0d03788",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Stach (in)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 466525,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.3773735844446002
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_e3dcd5dda31412bd",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Verbruggen (in)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 489639,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.1873147374605622
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_42081e68f3bf4611",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Heaton (out)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 21205,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.7275655409714878
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_a9b87c69fe77653a",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Bidwell (out)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 80178,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.4191854831017507
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_3dac3bb797c01f72",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Masuaku (out)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 105717,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.4810752148629946
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_f5a1f97301b2d406",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Davies (out)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 115556,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.2067508458408334
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_b0cc0c03e4e36c23",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Reed (out)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 153366,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.2069810282959332
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_3c1d92e309b39f69",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Dowell (out)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 171270,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.8046451500067247
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_a7ff3d910982002e",
+   "feature": "opponent_xg_conceded",
+   "gameweeks": [
+    2,
+    3
+   ],
+   "importance": 0.0,
+   "label": "opponents' recent xG conceded per match \u2014 Destan (out)",
+   "model_version": "features-points-decomposed-1.0.0",
+   "player_id": 500957,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "xG/match",
+   "value": 1.8046451500067247
+  },
+  {
+   "baseline": 100.0,
+   "direction": "negative",
+   "evidence_id": "ev_216ae3488c217dc6",
+   "feature": "chance_of_playing",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "official chance of playing \u2014 Heaton (out)",
+   "model_version": "fpl-live-status",
+   "player_id": 21205,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "%",
+   "value": 0.0
+  },
+  {
+   "baseline": 100.0,
+   "direction": "negative",
+   "evidence_id": "ev_336c0ee79dcff984",
+   "feature": "chance_of_playing",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "official chance of playing \u2014 Masuaku (out)",
+   "model_version": "fpl-live-status",
+   "player_id": 105717,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "%",
+   "value": 0.0
+  },
+  {
+   "baseline": 100.0,
+   "direction": "negative",
+   "evidence_id": "ev_d6ebc3d58d5d830d",
+   "feature": "chance_of_playing",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "official chance of playing \u2014 Destan (out)",
+   "model_version": "fpl-live-status",
+   "player_id": 500957,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "%",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_886911006f2d93fc",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Dunk (in)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 83299,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.043478260869565216
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_4dc04feac1e69044",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 McBurnie (in)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 169432,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_8887ddab6189e96b",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Ajer (in)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 191866,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.043478260869565216
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_4137431b864c18a1",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Slater (in)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 243413,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.043478260869565216
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_2f326516ff111d8c",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Mitchell (in)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 244723,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.043478260869565216
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_d44659b44c0377c1",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Stach (in)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 466525,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.5
+  },
+  {
+   "baseline": null,
+   "direction": "positive",
+   "evidence_id": "ev_ad30c95ba4fef980",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Verbruggen (in)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 489639,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.24
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_4aba51df6361bb02",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Heaton (out)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 21205,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_e3cb6c07e68e1941",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Bidwell (out)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 80178,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_8d8e6547e164b5b4",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Masuaku (out)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 105717,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_1cff77d80adcd9a8",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Davies (out)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 115556,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_77e66b18a107dbf8",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Reed (out)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 153366,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_5c0649f476a14334",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Dowell (out)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 171270,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  },
+  {
+   "baseline": null,
+   "direction": "neutral",
+   "evidence_id": "ev_607a3211e82ac18c",
+   "feature": "price_rise_probability",
+   "gameweeks": [
+    2
+   ],
+   "importance": 0.0,
+   "label": "P(price rise before next deadline) \u2014 Destan (out)",
+   "model_version": "price_change_lgbm-1.0.0",
+   "player_id": 500957,
+   "source_snapshot": "snap_c3d73f72c22938842d66",
+   "unit": "probability",
+   "value": 0.0
+  }
+ ],
+ "explanation": {
+  "action": "HIT",
+  "alternatives": [
+   {
+    "action": "HIT",
+    "buys": [
+     83299,
+     169432,
+     191866,
+     204580,
+     244723,
+     466525,
+     489639
+    ],
+    "chip": null,
+    "gain_horizon": 24.065,
+    "label": "best",
+    "objective_gain": 22.439520000000222,
+    "probability_positive": 0.89,
+    "sells": [
+     21205,
+     80178,
+     105717,
+     115556,
+     153366,
+     171270,
+     500957
+    ]
+   },
+   {
+    "action": "HIT",
+    "buys": [
+     83299,
+     169432,
+     191866,
+     204580,
+     244723,
+     466525,
+     489639
+    ],
+    "chip": null,
+    "gain_horizon": 24.065,
+    "label": "alt-1",
+    "objective_gain": 22.43922000000007,
+    "probability_positive": 0.89,
+    "sells": [
+     40383,
+     80178,
+     105717,
+     115556,
+     153366,
+     171270,
+     500957
+    ]
+   },
+   {
+    "action": "HIT",
+    "buys": [
+     83299,
+     169432,
+     191866,
+     243413,
+     244723,
+     466525,
+     489639
+    ],
+    "chip": null,
+    "gain_horizon": 24.05,
+    "label": "alt-3",
+    "objective_gain": 22.42422,
+    "probability_positive": 0.885,
+    "sells": [
+     40383,
+     80178,
+     105717,
+     115556,
+     153366,
+     171270,
+     500957
+    ]
+   }
+  ],
+  "assumptions": [
+   "decision cutoff 2026-08-28T16:00:00+00:00; latest source data used 2026-08-28 09:47:53+00:00",
+   "horizon 2 gameweeks (GW2\u2013GW3); objective profile 'default' (optimizer/default@1.0.0#19ba5141)",
+   "200 joint simulations (seed 20260828); gains are paired per sample",
+   "prices held at current values inside the horizon (price risk shown separately)",
+   "live availability (FPL status / chance of playing) enters through an uncalibrated adjustment layer",
+   "recommendation thresholds: E[gain] \u2265 0.5 pts and P(gain > 0) \u2265 0.6"
+  ],
+  "confidence": {
+   "gain_p10": -1.0,
+   "gain_p90": 48.0,
+   "probability_beats_hold": 0.885
+  },
+  "constraints_binding": [
+   "free transfers: 7 transfer(s) use all 1 available; 24-point hit",
+   "club limit: 3 players already from HUL",
+   "chips not usable this GW: wildcard_2, free_hit_2, bench_boost_2, triple_captain_2"
+  ],
+  "data_timestamp": "2026-08-28 09:47:53+00:00",
+  "decision": "Transfer Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan \u2192 Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen.",
+  "downside_scenarios": [
+   {
+    "description": "The player you sell starts and plays 90 minutes.",
+    "feasible": true,
+    "gain_vs_hold": -11.44,
+    "note": "simulation re-run with perturbed inputs (paired, outgoing_minutes_upside)",
+    "scenario": "outgoing_minutes_upside",
+    "still_best": false
+   },
+   {
+    "description": "Incoming player(s) ruled out this gameweek.",
+    "feasible": true,
+    "gain_vs_hold": -9.415,
+    "note": "simulation re-run with perturbed inputs (paired, incoming_injury_now)",
+    "scenario": "incoming_injury_now",
+    "still_best": false
+   },
+   {
+    "description": "Incoming player's next fixture is postponed.",
+    "feasible": true,
+    "gain_vs_hold": -4.12,
+    "note": "simulation re-run with perturbed inputs (paired, incoming_fixture_postponed)",
+    "scenario": "incoming_fixture_postponed",
+    "still_best": false
+   },
+   {
+    "description": "Incoming player(s) lose half their start probability.",
+    "feasible": true,
+    "gain_vs_hold": -0.86,
+    "note": "simulation re-run with perturbed inputs (paired, incoming_minutes_downside)",
+    "scenario": "incoming_minutes_downside",
+    "still_best": false
+   }
+  ],
+  "expected_effect": {
+   "gain_1gw": 4.065,
+   "gain_horizon": 24.05,
+   "objective_gain": 22.42452000000001
+  },
+  "hold_counterfactual": {
+   "expected_points_gw": 15.61,
+   "expected_points_horizon": 44.59,
+   "timeline": [
+    {
+     "action": "HOLD",
+     "bank_after": 50,
+     "captain": 108416,
+     "chip": null,
+     "expected_delta_vs_hold": 0.0,
+     "expected_points": 15.61,
+     "free_transfers": 1,
+     "gameweek": 2,
+     "hit_points": 0,
+     "p10": 6.0,
+     "p90": 27.0,
+     "probability_delta_positive": 0.0,
+     "squad_blanks": [],
+     "squad_doubles": [],
+     "transfers_in": [],
+     "transfers_out": [],
+     "vice_captain": 146426
+    },
+    {
+     "action": "HIT",
+     "bank_after": 0,
+     "captain": 437730,
+     "chip": null,
+     "expected_delta_vs_hold": 0.0,
+     "expected_points": 28.98,
+     "free_transfers": 2,
+     "gameweek": 3,
+     "hit_points": 4,
+     "p10": 13.0,
+     "p90": 48.0,
+     "probability_delta_positive": 0.0,
+     "squad_blanks": [],
+     "squad_doubles": [],
+     "transfers_in": [
+      191866,
+      204120,
+      437730
+     ],
+     "transfers_out": [
+      105717,
+      115556,
+      153366
+     ],
+     "vice_captain": 191866
+    }
+   ]
+  },
+  "model_versions": {
+   "config_minutes": "models/minutes@1.0.0#8df02161",
+   "config_points": "models/points@1.1.0#d2ac692b",
+   "features": "1.2.0",
+   "minutes": "1.0.0",
+   "points": "points-decomposed-1.0.0",
+   "ruleset": "2026-27.1",
+   "trained_at": "2026-08-28T16:00:00+00:00"
+  },
+  "optimizer_run_id": "opt_dc4b494fef8beac0",
+  "primary_drivers": [
+   {
+    "evidence_ids": [
+     "ev_4bfe22c546f1baba"
+    ],
+    "text": "expected points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan: 58.45 vs 0.79 (+57.66 points)"
+   },
+   {
+    "evidence_ids": [
+     "ev_33117d9a2f9ce188"
+    ],
+    "text": "appearance points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan: 26.37 vs 0.66 (+25.72 points)"
+   },
+   {
+    "evidence_ids": [
+     "ev_42d9f3d635f607dd"
+    ],
+    "text": "clean-sheet points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan: 11.78 vs 0.08 (+11.69 points)"
+   },
+   {
+    "evidence_ids": [
+     "ev_92fb1fc20ebd5da8"
+    ],
+    "text": "goal points over 2 GWs: Dunk, McBurnie, Ajer, Slater, Mitchell, Stach, Verbruggen vs Heaton, Bidwell, Masuaku, Davies, Reed, Dowell, Destan: 8.88 vs 0.05 (+8.83 points)"
+   }
+  ],
+  "refusal_reasons": [],
+  "supporting_evidence": [
+   "ev_4bfe22c546f1baba",
+   "ev_33117d9a2f9ce188",
+   "ev_42d9f3d635f607dd",
+   "ev_92fb1fc20ebd5da8",
+   "ev_a352902c4737bcf6",
+   "ev_e7cd3b809aa67bc5",
+   "ev_cdce1128b9a1e910",
+   "ev_a5d8a0aeec926c93",
+   "ev_1944caa76ada8ce5",
+   "ev_edd643bd7b9e06ad",
+   "ev_07da75023aa1ce9a",
+   "ev_dff9e847afa2d256",
+   "ev_c2e3aefffdff43ac",
+   "ev_158f5f46a9df458a",
+   "ev_343bdce803b95bc4",
+   "ev_7f0256b75de3677b",
+   "ev_698beb7d60299f03",
+   "ev_9665ed67120d7ba8",
+   "ev_57deb85c657db55b",
+   "ev_cbf5b3efd9be30eb",
+   "ev_60cd35bbd7c4538e",
+   "ev_4bda112853359d35",
+   "ev_ae9a64924276404a",
+   "ev_30c1c3750b2dd14e",
+   "ev_58f92ac72457eede",
+   "ev_4fe5c0394a7d5f98",
+   "ev_3b682752f948ae0b",
+   "ev_f2e04be0dd5eef80",
+   "ev_84e6fed89084b4ac",
+   "ev_014701f248353407",
+   "ev_7851920d269b4bea",
+   "ev_434d1eca1715712f",
+   "ev_5789a1126f776bb4",
+   "ev_bcb2fe33f0d03788",
+   "ev_e3dcd5dda31412bd",
+   "ev_42081e68f3bf4611",
+   "ev_a9b87c69fe77653a",
+   "ev_3dac3bb797c01f72",
+   "ev_f5a1f97301b2d406",
+   "ev_b0cc0c03e4e36c23",
+   "ev_3c1d92e309b39f69",
+   "ev_a7ff3d910982002e",
+   "ev_216ae3488c217dc6",
+   "ev_336c0ee79dcff984",
+   "ev_d6ebc3d58d5d830d",
+   "ev_886911006f2d93fc",
+   "ev_4dc04feac1e69044",
+   "ev_8887ddab6189e96b",
+   "ev_4137431b864c18a1",
+   "ev_2f326516ff111d8c",
+   "ev_d44659b44c0377c1",
+   "ev_ad30c95ba4fef980",
+   "ev_4aba51df6361bb02",
+   "ev_e3cb6c07e68e1941",
+   "ev_8d8e6547e164b5b4",
+   "ev_1cff77d80adcd9a8",
+   "ev_77e66b18a107dbf8",
+   "ev_5c0649f476a14334",
+   "ev_607a3211e82ac18c"
+  ]
+ },
+ "gameweek": 2,
+ "hold": {
+  "action": "HOLD",
+  "buys": [],
+  "chip": null,
+  "gain_1gw": {
+   "mean": 0.0,
+   "p10": 0.0,
+   "p50": 0.0,
+   "p90": 0.0,
+   "probability_positive": 0.0
+  },
+  "gain_horizon": {
+   "mean": 0.0,
+   "p10": 0.0,
+   "p50": 0.0,
+   "p90": 0.0,
+   "probability_positive": 0.0
+  },
+  "label": "hold",
+  "objective": 42.83191,
+  "objective_gain_vs_hold": 0.0,
+  "optimality": "proven optimal",
+  "passes_thresholds": true,
+  "sells": [],
+  "timeline": [
+   {
+    "action": "HOLD",
+    "bank_after": 50,
+    "captain": 108416,
+    "chip": null,
+    "expected_delta_vs_hold": 0.0,
+    "expected_points": 15.61,
+    "free_transfers": 1,
+    "gameweek": 2,
+    "hit_points": 0,
+    "p10": 6.0,
+    "p90": 27.0,
+    "probability_delta_positive": 0.0,
+    "squad_blanks": [],
+    "squad_doubles": [],
+    "transfers_in": [],
+    "transfers_out": [],
+    "vice_captain": 146426
+   },
+   {
+    "action": "HIT",
+    "bank_after": 0,
+    "captain": 437730,
+    "chip": null,
+    "expected_delta_vs_hold": 0.0,
+    "expected_points": 28.98,
+    "free_transfers": 2,
+    "gameweek": 3,
+    "hit_points": 4,
+    "p10": 13.0,
+    "p90": 48.0,
+    "probability_delta_positive": 0.0,
+    "squad_blanks": [],
+    "squad_doubles": [],
+    "transfers_in": [
+     191866,
+     204120,
+     437730
+    ],
+    "transfers_out": [
+     105717,
+     115556,
+     153366
+    ],
+    "vice_captain": 191866
+   }
+  ],
+  "valid": true
+ },
+ "lineup": {
+  "bench": [
+   40383,
+   204968,
+   490145,
+   500058
+  ],
+  "captain": 466525,
+  "starters": [
+   489639,
+   83299,
+   108416,
+   146426,
+   191866,
+   244723,
+   101282,
+   108413,
+   243413,
+   466525,
+   169432
+  ],
+  "vice_captain": 169432
+ },
+ "model_versions": {
+  "config_minutes": "models/minutes@1.0.0#8df02161",
+  "config_points": "models/points@1.1.0#d2ac692b",
+  "features": "1.2.0",
+  "minutes": "1.0.0",
+  "points": "points-decomposed-1.0.0",
+  "ruleset": "2026-27.1",
+  "trained_at": "2026-08-28T16:00:00+00:00"
+ },
+ "optimizer_run_id": "opt_dc4b494fef8beac0",
+ "ruleset_version": "2026-27.1",
+ "scenarios": [
+  {
+   "description": "Base forecast.",
+   "feasible": true,
+   "gain_vs_hold": {
+    "mean": 24.05,
+    "p10": -1.0,
+    "p50": 24.0,
+    "p90": 48.0,
+    "probability_positive": 0.885
+   },
+   "kind": "expected",
+   "name": "expected",
+   "note": "",
+   "objective_gain_vs_hold": 22.42452000000001,
+   "recommended_still_best": true
+  },
+  {
+   "description": "Incoming player(s) lose half their start probability.",
+   "feasible": true,
+   "gain_vs_hold": {
+    "mean": -0.86,
+    "p10": -24.0,
+    "p50": -1.0,
+    "p90": 24.0,
+    "probability_positive": 0.475
+   },
+   "kind": "minutes_downside",
+   "name": "incoming_minutes_downside",
+   "note": "simulation re-run with perturbed inputs (paired, incoming_minutes_downside)",
+   "objective_gain_vs_hold": null,
+   "recommended_still_best": false
+  },
+  {
+   "description": "Incoming player(s) ruled out this gameweek.",
+   "feasible": true,
+   "gain_vs_hold": {
+    "mean": -9.415,
+    "p10": -29.099999999999998,
+    "p50": -9.5,
+    "p90": 13.0,
+    "probability_positive": 0.27
+   },
+   "kind": "injury_shock",
+   "name": "incoming_injury_now",
+   "note": "simulation re-run with perturbed inputs (paired, incoming_injury_now)",
+   "objective_gain_vs_hold": null,
+   "recommended_still_best": false
+  },
+  {
+   "description": "Incoming player's team scores 20 % less.",
+   "feasible": true,
+   "gain_vs_hold": {
+    "mean": 20.915,
+    "p10": -1.0999999999999979,
+    "p50": 22.0,
+    "p90": 42.0,
+    "probability_positive": 0.88
+   },
+   "kind": "team_attack_downside",
+   "name": "incoming_team_attack_downside",
+   "note": "simulation re-run with perturbed inputs (paired, incoming_team_attack_downside)",
+   "objective_gain_vs_hold": null,
+   "recommended_still_best": false
+  },
+  {
+   "description": "Incoming player's next fixture is postponed.",
+   "feasible": true,
+   "gain_vs_hold": {
+    "mean": -4.12,
+    "p10": -24.0,
+    "p50": -5.0,
+    "p90": 17.0,
+    "probability_positive": 0.35
+   },
+   "kind": "fixture_shock",
+   "name": "incoming_fixture_postponed",
+   "note": "simulation re-run with perturbed inputs (paired, incoming_fixture_postponed)",
+   "objective_gain_vs_hold": null,
+   "recommended_still_best": false
+  },
+  {
+   "description": "Incoming player(s) rise \u00a30.2m before the deadline.",
+   "feasible": false,
+   "gain_vs_hold": null,
+   "kind": "price_shock",
+   "name": "incoming_price_rise",
+   "note": "recommended move no longer feasible: no feasible solution (Infeasible)",
+   "objective_gain_vs_hold": null,
+   "recommended_still_best": null
+  },
+  {
+   "description": "The player you sell starts and plays 90 minutes.",
+   "feasible": true,
+   "gain_vs_hold": {
+    "mean": -11.44,
+    "p10": -35.099999999999994,
+    "p50": -12.0,
+    "p90": 14.0,
+    "probability_positive": 0.27
+   },
+   "kind": "minutes_upside",
+   "name": "outgoing_minutes_upside",
+   "note": "simulation re-run with perturbed inputs (paired, outgoing_minutes_upside)",
+   "objective_gain_vs_hold": null,
+   "recommended_still_best": false
+  },
+  {
+   "description": "Captain ruled out this gameweek.",
+   "feasible": true,
+   "gain_vs_hold": {
+    "mean": 19.44,
+    "p10": -4.099999999999998,
+    "p50": 20.0,
+    "p90": 44.099999999999994,
+    "probability_positive": 0.83
+   },
+   "kind": "injury_shock",
+   "name": "captain_injury_now",
+   "note": "simulation re-run with perturbed inputs (paired, captain_injury_now)",
+   "objective_gain_vs_hold": null,
+   "recommended_still_best": true
+  },
+  {
+   "description": "Expectations shrunk 30 % toward the position average.",
+   "feasible": true,
+   "gain_vs_hold": null,
+   "kind": "conservative",
+   "name": "conservative",
+   "note": "re-optimised with perturbed table (objective units)",
+   "objective_gain_vs_hold": 8.709123473684208,
+   "recommended_still_best": false
+  }
+ ],
+ "season": "2026-27",
+ "snapshot_id": "snap_c3d73f72c22938842d66",
+ "stability": null
+}

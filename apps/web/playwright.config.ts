@@ -14,6 +14,12 @@ export default defineConfig({
     trace: "retain-on-failure",
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },
+  // the flows run as one signed-in beta user: e2e/auth.setup.ts registers them and saves the
+  // session cookie + active manager; the main project starts from that storage state
+  projects: [
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    { name: "chromium", testMatch: /flows\.spec\.ts/, dependencies: ["setup"], use: { storageState: "e2e/.auth/user.json" } },
+  ],
   webServer: [
     {
       command: "uv run python infra/scripts/e2e_api.py",

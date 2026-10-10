@@ -37,6 +37,7 @@ from sqlalchemy import select
 
 from fpl_api.alerts import evaluate_alerts
 from fpl_api.container import AppServices, build_recommendation
+from fpl_api.copilot import compute_squad_analysis
 from fpl_api.retention import prune
 from fpl_api.services import mark_serving_ready
 from fpl_api.settings import Settings
@@ -133,6 +134,19 @@ def _job_backtest(svc: AppServices, p: dict[str, Any]) -> str:
     return bt_id
 
 
+def _job_squad_analysis(svc: AppServices, p: dict[str, Any]) -> str:
+    """Precompute the Copilot Home read model for one manager and squad state (M1.1a)."""
+    if svc.states is None or svc.analyses is None:
+        raise RuntimeError("database required")
+    state = svc.states.get(p["state_id"], p["manager_key"])
+    if state is None:
+        raise LookupError(f"squad state {p['state_id']} is not available for {p['manager_key']}")
+    payload = compute_squad_analysis(
+        svc, p["manager_key"], p["state_id"], state, svc.horizon(p.get("horizon"))
+    )
+    return svc.analyses.save(payload)
+
+
 def _job_retention(svc: AppServices, p: dict[str, Any]) -> str:
     return prune(svc.settings, svc.engine).summary()
 
@@ -148,6 +162,7 @@ JOB_KINDS: dict[str, JobFn] = {
     "recommendation": _job_recommendation,
     "backtest": _job_backtest,
     "retention": _job_retention,
+    "squad_analysis": _job_squad_analysis,
 }
 # Upper bound on a healthy run of each kind: RQ's job timeout and the de-duplication lease.
 JOB_LEASE: dict[str, timedelta] = {
@@ -156,6 +171,7 @@ JOB_LEASE: dict[str, timedelta] = {
     "recommendation": timedelta(minutes=30),
     "backtest": timedelta(hours=6),
     "retention": timedelta(minutes=15),
+    "squad_analysis": timedelta(minutes=10),
 }
 ABANDONED = "abandoned: no result within the job lease (worker lost or killed)"
 RQ_GRACE = timedelta(minutes=2)
@@ -223,6 +239,15 @@ class JobBackend:
         else:
             execute(self.svc, job_id)
         return job_id
+
+    def manager_of(self, job_id: str) -> str | None:
+        """The manager key a job was submitted for (None for system jobs such as forecasts)."""
+        if self.svc.engine is None:
+            return None
+        with session_scope(self.svc.engine) as s:
+            r = s.get(m.JobRow, job_id)
+            key = (r.request_json or {}).get("manager_key") if r is not None else None
+            return str(key) if key else None
 
     def reap_expired(self, now: datetime | None = None) -> int:
         """Close every queued/running job past its lease (worker lost). Requests are keyed by

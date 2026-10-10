@@ -22,7 +22,8 @@ import uvicorn
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("FPL_CONFIG_DIR", str(ROOT / "config"))
-E2E_KEY = "e2e-only-key"  # test-only credential, accepted solely by this throw-away stack
+E2E_KEY = "e2e-only-key"  # the web proxy's key: needs a signed-in user for manager data
+E2E_OPS_KEY = "e2e-ops-key"  # operator key for test setup (invitations); throw-away stack only
 
 
 def main() -> None:
@@ -52,13 +53,15 @@ def main() -> None:
                 "FPL_HORIZON_MAX": "3",
                 "FPL_FORECAST_HORIZON": "3",
                 "FPL_SYNC_HORIZON_LIMIT": "2",
+                "FPL_LIVE_SYNC_ENABLED": "false",  # no network: the UI must surface this
                 "FPL_RATE_LIMIT_PER_MINUTE": "1000",
                 "FPL_EXPENSIVE_RATE_LIMIT_PER_MINUTE": "1000",
                 "FPL_CORS_ORIGINS": '["http://localhost:3000","http://127.0.0.1:3000"]',
                 # production auth path: the UI's server-side proxy holds the key (playwright
                 # config passes FPL_API_KEY=e2e-only-key to the Next server only)
                 "FPL_REQUIRE_API_KEY": "true",
-                "FPL_API_KEYS_SHA256": json.dumps([hash_key(E2E_KEY)]),
+                "FPL_API_KEYS_SHA256": json.dumps([hash_key(E2E_OPS_KEY)]),
+                "FPL_WEB_API_KEYS_SHA256": json.dumps([hash_key(E2E_KEY)]),
             }
         )
         from fpl_api.app import create_app  # noqa: PLC0415 (reads env set above)

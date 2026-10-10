@@ -30,6 +30,7 @@ from pathlib import Path
 import structlog
 from sqlalchemy import Engine, select
 
+from fpl_api.analytics import prune as prune_events
 from fpl_api.services import REPO_ROOT, is_serving_ready
 from fpl_api.settings import Settings
 from fpl_domain.config import load_versioned_config
@@ -53,6 +54,7 @@ class RetentionReport:
     deleted_files: int = 0
     freed_bytes: int = 0
     errors: list[str] = field(default_factory=list)
+    deleted_events: int = 0  # product-analytics rows past their retention
 
     def summary(self) -> str:
         return (
@@ -96,6 +98,8 @@ def _size(p: Path) -> int:
 def prune(settings: Settings, engine: Engine | None, now: float | None = None) -> RetentionReport:
     now = time.time() if now is None else now
     rep = RetentionReport()
+    if engine is not None:  # product analytics: the only database rows retention deletes
+        rep.deleted_events = prune_events(engine)
     root = settings.snapshots_root or REPO_ROOT / "data" / "snapshots"
     keep_n = settings.snapshot_retention_keep
     if keep_n <= 0 or not root.exists():

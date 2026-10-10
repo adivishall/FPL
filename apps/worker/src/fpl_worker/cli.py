@@ -99,10 +99,36 @@ def task_forecast_precompute(svc: AppServices, jobs: JobBackend, b: str) -> dict
     ctx = svc.context()
     try:
         svc.forecasts.get(ctx.season, ctx.gameweek, svc.settings.forecast_horizon, compute=False)
-        return {"status": "cached", "season": ctx.season, "gameweek": ctx.gameweek}
+        # the forecast is in place: precompute each manager's Copilot Home analysis for this
+        # snapshot (de-duplicated per snapshot and state, so repeats cost nothing)
+        analyses = _submit_squad_analyses(svc, jobs)
+        return {
+            "status": "cached",
+            "season": ctx.season,
+            "gameweek": ctx.gameweek,
+            "analyses": analyses,
+        }
     except ForecastUnavailable:
         job = jobs.submit("forecast", {"season": ctx.season, "gameweek": ctx.gameweek})
         return {"status": "submitted", "job_id": job}
+
+
+def _submit_squad_analyses(svc: AppServices, jobs: JobBackend) -> int:
+    if svc.engine is None:
+        return 0
+    with session_scope(svc.engine) as s:
+        rows = s.execute(
+            select(
+                m.ManagerStateRow.id, m.ManagerStateRow.state_json["manager_key"].astext
+            ).order_by(m.ManagerStateRow.captured_at.desc())
+        ).all()
+    latest: dict[str, str] = {}
+    for sid, key in rows:
+        if key and key not in latest:
+            latest[str(key)] = str(sid)
+    for key, sid in latest.items():
+        jobs.submit("squad_analysis", {"manager_key": key, "state_id": sid})
+    return len(latest)
 
 
 def task_alerts(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:

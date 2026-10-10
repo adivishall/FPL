@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+import { PlayerPicker } from "@/components/player-picker";
 import { Pitch } from "@/components/pitch";
 import { Card, FreshnessBanner, State, useApi } from "@/components/ui";
-import { ApiError, api, post, type ForecastRow, type SquadState } from "@/lib/api";
+import Link from "next/link";
+
+import { ApiError, api, post, type ForecastRow, type PlayerRow, type SquadState, type SyncResult } from "@/lib/api";
 import { money, pct, pts } from "@/lib/format";
 import { effectiveHorizon, loadSettings } from "@/lib/settings";
 
@@ -24,11 +27,13 @@ export default function SquadPlanner() {
   const [ft, setFt] = useState(1);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState<PlayerRow[]>([]); // the picker's draft squad
 
   useEffect(() => {
     const st = squad.data?.state;
     if (!st) return;
     setCodes(st.squad.map((p) => p.player_code).join(" "));
+    setPicked([]);
     setBank(st.bank);
     setFt(st.free_transfers);
     void post<LineupResp>("/lineup", { manager_key: settings.managerKey }).then(setLineup).catch(() => setLineup(null));
@@ -47,6 +52,40 @@ export default function SquadPlanner() {
     try {
       const picks = codes.split(/[\s,]+/).filter(Boolean).map((c) => ({ player_code: Number(c) }));
       await post("/squad", { manager_key: settings.managerKey, picks, bank, free_transfers: ft });
+      setMsg("Squad saved.");
+      await squad.reload();
+    } catch (e) {
+      setMsg(e instanceof ApiError ? `Rejected: ${e.message}` : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshFromFpl() {
+    const id = squad.data?.state.manager_id;
+    if (!id) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await post<SyncResult>("/squad/sync", { manager_key: settings.managerKey, manager_id: id });
+      setMsg(`Refreshed from the FPL API (entry ${id}): ${r.state.squad.length} players, bank ${money(r.state.bank)}${r.warnings.length ? `, ${r.warnings.length} note(s)` : ""}.`);
+      await squad.reload();
+    } catch (e) {
+      setMsg(e instanceof ApiError ? `Refresh failed (${e.status}): ${e.message}` : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function addPick(p: PlayerRow) {
+    setPicked((cur) => (cur.length >= 15 || cur.some((x) => x.player_code === p.player_code) ? cur : [...cur, p]));
+  }
+
+  async function savePicked() {
+    setMsg(null);
+    setBusy(true);
+    try {
+      await post("/squad", { manager_key: settings.managerKey, picks: picked.map((p) => ({ player_code: p.player_code })), bank, free_transfers: ft });
       setMsg("Squad saved.");
       await squad.reload();
     } catch (e) {
@@ -98,9 +137,34 @@ export default function SquadPlanner() {
             </>
           ) : null}
         </Card>
-        <Card title="Enter squad (manual — no FPL credentials needed)" testId="entry">
-          <p className="small">15 player codes separated by spaces. Live sync from the FPL API is unavailable in this deployment (see Data Health).</p>
-          <textarea aria-label="player codes" value={codes} onChange={(e) => setCodes(e.target.value)} rows={4} style={{ width: "100%" }} />
+        <Card title="Your squad" testId="entry">
+          {st?.manager_id ? (
+            <p className="small" data-testid="squad-source">
+              Imported from the official FPL API (entry {st.manager_id}, captured {st.source === "fpl_api" ? "from your FPL team" : st.source}).{" "}
+              <button className="secondary" onClick={refreshFromFpl} disabled={busy} data-testid="refresh-fpl">Refresh from FPL</button>
+            </p>
+          ) : (
+            <p className="small">No FPL team linked to this manager — <Link href="/onboarding">import it with your FPL ID</Link>, or pick the 15 players below.</p>
+          )}
+          <PlayerPicker onPick={addPick} exclude={picked.map((p) => p.player_code)} maxPrice={null} label="Add a player" />
+          {picked.length ? (
+            <ul className="clean" data-testid="picked">
+              {picked.map((p) => (
+                <li key={p.player_code}>
+                  {p.name} <span className="small">{p.team} · {p.position} · {money(p.price)}</span>{" "}
+                  <button className="secondary" onClick={() => setPicked((cur) => cur.filter((x) => x.player_code !== p.player_code))} aria-label={`remove ${p.name}`}>×</button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="row">
+            <span className="small">{picked.length}/15 picked</span>
+            <button onClick={savePicked} disabled={busy || picked.length !== 15} data-testid="save-picked">Save picked squad</button>
+          </div>
+          <details>
+            <summary className="small">Diagnostic: enter 15 player codes directly</summary>
+            <textarea aria-label="player codes" value={codes} onChange={(e) => setCodes(e.target.value)} rows={4} style={{ width: "100%" }} />
+          </details>
           <div className="row">
             <label>Bank (tenths) <input type="number" value={bank} onChange={(e) => setBank(Number(e.target.value))} style={{ width: 80 }} /></label>
             <label>Free transfers <input type="number" value={ft} min={0} max={5} onChange={(e) => setFt(Number(e.target.value))} style={{ width: 60 }} /></label>

@@ -1,4 +1,4 @@
-import { expect, request, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, request, test, type APIRequestContext, type Cookie, type Page } from "@playwright/test";
 
 // Runs against a deployed stack (playwright.prod.config.ts): every browser request goes to the web
 // origin; the Next server adds the API key server-side. Direct API calls below exist only to
@@ -9,29 +9,55 @@ const OPS_KEY = process.env.E2E_OPS_KEY ?? "";
 const WEB_KEY = process.env.E2E_WEB_KEY ?? "";
 const BAD_KEY_WEB = process.env.E2E_BADKEY_WEB_URL; // a web server configured with a wrong key
 const NO_API_WEB = process.env.E2E_NOAPI_WEB_URL; // a web server whose API is unreachable
-const MANAGER = `e2e-prod-${Date.now()}`;
+// Every test runs as one signed-in beta user (invite-only accounts): registered through the web
+// origin in beforeAll, which is where the HttpOnly session cookie comes from; the manager key is
+// one the API created for that user — a user cannot use any other.
+let MANAGER = "";
+let cookies: Cookie[] = [];
+let web: APIRequestContext; // the signed-in user's requests to the web origin
 
 test.describe.configure({ mode: "serial" });
 
 async function asManager(page: Page) {
+  await page.context().addCookies(cookies);
   await page.addInitScript((key) => {
     window.localStorage.setItem("fpl.settings.v1", JSON.stringify({ managerKey: key, profile: "default", horizon: 3 }));
   }, MANAGER);
 }
 
 let api: APIRequestContext;
-test.beforeAll(async () => {
+test.beforeAll(async ({ baseURL }) => {
   expect(OPS_KEY, "E2E_OPS_KEY must be set").not.toBe("");
   expect(WEB_KEY, "E2E_WEB_KEY must be set").not.toBe("");
   api = await request.newContext({ baseURL: API });
+  const inv = await api.post("/api/v1/auth/invites", { data: { label: "e2e-prod", days: 1 }, headers: { "x-api-key": OPS_KEY } });
+  expect(inv.ok(), await inv.text()).toBe(true);
+  web = await request.newContext({
+    baseURL,
+    httpCredentials: process.env.E2E_HTTP_USER ? { username: process.env.E2E_HTTP_USER, password: process.env.E2E_HTTP_PASSWORD ?? "" } : undefined,
+    ignoreHTTPSErrors: process.env.E2E_IGNORE_HTTPS_ERRORS === "1",
+  });
+  const reg = await web.post("/auth/register", {
+    data: { invite_code: (await inv.json()).invite_code, email: `e2e-prod-${Date.now()}@example.test`, password: "e2e-prod-password" },
+  });
+  expect(reg.ok(), await reg.text()).toBe(true);
+  expect(await reg.text()).not.toContain("session_token"); // the token stays in the HttpOnly cookie
+  const mgr = await web.post("/backend/auth/managers", { data: { label: "e2e-prod" } });
+  expect(mgr.ok(), await mgr.text()).toBe(true);
+  MANAGER = (await mgr.json()).manager_key as string;
+  cookies = (await web.storageState()).cookies;
+  expect(cookies.some((c) => c.name === "fpl_session" && c.httpOnly)).toBe(true);
 });
 
 test.afterAll(async () => {
-  // the export/delete test erases this manager; this covers runs that stop before it
-  await api.delete(`/api/v1/managers/${MANAGER}`, { headers: { "x-api-key": OPS_KEY } });
+  // the export/delete test erases this manager; this covers runs that stop before it, and the
+  // account itself is removed with everything it still owns
+  if (MANAGER) await api.delete(`/api/v1/managers/${MANAGER}`, { headers: { "x-api-key": OPS_KEY } });
+  if (web) await web.delete("/backend/auth/me");
 });
 
 test("topology: the browser only talks to the web origin and never sees the proxy key", async ({ page, baseURL }) => {
+  await asManager(page);
   const origins = new Set<string>();
   const keyHeaders: string[] = [];
   const bodies: string[] = [];
@@ -64,6 +90,14 @@ test("API key enforcement on the API itself (missing / invalid / valid)", async 
     expect([401, 403]).not.toContain((await api.get(path, { headers: { "x-api-key": OPS_KEY } })).status());
   }
   expect((await api.get("/api/v1/health")).status()).toBe(200); // public reference data stays open
+  // the web proxy's own key is not an operator key: without a signed-in user it reaches only
+  // public reference data, never manager data
+  expect((await api.get(`/api/v1/squad?manager_key=${MANAGER}`, { headers: { "x-api-key": WEB_KEY } })).status()).toBe(401);
+  expect((await api.post("/api/v1/recommendations/generate", { data: gen, headers: { "x-api-key": WEB_KEY } })).status()).toBe(401);
+  expect((await api.get("/api/v1/gameweeks/current", { headers: { "x-api-key": WEB_KEY } })).status()).toBe(200);
+  // a signed-in user cannot name a manager key the account does not own
+  const other = await web.get("/backend/squad?manager_key=m_000000000000beef");
+  expect(other.status()).toBe(403);
 });
 
 test("dashboard and data-health show the same freshness and live-source state as the API", async ({ page }) => {
@@ -182,9 +216,14 @@ test("alerts are evaluated by the worker; re-evaluating unchanged data adds noth
   await page.getByTestId("evaluate-alerts").click();
   await expect(page.getByTestId("alerts-msg")).toContainText("Evaluated");
   const first = (await page.getByTestId("alerts-msg").textContent()) ?? "";
-  await page.getByTestId("evaluate-alerts").click();
-  await expect(page.getByTestId("alerts-msg")).toContainText("Evaluated (alerts:0/");
   expect(first).toMatch(/Evaluated \(alerts:\d+\/\d+/);
+  await page.getByTestId("evaluate-alerts").click();
+  await expect(page.getByTestId("alerts-msg")).toContainText("Evaluated");
+  // idempotent: within the same minute the API de-duplicates the job (identical result shown
+  // again); otherwise the re-evaluation of unchanged inputs records nothing new
+  await expect.poll(async () => (await page.getByTestId("alerts-msg").textContent()) ?? "").toMatch(
+    new RegExp(`^(${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|Evaluated \\(alerts:0/)`),
+  );
 });
 
 const isSettings = (url: URL) => url.pathname === "/backend/settings";
@@ -287,9 +326,11 @@ test("settings: a late response for a previous manager key is ignored", async ({
     }
     await route.continue();
   });
+  const second = await web.post("/backend/auth/managers", { data: { label: "second" } });
+  const otherKey = (await second.json()).manager_key as string; // nothing stored for it: defaults
   await page.goto("/settings");
   await expect.poll(() => held, { message: "the first manager's settings GET is held" }).toBe(1);
-  await page.getByLabel("Manager key").fill(`${MANAGER}-other`); // nothing stored: defaults
+  await page.getByLabel("Manager key").selectOption(otherKey);
   await expect(tz).toBeEnabled();
   await expect(tz).toHaveValue("Europe/London");
   const late = page.waitForResponse((r) => forKey(new URL(r.url()), MANAGER) && r.request().method() === "GET");
@@ -337,6 +378,7 @@ test("backtest lab renders reports as formatted content with every figure the re
     ["Optimiser benchmark", "optimizer_benchmark"],
   ];
   const seen: string[] = [];
+  await asManager(page);
   await page.goto("/backtests");
   for (const [label, name] of tabs) {
     const rep = await (await page.request.get(`/backend/reports/${name}`)).json();
@@ -358,7 +400,47 @@ test("backtest lab renders reports as formatted content with every figure the re
   expect(seen).toEqual(expect.arrayContaining(["backtest_cumulative_2023-24.svg", "backtest_cumulative_difference.svg"]));
 });
 
+test("onboarding imports a real FPL team by ID through the proxy (E2E_FPL_ENTRY_ID)", async ({ page }) => {
+  const entry = process.env.E2E_FPL_ENTRY_ID;
+  test.skip(!entry, "E2E_FPL_ENTRY_ID not provided (a public FPL entry id to import)");
+  await asManager(page);
+  await page.goto("/onboarding");
+  await page.getByLabel("FPL ID").fill(entry!);
+  await page.getByTestId("lookup-entry").click();
+  await expect(page.getByTestId("onboarding-preview")).toBeVisible();
+  const team = (await page.getByTestId("preview-team").textContent())!.trim();
+  const api_entry = await (await api.get(`/api/v1/fpl/entry/${entry}`, { headers: { "x-api-key": OPS_KEY } })).json();
+  expect(team).toBe(api_entry.team_name); // the preview is what the API served, not a guess
+  await page.getByTestId("confirm-import").click();
+  await expect(page.getByTestId("onboarding-done")).toContainText("15 players");
+  await page.getByTestId("go-home").click();
+  await page.goto("/squad");
+  await expect(page.getByTestId("squad-source")).toContainText(`entry ${entry}`);
+  await page.getByTestId("refresh-fpl").click();
+  await expect(page.getByTestId("squad-msg")).toContainText("Refreshed from the FPL API");
+  // the imported manager belongs to this account and holds the official 15
+  const mine = await (await web.get("/backend/auth/managers")).json();
+  const imported = (mine.managers as { manager_key: string; label: string | null }[]).find((m) => m.label === `fpl:${entry}`)!;
+  const st = await (await web.get(`/backend/squad?manager_key=${imported.manager_key}`)).json();
+  expect(st.state.squad).toHaveLength(15);
+  expect(st.state.manager_id).toBe(Number(entry));
+  await web.delete(`/backend/managers/${imported.manager_key}`); // leave nothing behind
+});
+
+test("player picker on the squad page searches the live pool", async ({ page }) => {
+  await asManager(page);
+  await page.goto("/squad");
+  const picker = page.getByTestId("player-picker");
+  await expect(picker.locator("li").first()).toBeVisible();
+  const firstName = (await picker.locator("li strong").first().textContent())!.trim();
+  await picker.getByTestId("picker-search").fill(firstName.slice(0, 4));
+  await expect(picker.locator("li").first()).toContainText(firstName.slice(0, 4));
+  await picker.locator("li").first().click();
+  await expect(page.getByTestId("picked").locator("li")).toHaveCount(1);
+});
+
 test("API error states are shown, not swallowed", async ({ page }) => {
+  await asManager(page);
   await page.goto("/players/999999999");
   await expect(page.getByRole("alert").first()).toBeVisible();
 });
@@ -366,9 +448,10 @@ test("API error states are shown, not swallowed", async ({ page }) => {
 test("authentication error from the API is surfaced by the UI", async ({ page }) => {
   test.skip(!BAD_KEY_WEB, "E2E_BADKEY_WEB_URL not provided");
   await page.goto(`${BAD_KEY_WEB}/settings`);
-  // the stored settings cannot be read: the rejection is shown on load and nothing can be saved
-  await expect(page.getByTestId("notification-settings").getByRole("alert")).toContainText("invalid API key");
-  await expect(page.getByTestId("save-settings")).toBeDisabled({ timeout: 10_000 });
+  // the session check itself fails (the server's key is refused): the rejection is shown and
+  // no manager page renders, so nothing can be saved
+  await expect(page.getByRole("alert").first()).toContainText("invalid API key");
+  await expect(page.getByTestId("save-settings")).toHaveCount(0);
 });
 
 test("API outage is surfaced by the UI", async ({ page }) => {

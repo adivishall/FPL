@@ -188,16 +188,26 @@ nothing partial and is simply re-run.
 
 Public deployment adds one service (`docker-compose.public.yml`): a Caddy reverse proxy that is
 the only public listener — automatic TLS certificates, HTTP→HTTPS, HSTS and security headers, and
-one site login, because V1 is single-tenant. Backups (`infra/scripts/backup.sh`) cover the
+an optional outer site login for a closed beta. Backups (`infra/scripts/backup.sh`) cover the
 database and the canonical snapshots and raw captures; a restore into empty volumes was tested
 end to end (`docs/DEPLOYMENT.md`). **No public URL exists yet**: it needs a host, a domain and
 secrets from the operator.
 
-Security model: hashed API keys (constant-time check) on every write and every manager-linked
-read; the browser never sees a key (server-side proxy); token-bucket rate limits; SSRF-guarded
-webhooks (HTTPS, host allow-list, public addresses only, no redirects); export and erasure of
-all manager data; audit log and application logs hold only hashes of keys. It is a
-**single-tenant** design for a personal or trusted-group deployment (KNOWN_LIMITATIONS §6).
+Security model: invite-only accounts with server-side ownership of every manager key (scrypt
+passwords, hashed 30-day sessions in an HttpOnly cookie, cross-user access tests on every
+manager-scoped route); hashed API keys (constant-time check) in two classes — operator keys with
+full access and the web proxy's key, which reaches public data only without a signed-in user;
+the browser never sees a key (server-side proxy); per-user token-bucket rate limits; SSRF-guarded
+webhooks (HTTPS, host allow-list, public addresses only, no redirects); export and erasure of all
+manager data and of whole accounts; audit log and application logs hold only hashes of keys
+(`docs/DEPLOYMENT.md` → *Accounts and beta access*; limits in KNOWN_LIMITATIONS §6).
+
+Using it (M1.1a): sign in with an invitation, import your team with your FPL ID (public data,
+no FPL password), and **Copilot Home** shows the situation, squad health signals with their
+sources, the recommended action, captain profiles, your squad with forecasts and status, and the
+fixture outlook — from an analysis the worker precomputes (first call ~20 ms, warm p95 ~17 ms,
+analysis ready ~2.6 s after a squad change on the development machine). A searchable player
+picker replaces player codes; manual entry remains as a fallback.
 
 ## Running it
 
@@ -257,7 +267,7 @@ Recommendations therefore run as background jobs; heavy requests are minutes, no
 
 ## Status and limitations
 
-Specification audit: `docs/FINAL_AUDIT.md` (99 requirements: 81 COMPLETE, 14 PARTIAL, 3 NOT
+Specification audit: `docs/FINAL_AUDIT.md` (99 requirements: 81 COMPLETE, 15 PARTIAL, 2 NOT
 IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE), ending with the **V1 release status**: every release
 blocker is resolved except a public URL, which waits on operator inputs (host, domain,
 secrets). What is not done or not proven — single-tenant security, latency of heavy requests,

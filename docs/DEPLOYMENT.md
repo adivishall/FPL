@@ -59,10 +59,12 @@ All other settings are `fpl_api.settings.Settings` fields with the `FPL_` prefix
 
 ## First deployment
 
-1. `cp .env.example .env` and fill it in. Generate keys with `docker compose run --rm api
-   fpl-api create-key` — put the **hash** in `FPL_API_KEYS_SHA256` (JSON list) and the key itself
-   in your secret manager and in `FPL_WEB_API_KEY` for the web proxy. Keys are never stored in
-   plaintext anywhere in the system.
+1. `cp .env.example .env` and fill it in. Generate **two** keys with `docker compose run --rm api
+   fpl-api create-key`: an operator key (its hash in `FPL_API_KEYS_SHA256`, the key in your secret
+   manager — full access, for operations and smoke tests) and the web proxy's key (its hash in
+   `FPL_WEB_API_KEYS_SHA256`, the key in `FPL_WEB_API_KEY`). The web key alone reaches only public
+   reference data; manager data needs a signed-in user (*Accounts and beta access* below). Keys
+   are never stored in plaintext anywhere in the system.
 2. `docker compose up -d postgres redis && docker compose run --rm migrate`.
 3. Seed data (pinned historical source, ADR-0003):
    `docker compose run --rm scheduler fpl-ingest historical --all` then
@@ -72,18 +74,68 @@ All other settings are `fpl_api.settings.Settings` fields with the `FPL_` prefix
    `ml/reports/performance.md`).
 5. `docker compose up -d` (api, worker, scheduler, web).
 6. `uv run python infra/scripts/smoke.py --api http://localhost:8000 --web http://localhost:3000`.
-7. Full production-topology browser suite (18 flows: proxy-only traffic, key enforcement, squad,
-   captain/bench, worker jobs, alerts, settings incl. the load race, traceability, export/delete,
-   Backtest Lab, error states, rate limiting):
+7. Full production-topology browser suite (21 flows: a signed-in beta user registered through
+   the web origin, proxy-only traffic, key and session enforcement, FPL-ID onboarding when
+   `E2E_FPL_ENTRY_ID` names a public entry, the player picker, squad, captain/bench, worker jobs,
+   alerts, settings incl. the load race, traceability, export/delete, Backtest Lab, error states,
+   rate limiting):
 
    ```bash
    cd apps/web && E2E_BASE_URL=http://127.0.0.1:3000 E2E_API_URL=http://127.0.0.1:8000 \
-     E2E_OPS_KEY=<operator key> E2E_WEB_KEY=<FPL_WEB_API_KEY> \
+     E2E_OPS_KEY=<operator key> E2E_WEB_KEY=<FPL_WEB_API_KEY> [E2E_FPL_ENTRY_ID=<public entry id>] \
      npx playwright test -c playwright.prod.config.ts
    ```
+8. Invite the first users: `docker compose run --rm api fpl-api create-invite --label <who>
+   --days 14` prints a code once; they register at `/register`.
 
 Every service listens on loopback or the Compose network only. To serve the internet, add the
 TLS proxy — next section.
+
+## Accounts and beta access (M1.1a)
+
+The product is an **invite-only beta**. Accounts, sessions and ownership live in the API
+(`fpl_api.accounts`); the browser never holds a credential other than its own session cookie.
+
+* **Principals.** An *operator* key (`FPL_API_KEYS_SHA256`) has full access. The *web* key
+  (`FPL_WEB_API_KEYS_SHA256`, the one the Next server holds) reaches public reference data only;
+  a *user* is a session token (`Authorization: Bearer`, issued at login) and may touch only the
+  manager keys it owns. Every route that names a manager key (path, query or body) is checked
+  server-side; routes addressed by record id (recommendation, trace, feedback, job) check the
+  record's manager. Operators keep access to everything for operations and tests.
+* **Invitations.** `fpl-api create-invite --label <who> --days 14` (or `POST /api/v1/auth/invites`
+  with an operator key) prints a code once; only its SHA-256 is stored; a code admits one account
+  and expires.
+* **Registration and login** (`/register`, `/login`): e-mail + password (10+ characters, scrypt
+  hash with a per-user salt, standard library); a 256-bit session token stored hashed, 30 days
+  (`FPL_SESSION_TTL_DAYS`), kept by the Next server in an HttpOnly, SameSite=Lax (Secure over
+  HTTPS) cookie and forwarded to the API as a bearer. Sign-out revokes the session. Failed logins
+  are security events (`login_failed`) and are rate-limited per client; there is no lockout and no
+  password reset yet (an operator can issue a new invitation).
+* **Manager keys** are created by the API for the signed-in user (`POST /api/v1/auth/managers`;
+  onboarding does this) — a user can never name a key the account does not own. Erasing a
+  manager releases its key; `DELETE /api/v1/auth/me` erases the account and every manager it owns.
+* **The site login at the TLS proxy** (`auth.caddy`) is still supported as an outer gate for a
+  closed beta, but is no longer the authentication: user accounts are.
+
+### Product analytics (first-party, opt-out)
+
+`POST /api/v1/events` stores a small allow-listed set of named events (`fpl_api.analytics`:
+onboarding started/completed, import succeeded/failed, squad analysis viewed, recommendation
+opened, transfer comparison completed, recommendation followed/dismissed, return visit) with a
+few allow-listed scalar properties, keyed by the user — never a manager key, never free text or
+credentials. Users opt out in Settings (`analytics_opt_out`; the API then drops their events too).
+Retention is 90 days: the hourly retention job deletes older rows (`deleted_events` in its
+report). Operators read counts with `GET /api/v1/events/summary?days=28`. Account deletion removes
+the user's events.
+
+### Copilot Home analysis
+
+`GET /api/v1/copilot/home` serves a precomputed, versioned squad analysis (`squad_analyses`,
+keyed by manager, squad state, data snapshot, forecast and analysis version). The worker computes
+it (`squad_analysis` job, ~2–3 s) after every forecast precompute for every stored squad and on
+each squad save or import; the page never waits for it — while a newer one is pending, the last
+one is served marked `stale`/`pending`. It reads the serving forecast only (no solver, no
+simulation), so it cannot disagree with a recommendation from the same inputs.
 
 ## Public deployment (TLS)
 
@@ -171,6 +223,9 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
 * **Database**: migrations are validated upgrade → downgrade → upgrade in CI. To roll back the
   schema: `docker compose run --rm migrate alembic downgrade -1` with the previous image.
 * **Images**: pin the previous tag in `docker-compose.override.yml` and `up -d`.
+* **Forecast horizon or model configuration changes** invalidate the serving forecast's key:
+  until the next `forecast_precompute` (every 15 minutes, or `fpl-worker run-once
+  forecast_precompute`) the API answers `503 forecast not ready` for the current snapshot.
 * **Models**: forecasts are keyed by model-config hash; reverting `config/models/*.yaml`
   restores the previous model on the next forecast. Registered artifacts roll back with
   `ModelRegistry.rollback` (`fpl_storage.registry`), which re-promotes the previous version.
@@ -246,8 +301,10 @@ Recovery time measured here: ~1.5 minutes to a running stack, plus the serving f
 
 ## Privacy operations (§75)
 
-* Export: `GET /api/v1/managers/{key}/export` (API key required) returns every manager-linked
-  row. Erase: `DELETE /api/v1/managers/{key}` deletes them in one transaction.
+* Export: `GET /api/v1/managers/{key}/export` (owner or operator) returns every manager-linked
+  row. Erase: `DELETE /api/v1/managers/{key}` deletes them in one transaction (including the
+  precomputed analyses) and releases the key from its owner; `DELETE /api/v1/auth/me` erases an
+  account with every manager it owns, its sessions and its analytics events.
 * Both are recorded in `audit_log` with a SHA-256 of the key only.
 * No FPL credentials are accepted or stored anywhere; sync uses the public entry id.
 

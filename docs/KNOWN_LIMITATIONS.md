@@ -15,8 +15,8 @@ generated reports so they cannot drift from this page.
 * **Planning horizon.** Forecasts are trained and evaluated for five gameweeks (target horizons
   0–4); the API refuses longer horizons rather than serve an extrapolation (§3).
 * **Latency.** Recommendations take 42–90 s as worker jobs; the replacement picker 13–49 s (§5).
-* **Single-tenant.** One shared API key behind the web proxy; a public site sits behind one
-  login, with no per-user accounts (§6).
+* **Invite-only beta accounts.** Users own their manager data (checked server-side on every
+  request); there is no password reset, no lockout and no e-mail verification yet (§6).
 * **External source.** The live FPL API is unofficial and can change or go away (§2).
 * **Laptop sleep.** Long jobs on a sleeping development machine are interrupted and re-run (§7).
 * **Webhooks.** A DNS-rebinding window remains between validation and connection (§6).
@@ -150,13 +150,14 @@ generated reports so they cannot drift from this page.
 
 ## 6. Security and privacy model
 
-* **Single-tenant.** The manager key identifies stored data; it is not a credential. Anyone
-  holding an API key — including every user of the web UI, whose proxy holds the key — can read
-  or erase any manager's data by key. Suitable for a personal or trusted-group deployment, not a
-  public multi-user service (that needs real user authentication and per-user authorisation).
-  The public overlay therefore puts the whole site behind one login at the TLS proxy (HTTP Basic
-  over TLS): everyone given the login shares the same rights, and there is no lockout after
-  failed attempts (use a long random password).
+* **Accounts (M1.1a).** Invite-only registration, e-mail + password (scrypt), 30-day sessions
+  in an HttpOnly cookie, server-side ownership of every manager key (`docs/DEPLOYMENT.md` →
+  *Accounts and beta access*; cross-user access is tested for every manager-scoped route).
+  Not yet: password reset, e-mail verification, lockout after failed logins (they are rate-limited
+  and logged), two-factor authentication, per-user API tokens for an extension. Operator keys
+  retain full access for operations. The web proxy's key must be configured in
+  `FPL_WEB_API_KEYS_SHA256`, not the operator list — otherwise the proxy would act as an operator
+  for anonymous browsers (the API warns about nothing here; it is an operator responsibility).
 * TLS: `docker-compose.public.yml` (Caddy) terminates TLS with automatic certificates; verified
   locally with Caddy's internal CA. Publicly trusted issuance is only exercised on a real domain.
 * Webhook SSRF defence: HTTPS-only, no credentials, exact host allow-list, port 443, every

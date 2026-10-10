@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
+
+import { useUser } from "@/components/auth";
 import { Card, State } from "@/components/ui";
 import { ApiError, api, del, post } from "@/lib/api";
 import { type UiSettings, loadSettings, saveSettings } from "@/lib/settings";
@@ -17,6 +20,8 @@ const SERVER_DEFAULTS: ServerSettings = { notify_min_gain: 1, notify_injuries: t
 
 export default function Settings() {
   const [s, setS] = useState<UiSettings>(loadSettings);
+  const { user } = useUser();
+  const managers = user?.managers ?? [];
   const [srv, setSrv] = useState<ServerSettings>(SERVER_DEFAULTS);
   const [msg, setMsg] = useState<string | null>(null);
   // Server-backed fields (and Save, which posts all of them) stay disabled until the stored values
@@ -87,7 +92,15 @@ export default function Settings() {
       <Card testId="settings">
         <div className="kv">
           <label htmlFor="mk">Manager key</label>
-          <input id="mk" value={s.managerKey} onChange={(e) => setS({ ...s, managerKey: e.target.value })} />
+          <span>
+            <select id="mk" value={s.managerKey} onChange={(e) => setS({ ...s, managerKey: e.target.value })} data-testid="manager-select">
+              {managers.map((m) => (
+                <option key={m.manager_key} value={m.manager_key}>{m.label ? `${m.label} (${m.manager_key})` : m.manager_key}</option>
+              ))}
+              {!managers.some((m) => m.manager_key === s.managerKey) ? <option value={s.managerKey}>{s.managerKey || "(none)"}</option> : null}
+            </select>{" "}
+            <Link href="/onboarding" className="small">Import another FPL team</Link>
+          </span>
           <label htmlFor="pf">Objective profile</label>
           <select id="pf" value={s.profile} onChange={(e) => setS({ ...s, profile: e.target.value as UiSettings["profile"] })}>
             <option value="default">default — maximise expected points</option>

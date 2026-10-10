@@ -2,6 +2,29 @@
 
 User-visible behaviour changes (§78). Milestones follow `docs/BUILD_STATUS.md`.
 
+## M1.1a — Copilot Home and beta foundation (2026-10-10)
+
+### Added
+- **Accounts (invite-only beta)**: register with an invitation code, sign in / out, sessions in an
+  HttpOnly cookie; every manager key belongs to one account and is checked server-side on every
+  request; account deletion erases everything the account owns.
+- **FPL-ID onboarding**: validate an FPL ID, preview whose team it is, confirm, import the real
+  squad (bank, free transfers, chips) from the public FPL API; refresh any time; clear errors for
+  unknown IDs and outages. Manual entry remains as a fallback.
+- **Player picker**: search by name with club, position, affordability and status, keyboard
+  selection, on the Squad page.
+- **Copilot Home**: situation, squad health signals with sources, the recommended action, captain
+  profiles, the squad with forecasts, status and prices, and an FPL-difficulty fixture outlook —
+  served from an analysis the worker precomputes (warm p95 17 ms on the development machine).
+- **First-party analytics** (opt-out in Settings, 90-day retention) and an operator summary.
+
+### Changed
+- Planning horizons beyond the validated 5 gameweeks are refused instead of silently shortened;
+  a recommendation evaluates exactly the squad state it was asked for and says when the squad
+  changed since.
+- The web proxy's API key is a separate class (`FPL_WEB_API_KEYS_SHA256`) that cannot act on
+  manager data without a signed-in user.
+
 ## V1 release work (2026-10-07)
 
 ### Added

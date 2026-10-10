@@ -116,6 +116,35 @@ class RecommendationIn(_Req):
     )
 
 
+class RegisterIn(_Req):
+    invite_code: str = Field(min_length=8, max_length=64)
+    email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=10, max_length=256)
+
+
+class LoginIn(_Req):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class InviteIn(_Req):
+    label: str = Field("beta", min_length=1, max_length=64)
+    days: int | None = Field(14, ge=1, le=365, description="validity; null = no expiry")
+
+
+class ManagerCreateIn(_Req):
+    label: str | None = Field(None, max_length=64)
+
+
+class AccountPreferencesIn(_Req):
+    analytics_opt_out: bool
+
+
+class EventIn(_Req):
+    event: str = Field(min_length=1, max_length=64, pattern=r"^[a-z_]+$")
+    props: dict[str, str | int | float | bool] = Field(default_factory=dict, max_length=12)
+
+
 class FeedbackIn(_Req):
     followed: Literal["followed", "ignored", "partial"]
     note: str | None = Field(None, max_length=2000)

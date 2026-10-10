@@ -29,7 +29,7 @@ Legend: ☑ done **and** verified · ◐ partial (see notes) · ✗ not done (re
 | M14 | Final verification, audit, limitations, portfolio docs | ☑ | A reviewer can reproduce core claims | `docs/FINAL_AUDIT.md`, `docs/KNOWN_LIMITATIONS.md`, README, this file |
 
 The specification audit (`docs/FINAL_AUDIT.md`) is stricter than this table: it counts every
-requirement and marks partial work as PARTIAL (99 requirements: 81 COMPLETE, 14 PARTIAL, 3 NOT IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE).
+requirement and marks partial work as PARTIAL (99 requirements: 81 COMPLETE, 15 PARTIAL, 2 NOT IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE).
 V1 release work after M14 is planned and logged in `docs/V1_RELEASE_PLAN.md`; its verification
 records are §2a and §2b (final). Public deployment waits on operator inputs (host, domain,
 secrets); everything else for V1 is done.
@@ -196,6 +196,30 @@ GW1–GW5 finalized (3,216 result rows, one capture each), GW6 upcoming with the
     report values. The limitation, the audit rows and the drift runbook now say so.
 43. The CI workflow header promised a "backtest smoke" job; the bounded walk-forward run lives in
     `tests/integration/test_backtest.py` inside the test job. The header now says exactly that.
+
+## 2c. M1.1a — Copilot Home and beta foundation (2026-10-10)
+
+Scope (`docs/PRODUCT_GAP_ANALYSIS.md` §6, first milestone): invite-only identity with manager
+ownership, FPL-ID onboarding, a real player picker, a precomputed Copilot Home, first-party
+analytics — with the engine untouched (golden parity).
+
+| Area | Result |
+|---|---|
+| Identity | `users`, `invites`, `sessions`, `user_managers` (migration 0002); scrypt passwords; hashed 30-day sessions; operator / web / user / anonymous principals; ownership enforced by a router dependency on every request naming a manager key and inside record routes; `fpl-api create-invite`; account erasure cascades |
+| Onboarding | `GET /fpl/entry/{id}` preview (404 for an unknown ID, 503 outage, 502 contract), `/onboarding` 3-step page, `POST /squad/sync` wired from the web with the same error mapping; "Refresh from FPL" on Home and Squad; manual entry kept as a diagnostic fallback |
+| Player search | `components/player-picker.tsx` over the real pool (`/players`, limit raised to 1000): name, club, position, affordability, status badges, keyboard selection, empty and error states; used on the Squad page |
+| Copilot Home | `/copilot/home` serves `squad_analyses` rows computed by the `squad_analysis` job (per manager × state × snapshot × forecast × version): situation, health signals (availability, minutes, fixtures incl. blanks/doubles/tough runs, bench cover, price risk, affordability — each with evidence and source), captain profiles (shared `lineup_and_captaincy` with `POST /lineup`), squad table, FPL-difficulty fixture outlook; pending/stale states; scheduler fans the job out after every forecast precompute |
+| Analytics | `product_events` (allow-listed names and properties, user-keyed, opt-out server-side, 90-day retention in the retention job, operator summary); web `track()` fire-and-forget |
+| Golden parity | `tests/integration/test_golden_parity.py` pins the recommendation package for a fixed squad on the fixture snapshot (`tests/integration/golden/recommendation_package.json`); regenerate only with `FPL_UPDATE_GOLDEN=1` after independent validation |
+| Latency (development machine, Docker) | `infra/scripts/home_latency.py`: first `GET /copilot/home` after a squad change 21 ms (answers `pending`), analysis ready after 2.6 s in the worker, warm p50 12 ms / p95 17 ms over 20 calls; `GET /squad` p95 11 ms; previous per-page `POST /lineup` 33 ms |
+| Tests | fast tier 414 passed (new: `test_identity.py` 6, `test_onboarding_api.py` 3, `test_copilot_home.py` 4, `test_state_selection.py` 5, `test_horizon_contract.py` 7, golden parity 1); migrations 3/3; dev browser flows 11 passed (signed-in setup, onboarding, picker, Home); production browser suite (21 flows, signed-in user, new images): 15 of the first 16 flows passed in the last full run; the real FPL-ID import flow could not complete because the FPL API answered HTTP 503 for entry endpoints during the post-deadline update window (the UI surfaced the designed outage message) — to be re-run when the endpoint recovers, with the remaining five flows |
+
+Decisions and defects: 44. The `chance_of_playing` evidence item crashed on a nullable NA (not NaN) —
+exposed by the golden test's cheapest-players squad; guarded, no output change for non-NA cases.
+45. The alerts idempotence browser test assumed no alert would ever fire; within a deadline window
+the same-minute de-duplicated job shows the same result twice — the assertion now accepts either
+an identical result or zero new alerts. 46. Changing the forecast horizon on a running stack leaves
+the API answering `503 forecast not ready` until the next precompute (documented under upgrades).
 
 ## 3. Environment
 

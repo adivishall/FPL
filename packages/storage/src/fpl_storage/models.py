@@ -830,3 +830,85 @@ class ArtifactBlob(Base):
     content_type: Mapped[str] = mapped_column(String(64))
     data: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = _created()
+
+
+# =============================================================== accounts (invite-only beta)
+
+
+class UserRow(Base):
+    """A beta user. Passwords are stored as scrypt hashes (``fpl_api.accounts``); e-mail is the
+    login name and the only personal datum kept about the person."""
+
+    __tablename__ = "users"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)  # usr_<hex>
+    email: Mapped[str] = mapped_column(String(254), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(256))
+    created_at: Mapped[datetime] = _created()
+    last_login_at: Mapped[datetime | None] = _ts(nullable=True)
+    disabled_at: Mapped[datetime | None] = _ts(nullable=True)
+    analytics_opt_out: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class InviteRow(Base):
+    """An invitation code (stored hashed) that admits one user."""
+
+    __tablename__ = "invites"
+    code_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    label: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = _created()
+    expires_at: Mapped[datetime | None] = _ts(nullable=True)
+    redeemed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    redeemed_at: Mapped[datetime | None] = _ts(nullable=True)
+
+
+class SessionRow(Base):
+    """A login session; the browser holds the random token, the database only its hash."""
+
+    __tablename__ = "sessions"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = _created()
+    expires_at: Mapped[datetime] = _ts()
+    last_seen_at: Mapped[datetime | None] = _ts(nullable=True)
+    revoked_at: Mapped[datetime | None] = _ts(nullable=True)
+
+
+class UserManagerRow(Base):
+    """Ownership: every manager key belongs to exactly one user (§75 isolation)."""
+
+    __tablename__ = "user_managers"
+    manager_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    label: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = _created()
+
+
+class SquadAnalysisRow(Base):
+    """A precomputed squad analysis (Copilot Home read model), versioned by everything it depends
+    on: the squad state, the data snapshot, the forecast and the analysis code."""
+
+    __tablename__ = "squad_analyses"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)  # sqa_<hash>
+    manager_key: Mapped[str] = mapped_column(String(64), index=True)
+    state_id: Mapped[str] = mapped_column(ForeignKey("manager_state.id"))
+    data_snapshot_id: Mapped[str] = mapped_column(String(80))
+    forecast_key: Mapped[str] = mapped_column(String(80))
+    version: Mapped[str] = mapped_column(String(32))
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    computed_at: Mapped[datetime] = _created()
+    __table_args__ = (
+        UniqueConstraint("manager_key", "state_id", "data_snapshot_id", "forecast_key", "version"),
+    )
+
+
+class ProductEventRow(Base):
+    """First-party product analytics: named events with a small allow-listed property set, never
+    credentials or manager keys (``fpl_api.analytics``). Pruned by the retention job."""
+
+    __tablename__ = "product_events"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)
+    event: Mapped[str] = mapped_column(String(64), index=True)
+    props_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = _created()
+    __table_args__ = (Index("ix_product_events_created_at", "created_at"),)

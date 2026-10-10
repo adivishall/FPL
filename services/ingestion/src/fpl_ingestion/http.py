@@ -33,6 +33,15 @@ class SourceUnavailableError(Exception):
     """The source could not be reached after all retries (triggers degraded mode, §82)."""
 
 
+class HttpStatusError(SourceUnavailableError):
+    """The source answered with a non-200 status that is not retried (404 for an unknown entry,
+    403 …): still unavailable for the caller, but distinguishable from an outage."""
+
+    def __init__(self, url: str, status: int) -> None:
+        super().__init__(f"{url} returned HTTP {status}")
+        self.status = status
+
+
 class DisallowedHostError(ValueError):
     pass
 
@@ -122,7 +131,7 @@ class HttpFetcher:
             msg = f"{url} unavailable after {attempts['n']} attempts"
             raise SourceUnavailableError(msg) from exc
         if resp.status_code != 200:
-            raise SourceUnavailableError(f"{url} returned HTTP {resp.status_code}")
+            raise HttpStatusError(url, resp.status_code)
         return FetchResult(
             url=url,
             status=resp.status_code,

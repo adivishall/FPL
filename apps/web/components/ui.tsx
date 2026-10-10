@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
+import { signOut, useUser } from "@/components/auth";
 import { ApiError, api, type Freshness } from "@/lib/api";
 import { pct, when } from "@/lib/format";
 
@@ -23,14 +24,27 @@ const NAV: [string, string][] = [
 
 export function Nav() {
   const path = usePathname();
+  const { user } = useUser();
   return (
     <nav className="nav" aria-label="Main">
       <span className="brand">FPL Decision Engine</span>
-      {NAV.map(([href, label]) => (
-        <Link key={href} href={href} className={path === href ? "active" : ""}>
-          {label}
-        </Link>
-      ))}
+      {user
+        ? NAV.map(([href, label]) => (
+            <Link key={href} href={href} className={path === href ? "active" : ""}>
+              {label}
+            </Link>
+          ))
+        : null}
+      {user ? (
+        <span className="small account" data-testid="account">
+          {user.email} ·{" "}
+          <button type="button" className="secondary" onClick={() => void signOut()} data-testid="sign-out">
+            Sign out
+          </button>
+        </span>
+      ) : (
+        <Link href="/login" className={path === "/login" ? "active" : ""}>Sign in</Link>
+      )}
     </nav>
   );
 }

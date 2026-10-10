@@ -82,3 +82,56 @@ test("settings reject an unsafe webhook URL (SSRF guard)", async ({ page }) => {
   await page.getByTestId("save-settings").click();
   await expect(page.getByTestId("settings-msg")).toContainText("allow-list");
 });
+
+test("onboarding validates the FPL ID and surfaces an unavailable live source with the manual fallback", async ({ page }) => {
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("onboarding-id")).toBeVisible();
+  await page.getByLabel("FPL ID").fill("abc");
+  await page.getByTestId("lookup-entry").click();
+  await expect(page.getByTestId("onboarding-error")).toContainText("not a valid FPL ID");
+  await page.getByLabel("FPL ID").fill("1234567");
+  await page.getByTestId("lookup-entry").click();
+  // this stack has no route to the FPL API: the user is told, and pointed at manual entry
+  await expect(page.getByTestId("onboarding-error")).toContainText(/cannot be reached|disabled/);
+  await expect(page.getByRole("link", { name: "Enter it manually" })).toBeVisible();
+});
+
+test("player picker searches the real pool, filters, and picks with the keyboard", async ({ page }) => {
+  await page.goto("/squad");
+  const picker = page.getByTestId("player-picker");
+  const search = picker.getByTestId("picker-search");
+  await expect(picker.locator("li").first()).toBeVisible(); // the pool loaded
+  const firstName = (await picker.locator("li strong").first().textContent())!.trim();
+  await search.fill(firstName.slice(0, 4));
+  await expect(picker.locator("li").first()).toContainText(firstName.slice(0, 4));
+  await search.fill("");
+  await picker.getByLabel("position").selectOption("GK");
+  await expect(picker.locator("li").first()).toContainText("GK");
+  await picker.getByLabel("position").selectOption("");
+  await search.fill("zzzzqqqq");
+  await expect(picker.getByTestId("picker-empty")).toBeVisible();
+  await search.fill("");
+  await search.press("ArrowDown");
+  await search.press("Enter");
+  await expect(page.getByTestId("picked").locator("li")).toHaveCount(1);
+  await expect(page.getByTestId("save-picked")).toBeDisabled(); // 15 needed
+  await page.getByRole("button", { name: /^remove / }).click();
+  await expect(page.getByTestId("picked")).toHaveCount(0);
+});
+
+test("copilot home shows the situation, squad health, captain profiles, the squad and fixtures from the precomputed analysis", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("situation")).toContainText("free transfer");
+  await expect(page.getByTestId("analysis-status")).toContainText("computed");
+  await expect(page.getByTestId("health")).toContainText("affordability"); // always present, names its source
+  await expect(page.getByTestId("health")).toContainText("source:");
+  await expect(page.getByTestId("captain-profiles").locator("tbody tr")).toHaveCount(3);
+  await expect(page.getByTestId("home-squad").locator("tbody tr")).toHaveCount(15);
+  await expect(page.getByTestId("home-squad")).toContainText("Sources: forecast");
+  await expect(page.getByTestId("fixture-outlook").locator("tbody tr").first()).toBeVisible();
+  // the captain shown on Home is the one the lineup endpoint serves
+  const lu = await (await page.request.post("/backend/lineup", { data: { manager_key: JSON.parse(await page.evaluate(() => window.localStorage.getItem("fpl.settings.v1") ?? "{}")).managerKey } })).json();
+  const names = (await (await page.request.get(`/backend/squad?manager_key=${JSON.parse(await page.evaluate(() => window.localStorage.getItem("fpl.settings.v1") ?? "{}")).managerKey}`)).json()).names as Record<string, string>;
+  await expect(page.getByTestId("captain-profiles").locator("tbody tr").first()).toContainText(names[String(lu.captaincy.expected)]!);
+});
+

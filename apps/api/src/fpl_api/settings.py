@@ -87,7 +87,15 @@ class Settings(BaseSettings):
     )
     # security (§35, §75)
     require_api_key: bool = False
-    api_keys_sha256: list[str] = Field(default_factory=list)
+    api_keys_sha256: list[str] = Field(
+        default_factory=list, description="operator keys (operations, smoke tests): full access"
+    )
+    web_api_keys_sha256: list[str] = Field(
+        default_factory=list,
+        description="the web proxy's keys: a request with one of these and no user session may "
+        "only read public reference data; manager data needs a signed-in user (fpl_api.accounts)",
+    )
+    session_ttl_days: int = Field(30, ge=1, le=365, description="login session lifetime")
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     rate_limit_per_minute: int = 120
     expensive_rate_limit_per_minute: int = 12

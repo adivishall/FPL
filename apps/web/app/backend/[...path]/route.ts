@@ -6,6 +6,7 @@ import { type NextRequest } from "next/server";
 
 const ORIGIN = process.env.FPL_API_INTERNAL_URL ?? "http://localhost:8000";
 const SAFE = /^[A-Za-z0-9_.\-]+$/;
+export const SESSION_COOKIE = "fpl_session";
 const TIMEOUT_MS = 120_000; // above the API's slowest synchronous route; long work runs as jobs
 
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }): Promise<Response> {
@@ -17,6 +18,10 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   url.search = req.nextUrl.search;
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (process.env.FPL_API_KEY) headers["x-api-key"] = process.env.FPL_API_KEY;
+  // The login session lives in an HttpOnly cookie on this origin; the API sees it as a bearer
+  // token and enforces ownership of every manager key server-side (never trusted from JS).
+  const session = req.cookies.get(SESSION_COOKIE)?.value;
+  if (session) headers.authorization = `Bearer ${session}`;
   const rid = req.headers.get("x-request-id");
   if (rid) headers["x-request-id"] = rid;
   let res: Response;

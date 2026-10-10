@@ -169,6 +169,11 @@ def delete_manager(engine: Engine, manager_key: str, actor: str | None = None) -
         run(
             "manager_squad", delete(m.ManagerSquadRow).where(m.ManagerSquadRow.state_id.in_(sid)), s
         )
+        run(
+            "squad_analyses",
+            delete(m.SquadAnalysisRow).where(m.SquadAnalysisRow.manager_key == manager_key),
+            s,
+        )
         run("manager_state", delete(m.ManagerStateRow).where(m.ManagerStateRow.id.in_(sid)), s)
         run(
             "manager_transfers",

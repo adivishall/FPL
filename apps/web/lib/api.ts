@@ -218,9 +218,118 @@ export interface Recommendation {
   freshness: Freshness;
 }
 
+export interface EntryPreview {
+  entry_id: number;
+  team_name: string;
+  started_event: number;
+  current_event: number | null;
+  overall_points: number | null;
+  overall_rank: number | null;
+  source: string;
+}
+
+export interface SyncResult {
+  state_id: string;
+  state: SquadState["state"];
+  warnings: string[];
+  freshness: Freshness;
+}
+
+export interface HomeFixture {
+  gw: number;
+  opponent: string;
+  opponent_code: number;
+  home: boolean;
+  difficulty: number | null;
+}
+
+export interface HomePlayer {
+  player_code: number;
+  name: string;
+  team: string;
+  team_code: number;
+  position: string;
+  purchase_price: number;
+  price: number;
+  xp_next: number;
+  p10_next: number;
+  p90_next: number;
+  p_start_next: number;
+  xp_horizon: number;
+  per_gw: { gw: number; xp: number; p10: number; p90: number; p_start: number }[];
+  status: string;
+  chance_of_playing: number | null;
+  news: string;
+  starter: boolean;
+  bench_slot: number | null;
+  p_rise: number | null;
+  p_fall: number | null;
+  fixtures: HomeFixture[];
+  blank_next: boolean;
+  double_next: boolean;
+}
+
+export interface HealthSignal {
+  kind: string;
+  severity: "bad" | "warn" | "info";
+  players: number[];
+  message: string;
+  evidence: Record<string, unknown>;
+  source: string;
+}
+
+export interface SquadAnalysis {
+  version: string;
+  computed_at: string;
+  manager_key: string;
+  state_id: string;
+  snapshot_id: string;
+  forecast_key: string;
+  season: string;
+  gameweek: number;
+  horizon: number;
+  state: {
+    bank: number;
+    free_transfers: number;
+    manager_id: number | null;
+    source: string;
+    chips: { chip_id: string; status: string }[];
+    squad_value: number;
+  };
+  players: HomePlayer[];
+  lineup: { starters: number[]; bench: number[]; captain: number; vice_captain: number };
+  lineup_expected_points: number;
+  captaincy: {
+    expected: number;
+    safe: number;
+    high_variance: number;
+    options: { player_code: number; mean_total: number; p_captain_haul: number; p_beats_expected_choice: number }[];
+  };
+  totals: { xi_xp_next: number; bench_xp_next: number };
+  health: HealthSignal[];
+  sources: Record<string, string>;
+}
+
+export interface HomeData {
+  season: string;
+  gameweek: number;
+  deadline: string;
+  horizon_max: number;
+  freshness: Freshness;
+  state_id: string | null;
+  snapshot_id?: string;
+  analysis: SquadAnalysis | null;
+  pending: boolean;
+  stale: boolean;
+  job_id?: string | null;
+  recommendation: { id: string; decision: { action: string }; state_id?: string | null; stale_state?: boolean } | null;
+}
+
 export interface SquadState {
   state_id: string;
   state: {
+    manager_id?: number | null; // the FPL entry this squad was imported from (null: manual)
+    source?: string;
     season: string;
     gameweek: number;
     bank: number;

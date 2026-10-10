@@ -7,6 +7,12 @@ STATUS*. The product gap analysis, competitor comparison and the roadmap that re
 these items around user value (and adds identity, beta access and analytics as launch-critical)
 is `docs/PRODUCT_GAP_ANALYSIS.md`.
 
+**Done since the gap analysis:** M1.1a (Copilot Home and beta foundation — identity, onboarding,
+player search, precomputed Home, analytics; `docs/BUILD_STATUS.md` §2c). **Next:** the whole-squad
+Transfer Workbench (HOLD vs transfer ladder, multiple combinations, affordability and hits), then
+decision invalidation, the journal with prospective evaluation, and later the assistant,
+mini-league intelligence and the extension (`docs/PRODUCT_GAP_ANALYSIS.md` §6).
+
 ## V1.1
 
 | Item | Why | Evidence |

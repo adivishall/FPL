@@ -187,7 +187,9 @@ def move_evidence(
         st = features[features["target_gw"] == gameweeks[0]].drop_duplicates("player_code")
         st = st.set_index("player_code")
         for c in outs:
-            if c in st.index and not np.isnan(float(st.loc[c].get("chance_of_playing", np.nan))):
+            # chance_of_playing may be a nullable NA (not NaN) for players without news
+            chance = st.loc[c].get("chance_of_playing", np.nan) if c in st.index else np.nan
+            if c in st.index and not pd.isna(chance):
                 items.append(
                     _ev(
                         "chance_of_playing",

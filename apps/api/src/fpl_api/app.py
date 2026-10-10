@@ -12,13 +12,13 @@ import json
 import time
 import uuid
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import structlog
-from fastapi import APIRouter, FastAPI, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi import Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -26,20 +26,31 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import ValidationError
 from sqlalchemy import func, select, text
 
+from fpl_api import analytics
 from fpl_api import schemas as s
+from fpl_api.accounts import (
+    OPERATOR,
+    AuthError,
+    Principal,
+    UserStore,
+    manager_key_in_request,
+    require_operator,
+    require_owner,
+    require_user,
+)
 from fpl_api.container import (
     AppServices,
     UnsupportedHorizon,
     build_recommendation,
     optimization_problem,
 )
+from fpl_api.copilot import lineup_and_captaincy
 from fpl_api.jobs import JobBackend
 from fpl_api.lineage import trace
 from fpl_api.privacy import audit, delete_manager, export_manager
 from fpl_api.security import Guard, hash_key, loggable_path
 from fpl_api.services import ForecastUnavailable, sources_config
 from fpl_api.settings import Settings
-from fpl_decision.captaincy import analyse_captaincy
 from fpl_decision.chips import plan_chips
 from fpl_decision.paired import paired_gain, plan_samples
 from fpl_decision.replacement import find_replacements
@@ -50,12 +61,11 @@ from fpl_domain.squad import SquadPick, squad_violations
 from fpl_domain.state import ChipStatus, ManagerState, initial_chips
 from fpl_forecasting.model_config import price_spec
 from fpl_forecasting.price_change import official_signal
-from fpl_ingestion.http import SourceUnavailableError
+from fpl_ingestion.http import HttpStatusError, SourceUnavailableError
 from fpl_ingestion.manager_sync import reconstruct_state
 from fpl_ingestion.sources.fpl_api import FplApiClient
 from fpl_notifications.rules import load_notification_config
 from fpl_notifications.store import UnsafeUrl, validate_webhook_url
-from fpl_optimizer.lineup import best_lineup
 from fpl_optimizer.milp import OptimizationError, build_and_solve
 from fpl_optimizer.problem import OptimizationProblem, Preferences, load_optimizer_config
 from fpl_storage import models as m
@@ -87,7 +97,12 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     settings = settings or Settings()
     svc = services or AppServices.build(settings)
     jobs = JobBackend(svc)
-    guard = Guard(settings)
+    users = (
+        UserStore(svc.engine, timedelta(days=settings.session_ttl_days))
+        if svc.engine is not None
+        else None
+    )
+    guard = Guard(settings, users)
     metrics = svc.metrics
 
     app = FastAPI(
@@ -96,6 +111,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         description="Decision-first Fantasy Premier League engine (see docs/API.md).",
     )
     app.state.services, app.state.jobs, app.state.settings = svc, jobs, settings
+    app.state.users = users
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -112,11 +128,13 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             if request.url.path.startswith(API):
                 guard.check_rate(request)  # before auth: throttles key guessing too
             guard.check_key(request)
+            request.state.principal = guard.principal(request)
             response: Response = await call_next(request)
         except HTTPException as exc:
-            response = JSONResponse(
-                {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers
-            )
+            body: dict[str, Any] = {"detail": exc.detail}
+            if isinstance(exc, AuthError):
+                body["code"] = exc.code
+            response = JSONResponse(body, status_code=exc.status_code, headers=exc.headers)
             kind = SECURITY_STATUS.get(exc.status_code)
             if kind:  # §75: log security-relevant events without secrets (no key material)
                 metrics.security_events.labels(kind).inc()
@@ -157,6 +175,13 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             headers={"Retry-After": "60"},
         )
 
+    @app.exception_handler(AuthError)
+    async def _auth(_: Request, exc: AuthError) -> JSONResponse:
+        kind = SECURITY_STATUS.get(exc.status_code)
+        if kind:
+            metrics.security_events.labels(kind).inc()
+        return JSONResponse({"detail": exc.detail, "code": exc.code}, status_code=exc.status_code)
+
     @app.exception_handler(UnsupportedHorizon)
     async def _horizon(_: Request, exc: UnsupportedHorizon) -> JSONResponse:
         return JSONResponse({"detail": str(exc), "code": "unsupported_horizon"}, status_code=422)
@@ -173,7 +198,26 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     async def _missing(_: Request, exc: LookupError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=404)
 
-    r = APIRouter(prefix=API)
+    def principal_of(request: Request) -> Principal:
+        return getattr(request.state, "principal", OPERATOR)
+
+    async def authorize(request: Request) -> None:
+        """Ownership of manager data is enforced here for every route that names a manager
+        key (path, query or body); routes addressed by record id check inside."""
+        key = await manager_key_in_request(request)
+        if key is not None:
+            require_owner(principal_of(request), users, key)
+
+    def owner_of_rec(request: Request, rec_id: str) -> dict[str, Any]:
+        need_db()
+        assert svc.recs is not None
+        rec = svc.recs.get(rec_id)
+        if rec is None:
+            raise HTTPException(404, f"recommendation {rec_id} not found")
+        require_owner(principal_of(request), users, str(rec.get("manager_key") or ""))
+        return rec
+
+    r = APIRouter(prefix=API, dependencies=[Depends(authorize)])
 
     def fresh() -> dict[str, Any]:
         return svc.context().block(svc.data.snapshot_id)
@@ -223,6 +267,78 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         if got is None:
             raise HTTPException(404, f"no squad stored for '{manager_key}'; POST {API}/squad")
         return got
+
+    def warm_analysis(manager_key: str, state_id: str) -> None:
+        """Queue the Copilot Home analysis for a changed squad so the page is instant. In
+        inline mode (no queue) the Home route computes on first read instead."""
+        if jobs.mode == "rq":
+            jobs.submit("squad_analysis", {"manager_key": manager_key, "state_id": state_id})
+
+    # ------------------------------------------------------------------ copilot home (M1.1a)
+    @r.get("/copilot/home")
+    def copilot_home(
+        manager_key: str = Query(..., max_length=64, pattern=KEY_PATTERN),
+    ) -> dict[str, Any]:
+        """Everything Home shows, from the precomputed analysis of the manager's current squad
+        on the current snapshot. When that analysis does not exist yet it is queued and the
+        most recent one is served, clearly marked stale and pending; nothing heavy runs here."""
+        need_db()
+        assert svc.states is not None and svc.analyses is not None and svc.recs is not None
+        ctx = svc.context()
+        latest = svc.states.latest(manager_key)
+        base: dict[str, Any] = {
+            "season": ctx.season,
+            "gameweek": ctx.gameweek,
+            "deadline": ctx.deadline.isoformat(),
+            "horizon_max": settings.horizon_max,
+            "freshness": fresh(),
+        }
+        if latest is None:
+            return {
+                **base,
+                "state_id": None,
+                "analysis": None,
+                "pending": False,
+                "stale": False,
+                "recommendation": None,
+            }
+        sid, _ = latest
+        h = svc.horizon(None)
+        fc = svc.forecast_for(ctx, h)  # precomputed in production; 503 (queued) when not yet
+        fkey = str(fc.provenance.get("forecast_key", fc.run_id))
+        snap = svc.data.snapshot_id
+        analysis = svc.analyses.get(manager_key, sid, snap, fkey)
+        pending = False
+        job_id = None
+        if analysis is None:
+            job_id = jobs.submit("squad_analysis", {"manager_key": manager_key, "state_id": sid})
+            analysis = svc.analyses.get(manager_key, sid, snap, fkey)  # inline mode: done now
+            if analysis is None:
+                pending = True
+                analysis = svc.analyses.latest(manager_key)
+        stale = analysis is not None and (
+            analysis["state_id"] != sid or analysis["snapshot_id"] != snap
+        )
+        rec = svc.recs.current(manager_key, ctx.gameweek)
+        summary = None
+        if rec is not None:
+            summary = {
+                "id": rec["id"],
+                "created_at": rec.get("created_at"),
+                "decision": rec.get("decision"),
+                "state_id": rec.get("state_id"),
+                **state_staleness(rec),
+            }
+        return {
+            **base,
+            "state_id": sid,
+            "snapshot_id": snap,
+            "analysis": analysis,
+            "pending": pending,
+            "stale": stale,
+            "job_id": job_id,
+            "recommendation": summary,
+        }
 
     # ------------------------------------------------------------------ system
     @r.get("/health")
@@ -291,7 +407,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         q: str | None = Query(None, max_length=40),
         sort: str = Query("xp", pattern="^(xp|price|start|xp_next)$"),
         horizon: int | None = Query(None, ge=1, le=10),
-        limit: int = Query(50, ge=1, le=300),
+        limit: int = Query(50, ge=1, le=1000),
     ) -> dict[str, Any]:
         ctx = svc.context()
         h = svc.horizon(horizon)
@@ -475,7 +591,45 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             provenance="manual_entry",
         )
         sid = svc.states.save(body.manager_key, state, "manual")
+        warm_analysis(body.manager_key, sid)
         return {"state_id": sid, "state": state.model_dump(mode="json"), "freshness": fresh()}
+
+    @r.get("/fpl/entry/{entry_id}")
+    def fpl_entry(
+        request: Request, entry_id: int = PathParam(..., ge=1, le=20_000_000)
+    ) -> dict[str, Any]:
+        """Preview a public FPL entry (team name, points, rank) so a user can confirm it is theirs
+        before importing. Public data only; nothing is stored."""
+        if principal_of(request).kind not in ("user", "operator"):
+            raise AuthError(401, "sign in to import an FPL team", "session_required")
+        if not settings.live_sync_enabled:
+            raise HTTPException(
+                503, "live sync disabled by configuration; enter the squad manually"
+            )
+        try:
+            _, entry = FplApiClient.from_config(sources_config()).entry(entry_id)
+        except HttpStatusError as exc:
+            if exc.status == 404:
+                raise HTTPException(404, f"no FPL manager with ID {entry_id}") from exc
+            raise HTTPException(
+                502, f"the FPL API refused the request (HTTP {exc.status})"
+            ) from exc
+        except SourceUnavailableError as exc:
+            raise HTTPException(503, "live FPL API unavailable from this deployment") from exc
+        except ValidationError as exc:
+            log.warning("fpl_api_contract_violation", errors=exc.error_count())
+            raise HTTPException(
+                502, "the FPL API answered, but its payload failed validation"
+            ) from exc
+        return {
+            "entry_id": entry.id,
+            "team_name": entry.name,
+            "started_event": entry.started_event,
+            "current_event": entry.current_event,
+            "overall_points": entry.summary_overall_points,
+            "overall_rank": entry.summary_overall_rank,
+            "source": "fantasy.premierleague.com (public entry endpoint)",
+        }
 
     @r.post("/squad/sync")
     def sync_squad(body: s.SyncIn) -> JSONResponse:
@@ -501,6 +655,12 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                 ctx.gameweek,
                 datetime.now(UTC),
             )
+        except HttpStatusError as exc:
+            if exc.status == 404:
+                raise HTTPException(404, f"no FPL manager with ID {body.manager_id}") from exc
+            raise HTTPException(
+                502, f"the FPL API refused the request (HTTP {exc.status})"
+            ) from exc
         except SourceUnavailableError as exc:  # network policy, upstream outage, HTTP error
             return JSONResponse(
                 {
@@ -523,6 +683,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
                 status_code=502,
             )
         sid = svc.states.save(body.manager_key, report.state, "fpl_api")
+        warm_analysis(body.manager_key, sid)
         return JSONResponse(
             {
                 "state_id": sid,
@@ -643,41 +804,8 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         _, st = load_state(body.manager_key)
         ctx = svc.context()
         fc = svc.forecast_for(ctx, 1)
-        table = svc.table(ctx, fc, 1, st)
-        idx = table.index()
-        ev = {c: float(table.ev[idx[c], 0]) if c in idx else 0.0 for c in st.codes}
         chip = ChipType(body.chip) if body.chip else None
-        rs = svc.data.ruleset(ctx.season)
-        pos = table.positions_map()
-        ch = best_lineup(list(st.codes), pos, ev, ev, load_optimizer_config().objective, rs, chip)
-        sim = fc.simulation
-        have = set(sim.player_codes.tolist())
-        gi = sim.gw_index(ctx.gameweek)
-        pts = {
-            c: sim.points[:, sim.index_of(c), gi].astype(np.int64)
-            if c in have
-            else np.zeros(sim.n_sims, np.int64)
-            for c in st.codes
-        }
-        mins = {
-            c: sim.minutes[:, sim.index_of(c), gi].astype(np.int64)
-            if c in have
-            else np.zeros(sim.n_sims, np.int64)
-            for c in st.codes
-        }
-        cap = analyse_captaincy(ch.lineup, pos, pts, mins, rs, chip=chip)
-        return {
-            "lineup": ch.lineup.model_dump(),
-            "expected_points": ch.expected_points,
-            "captaincy": {
-                "expected": cap.expected,
-                "safe": cap.safe,
-                "high_variance": cap.high_variance,
-                "options": [o.__dict__ for o in cap.options],
-                "beats_matrix": cap.beats_matrix.round(3).tolist(),
-            },
-            "freshness": fresh(),
-        }
+        return {**lineup_and_captaincy(svc, ctx, fc, st, chip), "freshness": fresh()}
 
     @r.post("/replacement")
     @r.post("/replacements")
@@ -855,12 +983,8 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         return {**rec, **state_staleness(rec), "names": rec_names(rec), "freshness": fresh()}
 
     @r.get("/recommendations/{rec_id}")
-    def get_rec(rec_id: str) -> dict[str, Any]:
-        need_db()
-        assert svc.recs is not None
-        rec = svc.recs.get(rec_id)
-        if rec is None:
-            raise HTTPException(404, f"recommendation {rec_id} not found")
+    def get_rec(request: Request, rec_id: str) -> dict[str, Any]:
+        rec = owner_of_rec(request, rec_id)
         return {**rec, **state_staleness(rec), "names": rec_names(rec), "freshness": fresh()}
 
     def state_staleness(rec: dict[str, Any]) -> dict[str, Any]:
@@ -893,8 +1017,8 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         return {"journal": svc.recs.journal(manager_key)}
 
     @r.post("/decisions/{rec_id}/feedback")
-    def feedback(rec_id: str, body: s.FeedbackIn) -> dict[str, Any]:
-        need_db()
+    def feedback(request: Request, rec_id: str, body: s.FeedbackIn) -> dict[str, Any]:
+        owner_of_rec(request, rec_id)
         assert svc.recs is not None
         try:
             svc.recs.feedback(rec_id, body.followed, body.note, body.realized_points)
@@ -904,7 +1028,8 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
 
     # ------------------------------------------------------------------ backtests & jobs
     @r.post("/backtests")
-    def start_backtest(body: s.BacktestIn) -> JSONResponse:
+    def start_backtest(request: Request, body: s.BacktestIn) -> JSONResponse:
+        require_operator(principal_of(request))
         job = jobs.submit("backtest", body.model_dump())
         return JSONResponse({"job_id": job, "job": jobs.get(job)}, status_code=202)
 
@@ -1068,6 +1193,103 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         assert svc.notifications is not None
         return {"updated": svc.notifications.mark(manager_key, body.ids, "read_at")}
 
+    # ------------------------------------------------------------------ accounts (beta)
+    def need_users() -> UserStore:
+        if users is None:
+            raise HTTPException(503, "database not configured (FPL_DATABASE_URL)")
+        return users
+
+    @r.post("/auth/invites")
+    def create_invite(request: Request, body: s.InviteIn) -> dict[str, Any]:
+        """Operator-only: an invitation code, shown once (only its hash is stored)."""
+        require_operator(principal_of(request))
+        code = need_users().create_invite(body.label, body.days)
+        return {"invite_code": code, "label": body.label, "days": body.days}
+
+    @r.post("/auth/register")
+    def register(body: s.RegisterIn) -> dict[str, Any]:
+        u = need_users()
+        uid = u.register(body.invite_code, body.email, body.password)
+        token, who = u.login(body.email, body.password)
+        audit(svc.engine, "auth.register", uid, "u:" + uid)
+        return {"session_token": token, "user": u.user(who.user_id or uid)}
+
+    @r.post("/auth/login")
+    def login(body: s.LoginIn) -> dict[str, Any]:
+        u = need_users()
+        try:
+            token, who = u.login(body.email, body.password)
+        except AuthError:
+            metrics.security_events.labels("login_failed").inc()
+            log.warning("security_event", kind="login_failed")
+            raise
+        return {"session_token": token, "user": u.user(who.user_id or "")}
+
+    @r.post("/auth/logout")
+    def logout(request: Request) -> dict[str, Any]:
+        require_user(principal_of(request))
+        auth = request.headers.get("authorization", "")
+        need_users().logout(auth[7:].strip())
+        return {"signed_out": True}
+
+    @r.get("/auth/me")
+    def me(request: Request) -> dict[str, Any]:
+        who = require_user(principal_of(request))
+        user = need_users().user(who.user_id or "")
+        if user is None:
+            raise HTTPException(401, "session expired or invalid")
+        return {"user": user}
+
+    @r.post("/auth/me/preferences")
+    def preferences(request: Request, body: s.AccountPreferencesIn) -> dict[str, Any]:
+        who = require_user(principal_of(request))
+        need_users().set_preferences(who.user_id or "", body.analytics_opt_out)
+        return {"user": need_users().user(who.user_id or "")}
+
+    @r.delete("/auth/me")
+    def delete_account(request: Request) -> dict[str, Any]:
+        """Erase the account and every manager it owns (data, then ownership, then user)."""
+        who = require_user(principal_of(request))
+        u = need_users()
+        assert svc.engine is not None and who.user_id is not None
+        erased: dict[str, int] = {}
+        for mgr in u.managers(who.user_id):
+            counts = delete_manager(svc.engine, mgr["manager_key"], _actor(request))
+            for k, v in counts.items():
+                erased[k] = erased.get(k, 0) + v
+        account = u.delete_user(who.user_id)
+        return {"deleted": {**erased, **{f"account_{k}": v for k, v in account.items()}}}
+
+    @r.get("/auth/managers")
+    def list_managers(request: Request) -> dict[str, Any]:
+        who = require_user(principal_of(request))
+        return {"managers": need_users().managers(who.user_id or "")}
+
+    @r.post("/auth/managers")
+    def create_manager(request: Request, body: s.ManagerCreateIn) -> dict[str, Any]:
+        """A new manager key owned by the signed-in user; the only way a user gets one."""
+        who = require_user(principal_of(request))
+        key = need_users().create_manager(who.user_id or "", body.label)
+        return {"manager_key": key, "label": body.label}
+
+    # ------------------------------------------------------------------ product analytics
+    @r.post("/events")
+    def record_event(request: Request, body: s.EventIn) -> dict[str, Any]:
+        """A first-party product event for the signed-in user (allow-listed names and
+        properties only; dropped for users who opted out; pruned after 90 days)."""
+        who = principal_of(request)
+        if who.kind != "user" or who.user_id is None or svc.engine is None:
+            return {"recorded": False}  # anonymous or operator traffic is never measured
+        ok = analytics.record(svc.engine, who.user_id, body.event, dict(body.props))
+        return {"recorded": ok}
+
+    @r.get("/events/summary")
+    def events_summary(request: Request, days: int = Query(28, ge=1, le=365)) -> dict[str, Any]:
+        require_operator(principal_of(request))
+        need_db()
+        assert svc.engine is not None
+        return analytics.summary(svc.engine, days)
+
     # ------------------------------------------------------------------ privacy (§75)
     @r.get("/managers/{manager_key}/export")
     def export_data(
@@ -1086,13 +1308,15 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         need_db()
         assert svc.engine is not None
         counts = delete_manager(svc.engine, manager_key, _actor(request))
+        if users is not None:
+            users.release_manager(manager_key)
         log.info("privacy_delete", deleted=sum(counts.values()))
         return {"deleted": counts}
 
     # ------------------------------------------------------------------ traceability (§76.2)
     @r.get("/recommendations/{rec_id}/trace")
-    def trace_rec(rec_id: str = PathParam(..., max_length=80)) -> dict[str, Any]:
-        need_db()
+    def trace_rec(request: Request, rec_id: str = PathParam(..., max_length=80)) -> dict[str, Any]:
+        owner_of_rec(request, rec_id)
         assert svc.engine is not None
         out = trace(svc.engine, rec_id)
         if out is None:
@@ -1100,10 +1324,13 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         return _jsonable(out)
 
     @r.get("/jobs/{job_id}")
-    def job_status(job_id: str) -> dict[str, Any]:
+    def job_status(request: Request, job_id: str) -> dict[str, Any]:
         j = jobs.get(job_id)
         if j is None:
             raise HTTPException(404, f"job {job_id} not found")
+        owner = jobs.manager_of(job_id)
+        if owner:
+            require_owner(principal_of(request), users, owner)
         return j
 
     app.include_router(r)
@@ -1129,6 +1356,9 @@ def _minute() -> str:
 
 
 def _actor(request: Request) -> str | None:
+    principal = getattr(request.state, "principal", None)
+    if isinstance(principal, Principal) and principal.kind == "user" and principal.user_id:
+        return "u:" + principal.user_id
     key = request.headers.get("x-api-key")
     return hash_key(key)[:16] if key else None
 

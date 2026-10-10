@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 
 from fastapi import HTTPException, Request
 
+from fpl_api.accounts import ANONYMOUS, OPERATOR, WEB, Principal, UserStore, bearer_token
 from fpl_api.settings import Settings
 
 EXPENSIVE_PREFIXES = (
@@ -38,6 +39,8 @@ EXPENSIVE_PREFIXES = (
 # GET that names a manager, and the resources that embed manager-linked records
 PRIVILEGED_GET_PREFIXES = (
     "/api/v1/managers/",
+    "/api/v1/auth",
+    "/api/v1/copilot",
     "/api/v1/squad",
     "/api/v1/settings",
     "/api/v1/notifications",
@@ -81,16 +84,41 @@ class TokenBucket:
 
 
 class Guard:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, users: UserStore | None = None) -> None:
         self.settings = settings
+        self.users = users
         self.general = TokenBucket(settings.rate_limit_per_minute)
         self.expensive = TokenBucket(settings.expensive_rate_limit_per_minute)
 
     def client_id(self, request: Request) -> str:
+        principal = getattr(request.state, "principal", None)
+        if isinstance(principal, Principal) and principal.kind == "user" and principal.user_id:
+            return "u:" + principal.user_id[:16]
         key = request.headers.get("x-api-key")
         if key:
             return "k:" + hash_key(key)[:16]
         return "ip:" + (request.client.host if request.client else "unknown")
+
+    def principal(self, request: Request) -> Principal:
+        """Who is asking: a session token names a user (even alongside an API key); an
+        operator key is operations; the web proxy's key alone is an anonymous browser."""
+        token = bearer_token(request)
+        if token:
+            p = self.users.principal(token) if self.users is not None else None
+            if p is None:
+                raise HTTPException(status_code=401, detail="session expired or invalid")
+            return p
+        if not self.settings.require_api_key:
+            return OPERATOR  # development / tests: no credentials configured at all
+        key = request.headers.get("x-api-key")
+        if not key:
+            return ANONYMOUS
+        digest = hash_key(key)
+        if any(hmac.compare_digest(digest, h) for h in self.settings.web_api_keys_sha256):
+            return WEB
+        if any(hmac.compare_digest(digest, h) for h in self.settings.api_keys_sha256):
+            return OPERATOR
+        return ANONYMOUS
 
     def check_key(self, request: Request) -> None:
         if not self.settings.require_api_key or request.method == "OPTIONS":
@@ -105,7 +133,8 @@ class Guard:
         if not key:
             raise HTTPException(status_code=401, detail="X-API-Key required")
         digest = hash_key(key)
-        if not any(hmac.compare_digest(digest, h) for h in self.settings.api_keys_sha256):
+        known = [*self.settings.api_keys_sha256, *self.settings.web_api_keys_sha256]
+        if not any(hmac.compare_digest(digest, h) for h in known):
             raise HTTPException(status_code=403, detail="invalid API key")
 
     def check_rate(self, request: Request) -> None:
