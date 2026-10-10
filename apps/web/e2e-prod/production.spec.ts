@@ -20,7 +20,10 @@ test.describe.configure({ mode: "serial" });
 
 async function asManager(page: Page) {
   await page.context().addCookies(cookies);
+  // init scripts run on every document: seed the active manager once and keep whatever the
+  // product saves afterwards (e.g. onboarding switching to the imported manager)
   await page.addInitScript((key) => {
+    if (window.localStorage.getItem("fpl.settings.v1")) return;
     window.localStorage.setItem("fpl.settings.v1", JSON.stringify({ managerKey: key, profile: "default", horizon: 3 }));
   }, MANAGER);
 }

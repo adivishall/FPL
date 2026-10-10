@@ -68,11 +68,21 @@ jobs:
       - name: migration validation (upgrade → downgrade → upgrade, no drift)
         run: uv run pytest tests/integration/test_migrations.py -q
       - name: unit + property + integration + data-quality tests
+        env:
+          # golden parity (tests/integration/test_golden_parity.py): the golden is per platform;
+          # the computed package is uploaded so the Linux golden can be (re)generated from CI
+          FPL_GOLDEN_ACTUAL: golden-package/recommendation_package.linux-x86_64.json
         run: uv run pytest -q -m "not slow and not network" --cov --cov-report=xml --cov-report=term
       - uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: golden-package-linux-x86_64
+          path: golden-package/
+          if-no-files-found: ignore
 
   optimizer-suite:
     # Exhaustive brute-force verification of the MILP (incl. slow Free Hit what-if cases) and

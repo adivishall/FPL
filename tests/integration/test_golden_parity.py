@@ -1,14 +1,24 @@
 """Golden parity: the recommendation engine's output for a fixed squad on the fixture snapshot is
 byte-identical to the stored golden package (BUILD_STATUS M1.1a §5). The product layers added
 around the engine (accounts, onboarding, the Copilot Home read model, analytics) must not change
-a forecast, an optimiser constraint, a recommendation or a simulation. Regenerate deliberately,
-and only after an independent validation of the change, with FPL_UPDATE_GOLDEN=1.
+a forecast, an optimiser constraint, a recommendation or a simulation.
+
+The golden is keyed by platform (``<sys.platform>-<machine>``): the same engine on another OS or
+CPU architecture reports HiGHS objectives that differ in the last bits (summation order) and
+breaks exact-value ties (bench order, perturbed-table re-solves) differently, so one byte-exact
+file cannot serve every platform and a numerical tolerance would hide real changes. Each
+platform's file is exact for that platform. Regenerate deliberately, and only after an
+independent validation of the change: locally with FPL_UPDATE_GOLDEN=1; for CI's platform from
+the ``golden-package-*`` artifact the test job uploads on every run (FPL_GOLDEN_ACTUAL). With
+FPL_GOLDEN_REQUIRED=1 (CI) a missing platform golden fails instead of skipping.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import platform
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +31,8 @@ from fpl_domain.squad import SquadPick
 from fpl_domain.state import ManagerState, initial_chips
 from tests.fixtures_util import fixture_dataset
 
-GOLDEN = Path(__file__).parent / "golden" / "recommendation_package.json"
+PLATFORM = f"{sys.platform}-{platform.machine()}"  # e.g. darwin-arm64, linux-x86_64
+GOLDEN = Path(__file__).parent / "golden" / f"recommendation_package.{PLATFORM}.json"
 VOLATILE = {"timings", "generated_at"}  # wall-clock fields, never part of the contract
 
 
@@ -86,7 +97,18 @@ def test_recommendation_package_matches_the_golden(package: dict[str, Any]) -> N
         GOLDEN.parent.mkdir(parents=True, exist_ok=True)
         GOLDEN.write_text(json.dumps(package, indent=1, sort_keys=True) + "\n")
         pytest.skip("golden package regenerated")
-    assert GOLDEN.exists(), "no golden package: run with FPL_UPDATE_GOLDEN=1 once, review, commit"
+    actual = os.environ.get("FPL_GOLDEN_ACTUAL")  # CI uploads this: the platform's golden source
+    if actual:
+        Path(actual).parent.mkdir(parents=True, exist_ok=True)
+        Path(actual).write_text(json.dumps(package, indent=1, sort_keys=True) + "\n")
+    if not GOLDEN.exists():
+        msg = (
+            f"no golden package for {PLATFORM}: generate it on this platform with "
+            "FPL_UPDATE_GOLDEN=1 (or from CI's golden-package artifact), review, commit"
+        )
+        if os.environ.get("FPL_GOLDEN_REQUIRED") == "1":
+            pytest.fail(msg)
+        pytest.skip(msg)
     golden = json.loads(GOLDEN.read_text())
     differing = sorted(k for k in set(golden) | set(package) if golden.get(k) != package.get(k))
     assert differing == [], f"engine output changed in: {differing}"

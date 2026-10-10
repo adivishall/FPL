@@ -210,9 +210,9 @@ analytics — with the engine untouched (golden parity).
 | Player search | `components/player-picker.tsx` over the real pool (`/players`, limit raised to 1000): name, club, position, affordability, status badges, keyboard selection, empty and error states; used on the Squad page |
 | Copilot Home | `/copilot/home` serves `squad_analyses` rows computed by the `squad_analysis` job (per manager × state × snapshot × forecast × version): situation, health signals (availability, minutes, fixtures incl. blanks/doubles/tough runs, bench cover, price risk, affordability — each with evidence and source), captain profiles (shared `lineup_and_captaincy` with `POST /lineup`), squad table, FPL-difficulty fixture outlook; pending/stale states; scheduler fans the job out after every forecast precompute |
 | Analytics | `product_events` (allow-listed names and properties, user-keyed, opt-out server-side, 90-day retention in the retention job, operator summary); web `track()` fire-and-forget |
-| Golden parity | `tests/integration/test_golden_parity.py` pins the recommendation package for a fixed squad on the fixture snapshot (`tests/integration/golden/recommendation_package.json`); regenerate only with `FPL_UPDATE_GOLDEN=1` after independent validation |
+| Golden parity | `tests/integration/test_golden_parity.py` pins the recommendation package for a fixed squad on the fixture snapshot, byte-exact per platform (`tests/integration/golden/recommendation_package.<platform>.json`: `darwin-arm64` from the development machine, `linux-x86_64` from the CI artifact `golden-package-linux-x86_64`); regenerate only with `FPL_UPDATE_GOLDEN=1` (or from that artifact) after independent validation |
 | Latency (development machine, Docker) | `infra/scripts/home_latency.py`: first `GET /copilot/home` after a squad change 21 ms (answers `pending`), analysis ready after 2.6 s in the worker, warm p50 12 ms / p95 17 ms over 20 calls; `GET /squad` p95 11 ms; previous per-page `POST /lineup` 33 ms |
-| Tests | fast tier 414 passed (new: `test_identity.py` 6, `test_onboarding_api.py` 3, `test_copilot_home.py` 4, `test_state_selection.py` 5, `test_horizon_contract.py` 7, golden parity 1); migrations 3/3; dev browser flows 11 passed (signed-in setup, onboarding, picker, Home); production browser suite (21 flows, signed-in user, new images): 20 passed, 0 failed; the real FPL-ID import flow was skipped from that run because the FPL API answered HTTP 503 for entry endpoints during its post-deadline update window (the UI surfaced the designed outage message) — it is re-run once the endpoint recovers |
+| Tests | fast tier 414 passed (new: `test_identity.py` 6, `test_onboarding_api.py` 3, `test_copilot_home.py` 4, `test_state_selection.py` 5, `test_horizon_contract.py` 7, golden parity 1); migrations 3/3; dev browser flows 11 passed (signed-in setup, onboarding, picker, Home); production browser suite (21 flows, signed-in user, new images): 21 passed, 0 failed on 2026-10-11 (closeout run, below), including the real FPL-ID import of a public entry through the proxy; the 2026-10-10 run had 20 passed with the import flow blocked by the FPL API's post-deadline HTTP 503 (the UI surfaced the designed outage message) |
 
 Decisions and defects: 44. The `chance_of_playing` evidence item crashed on a nullable NA (not NaN) —
 exposed by the golden test's cheapest-players squad; guarded, no output change for non-NA cases.
@@ -220,6 +220,21 @@ exposed by the golden test's cheapest-players squad; guarded, no output change f
 the same-minute de-duplicated job shows the same result twice — the assertion now accepts either
 an identical result or zero new alerts. 46. Changing the forecast horizon on a running stack leaves
 the API answering `503 forecast not ready` until the next precompute (documented under upgrades).
+
+### M1.1a closeout (2026-10-11)
+
+| Check | Result |
+|---|---|
+| CI | `f33584c` success; `648d6d4` cancelled (superseded within a minute by `5eaa252`); `5eaa252` failed in the test job on `test_golden_parity` only (407 passed, 6 skipped): the golden generated on macOS/arm64 is not byte-exact on Linux — HiGHS objectives differ in the last bits (summation order) and exact-value ties (bench order of two equal-EV players, one perturbed-table re-solve) break differently; a Linux/aarch64 container run reproduced 17 such differences with the same transfers, gains and probabilities. Fix: the golden is keyed by platform, the CI job uploads the computed package as an artifact, and the Linux golden is committed from it (defect 47) |
+| Live FPL-ID import | the watcher's retry at 10:33Z (entry endpoint back) still failed: the entry *history* endpoint was still 503 and the app showed the outage message (correct). Re-run on 2026-10-11 after full recovery: preview → confirm → import → Squad page → refresh → ownership assertions pass; the only defect was in the test harness (defect 48). Full production suite afterwards: 21 passed, 0 failed (1.6 min) |
+| Auxiliary containers | `fpl-web-badkey` (127.0.0.1:3001, wrong proxy key) and `fpl-web-noapi` (127.0.0.1:3002, unreachable API host) confirmed as `docker run` test containers outside the Compose stack; removed after the suite; `docker compose -p fpl ps` all healthy, `/health` ok, images, volumes and data untouched |
+
+47. The golden parity test compared one byte-exact file across platforms. Platform-keyed goldens
+keep the comparison exact (no tolerance) where it runs; a platform without a golden skips with
+an explicit message unless `FPL_GOLDEN_REQUIRED=1` (set in CI once its golden is committed).
+48. The production suite's `asManager` init script re-seeded the active manager on every
+navigation, so after onboarding switched to the imported manager the Squad page showed the
+seed manager again; the seed is now applied only when no settings exist.
 
 ## 3. Environment
 
