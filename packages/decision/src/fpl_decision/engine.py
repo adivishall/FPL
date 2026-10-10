@@ -253,13 +253,15 @@ def _timeline(
     return steps
 
 
-def _summarise(
+def summarise_option(
     opt: PlanOption,
     samples: np.ndarray,
     hold_samples: np.ndarray,
     cfg: OptimizerConfig,
     n_fixtures: dict[tuple[int, int], int] | None = None,
 ) -> OptionSummary:
+    """One plan scored against HOLD on the same simulation samples (paired 1-GW and horizon
+    gains), with its independent validation, optimality and gameweek timeline."""
     g1 = paired_gain(samples, hold_samples, slice(0, 1))
     gh = paired_gain(samples, hold_samples)
     first = opt.solution.first
@@ -365,7 +367,7 @@ def recommend(
     n_fix: dict[tuple[int, int], int] = {}
     for c, g in zip(pf.player_code.tolist(), pf.gameweek.tolist(), strict=True):
         n_fix[(c, g)] = n_fix.get((c, g), 0) + 1
-    summaries = [_summarise(o, samples[o.label], hold_s, cfg, n_fix) for o in options]
+    summaries = [summarise_option(o, samples[o.label], hold_s, cfg, n_fix) for o in options]
     timings["simulate_plans"] = time.perf_counter() - t1
     by_label = {s.label: s for s in summaries}
     hold = by_label["hold"]

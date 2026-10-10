@@ -53,8 +53,12 @@ def hold_problem(prob: OptimizationProblem) -> OptimizationProblem:
     return replace(prob, preferences=replace(prob.preferences, hold_first_gw=True))
 
 
-def solve_with_alternatives(prob: OptimizationProblem, n_alternatives: int = 3) -> list[PlanOption]:
-    hold_sol = build_and_solve(hold_problem(prob))
+def solve_with_alternatives(
+    prob: OptimizationProblem, n_alternatives: int = 3, hold: Solution | None = None
+) -> list[PlanOption]:
+    """``hold`` may pass the already-solved HOLD plan of ``hold_problem(prob)`` (the Transfer
+    Workbench solves it once for every plan it compares); the options are the same either way."""
+    hold_sol = hold if hold is not None else build_and_solve(hold_problem(prob))
     hold_val = validate_solution(hold_problem(prob), hold_sol)
     options = [PlanOption("hold", hold_sol, hold_val, 0.0)]
     cuts: list[tuple[dict[tuple[str, int, int], float], float]] = []

@@ -365,6 +365,12 @@ def build_and_solve(
     if pref.hold_first_gw:
         for p in range(n_pl):
             m.row({int(y[p, 0]): 1.0, int(z[p, 0]): 1.0}, 0.0, 0.0)
+    if pref.first_gw_exact:  # the first GW's moves are exactly the forced ones, nothing more
+        for code, p in idx.items():
+            if code not in pref.forced_in:
+                m.row({int(y[p, 0]): 1.0}, 0.0, 0.0)
+            if code not in pref.forced_out:
+                m.row({int(z[p, 0]): 1.0}, 0.0, 0.0)
 
     # bank
     bank = [m.var(f"bank[{t}]", 0.0, INF, integer=False) for t in range(n_gw)]
@@ -381,6 +387,8 @@ def build_and_solve(
 
     # transfers count, hits, free transfers
     n_expr = [{int(y[p, t]): 1.0 for p in range(n_pl)} for t in range(n_gw)]
+    if pref.first_gw_max_transfers is not None:
+        m.row(n_expr[0], -INF, float(pref.first_gw_max_transfers))
     made = [st.transfers_made if t == 0 else 0 for t in range(n_gw)]
     f = [m.var("f[0]", float(st.free_transfers), float(st.free_transfers), integer=True)]
     for t in range(1, n_gw + 1):

@@ -159,6 +159,11 @@ class Preferences:
     max_transfers_per_gw: int | None = None
     hold_first_gw: bool = False  # no transfers in the first GW (the HOLD counterfactual)
     max_hits_total: int | None = None
+    # Transfer Workbench (M1.2): evaluate one concrete plan — the first GW's moves are exactly
+    # ``forced_out`` / ``forced_in`` (nothing else is added now; later GWs stay optimal) — or
+    # cap how many transfers the optimiser may make now (later GWs are unconstrained).
+    first_gw_exact: bool = False
+    first_gw_max_transfers: int | None = None
 
 
 @dataclass(frozen=True)
@@ -204,6 +209,13 @@ class OptimizationProblem:
                 "forced_in": sorted(self.preferences.forced_in),
                 "max_transfers_per_gw": self.preferences.max_transfers_per_gw,
                 "hold_first_gw": self.preferences.hold_first_gw,
+                # added only when set, so the identifiers of existing problems are unchanged
+                **({"first_gw_exact": True} if self.preferences.first_gw_exact else {}),
+                **(
+                    {"first_gw_max_transfers": self.preferences.first_gw_max_transfers}
+                    if self.preferences.first_gw_max_transfers is not None
+                    else {}
+                ),
             },
             "ruleset_version": self.ruleset.ruleset_version,
         }

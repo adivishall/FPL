@@ -134,23 +134,30 @@ def _screen(prob: OptimizationProblem, out_code: int, universe: list[int]) -> pd
     return pd.DataFrame(rows).sort_values("screen_gain", ascending=False).reset_index(drop=True)
 
 
-def find_replacements(
+@dataclass
+class Shortlist:
+    """Steps 1–3 for one outgoing player: the affordable, club-legal universe, its myopic
+    screen and the shortlisted candidates with the reason each was picked."""
+
+    out_code: int
+    universe: list[int]
+    screened: pd.DataFrame
+    picks: dict[int, str]
+    start_probability: pd.Series
+    upside: pd.Series
+    price: dict[int, int]
+
+
+def shortlist_replacements(
     prob: OptimizationProblem,
     out_code: int,
-    sim: SimulationResult,
     summary: pd.DataFrame | None = None,
     n_screen: int = 8,
     n_upside: int = 2,
     n_enablers: int = 2,
-    n_return: int = 5,
-    use_pool: bool = True,
-    workers: int = 1,
-) -> ReplacementResult:
-    """``workers`` solves HOLD and the shortlisted moves in parallel processes; the result does
-    not depend on it."""
+) -> Shortlist:
     if out_code not in prob.state.codes:
         raise ValueError(f"{out_code} is not in the squad")
-    notes: list[str] = []
     universe = _affordable_universe(prob, out_code)
     if not universe:
         raise OptimizationError("no affordable, club-legal replacement exists")
@@ -177,6 +184,27 @@ def find_replacements(
         "in_code"
     ].head(n_enablers):
         picks.setdefault(int(c), "cheap enabler (frees budget)")
+    return Shortlist(out_code, universe, screened, picks, start_p, upside, price)
+
+
+def find_replacements(
+    prob: OptimizationProblem,
+    out_code: int,
+    sim: SimulationResult,
+    summary: pd.DataFrame | None = None,
+    n_screen: int = 8,
+    n_upside: int = 2,
+    n_enablers: int = 2,
+    n_return: int = 5,
+    use_pool: bool = True,
+    workers: int = 1,
+) -> ReplacementResult:
+    """``workers`` solves HOLD and the shortlisted moves in parallel processes; the result does
+    not depend on it."""
+    notes: list[str] = []
+    sl = shortlist_replacements(prob, out_code, summary, n_screen, n_upside, n_enablers)
+    universe, screened, picks = sl.universe, sl.screened, sl.picks
+    start_p, upside, price = sl.start_probability, sl.upside, sl.price
 
     base = prob
     if use_pool:
