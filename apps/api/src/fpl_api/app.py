@@ -46,6 +46,7 @@ from fpl_api.container import (
 )
 from fpl_api.copilot import lineup_and_captaincy
 from fpl_api.jobs import JobBackend
+from fpl_api.lifecycle import explain_changes, follow_promotion, lifecycle_block
 from fpl_api.lineage import trace
 from fpl_api.privacy import audit, delete_manager, export_manager
 from fpl_api.security import Guard, hash_key, loggable_path
@@ -319,15 +320,34 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         stale = analysis is not None and (
             analysis["state_id"] != sid or analysis["snapshot_id"] != snap
         )
-        rec = svc.recs.current(manager_key, ctx.gameweek)
+        analysis_lifecycle = (
+            lifecycle_block(
+                svc,
+                "squad_analysis",
+                str(analysis.get("state_id")),
+                manager_key,
+                "succeeded",
+                analysis.get("state_id"),
+                analysis.get("snapshot_id"),
+                None,
+                job_status="queued" if pending else "succeeded",
+            )
+            if analysis is not None
+            else None
+        )
+        rec = svc.recs.current(manager_key, ctx.gameweek) or svc.recs.latest_for_gameweek(
+            manager_key, ctx.gameweek
+        )
         summary = None
         if rec is not None:
             summary = {
                 "id": rec["id"],
+                "status": rec["status"],
                 "created_at": rec.get("created_at"),
                 "decision": rec.get("decision"),
                 "state_id": rec.get("state_id"),
                 **state_staleness(rec),
+                "lifecycle": rec_lifecycle(rec),
             }
         return {
             **base,
@@ -336,6 +356,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             "analysis": analysis,
             "pending": pending,
             "stale": stale,
+            "lifecycle": analysis_lifecycle,
             "job_id": job_id,
             "recommendation": summary,
         }
@@ -348,23 +369,56 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         latest = svc.states.latest(run["manager_key"]) if svc.states is not None else None
         latest_id = latest[0] if latest else None
         job = jobs.get(run["job_id"]) if run.get("job_id") else None
-        if job is not None and job["status"] == "failed" and run["status"] in ("queued", "running"):
-            svc.workbench.fail(run["id"], job.get("error") or "job failed")  # worker lost
+        if (
+            job is not None
+            and job["status"] in ("failed", "succeeded")
+            and run["status"] in ("queued", "running")
+        ):  # the job ended without finishing this run (worker lost, or it was given up on)
+            svc.workbench.fail(
+                run["id"], job.get("error") or "its job ended without computing this run"
+            )
             run = svc.workbench.get(run["id"]) or run
         codes: set[int] = set()
         for pl in ((run.get("result") or {}).get("result") or {}).get("plans", []):
             for k in ("sells", "buys", "squad_after"):
                 codes.update(int(c) for c in pl.get(k, []))
         names = svc.data.names(svc.context().season)
+        lc = run_lifecycle(run)
         return {
             **run,
             "stale_state": bool(latest_id and run["state_id"] != latest_id),
             "latest_state_id": latest_id,
-            "stale_snapshot": run["snapshot_id"] != svc.data.snapshot_id,
+            "stale_snapshot": lc["snapshot_stale"],
+            "lifecycle": lc,
             "job": job,
             "names": {str(c): names.get(c) for c in sorted(codes)},
             "freshness": fresh(),
         }
+
+    def run_lifecycle(run: dict[str, Any]) -> dict[str, Any]:
+        return lifecycle_block(
+            svc,
+            "workbench_run",
+            run["id"],
+            run["manager_key"],
+            run["status"],
+            run["state_id"],
+            run["snapshot_id"],
+            run.get("invalidation"),
+            job_status=run["status"],
+        )
+
+    def rec_lifecycle(rec: dict[str, Any]) -> dict[str, Any]:
+        return lifecycle_block(
+            svc,
+            "recommendation",
+            rec["id"],
+            rec["manager_key"],
+            rec["status"],
+            rec.get("state_id"),
+            rec.get("data_snapshot_id") or rec.get("snapshot_id"),
+            rec.get("invalidation"),
+        )
 
     @r.get("/workbench/context")
     def workbench_ctx(
@@ -386,6 +440,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         """Evaluate concrete plans (HOLD always included) for exactly one stored squad state
         on the current snapshot and forecast, as a job. The same question on the same inputs
         returns the same run instead of a second computation."""
+        reference = follow_promotion(svc)  # a promotion is followed before the run is named
         latest_sid, _ = load_state(body.manager_key)
         assert svc.states is not None and svc.workbench is not None
         sid = body.state_id or latest_sid
@@ -401,13 +456,31 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             "profile": body.profile,
         }
         run, compute = svc.workbench.create(
-            body.manager_key, sid, svc.data.snapshot_id, fkey, h, body.profile, request
+            body.manager_key,
+            sid,
+            svc.data.snapshot_id,
+            fkey,
+            h,
+            body.profile,
+            request,
+            serving_snapshot_id=reference,
+            settings=settings,
         )
         if compute:
-            job = jobs.submit(
-                "workbench", {"manager_key": body.manager_key, "state_id": sid, "run_id": run["id"]}
-            )
-            svc.workbench.set_job(run["id"], job)
+            try:
+                job = jobs.submit(  # one job per queueing of the run: a re-queued run is
+                    "workbench",  # never de-duplicated onto an earlier attempt's job
+                    {
+                        "manager_key": body.manager_key,
+                        "state_id": sid,
+                        "run_id": run["id"],
+                        "attempt": uuid.uuid4().hex[:12],
+                    },
+                )
+                svc.workbench.set_job(run["id"], job)
+            except Exception as exc:  # never leave a queued run that no job will compute
+                svc.workbench.fail(run["id"], f"could not be queued: {type(exc).__name__}")
+                raise
             run = svc.workbench.get(run["id"]) or run  # inline mode: finished now
         return JSONResponse(
             _jsonable(workbench_view(run)),
@@ -434,6 +507,39 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             raise HTTPException(404, f"workbench run {run_id} not found")
         require_owner(principal_of(request), users, run["manager_key"])
         return _jsonable(workbench_view(run))
+
+    @r.get("/workbench/runs/{run_id}/changes")
+    def workbench_changes(
+        request: Request, run_id: str = PathParam(..., max_length=80)
+    ) -> dict[str, Any]:
+        """Why a run is no longer current and what differs between the inputs it used and the
+        inputs served now (M1.3) — from stored states and snapshots only."""
+        need_db()
+        assert svc.workbench is not None
+        run = svc.workbench.get(run_id)
+        if run is None:
+            raise HTTPException(404, f"workbench run {run_id} not found")
+        require_owner(principal_of(request), users, run["manager_key"])
+        res = ((run.get("result") or {}).get("result")) or {}
+        codes: set[int] = set()
+        for pl in res.get("plans", []):
+            codes.update(int(c) for c in [*pl.get("squad_after", []), *pl.get("buys", [])])
+        gw0 = int(res.get("gameweek", 0))
+        gws = list(range(gw0, gw0 + int(res.get("horizon", 0))))
+        payload = run.get("result") or {}
+        cutoff = (payload.get("forecast") or {}).get("cutoff")
+        out = explain_changes(
+            svc,
+            run_lifecycle(run),
+            run["manager_key"],
+            sorted(codes),
+            gws,
+            payload.get("prediction_run_id"),
+            run["horizon"],
+            old_cutoff=cutoff if cutoff not in (None, "None", "") else None,
+            old_season=payload.get("season"),
+        )
+        return _jsonable({**out, "run_id": run_id, "freshness": fresh()})
 
     # ------------------------------------------------------------------ system
     @r.get("/health")
@@ -1054,33 +1160,84 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     # ------------------------------------------------------------------ recommendations
     @r.post("/recommendations/generate")
     def generate(body: s.RecommendationIn) -> JSONResponse:
+        reference = follow_promotion(svc)  # the job is keyed on the promoted snapshot
         latest_sid, _ = load_state(body.manager_key)
         sid = body.state_id or latest_sid
-        assert svc.states is not None
+        assert svc.states is not None and svc.recs is not None
         if body.state_id and svc.states.get(sid, body.manager_key) is None:
             raise HTTPException(404, f"squad state {sid} is not stored for this manager")
         params = {**body.model_dump(exclude={"state_id"}), "state_id": sid}
         params["horizon"] = svc.horizon(body.horizon)
-        job = jobs.submit("recommendation", params)
-        return JSONResponse({"job_id": job, "job": jobs.get(job)}, status_code=202)
+        job, reused = jobs.submit_reused("recommendation", params)
+        info = jobs.get(job)
+        if reused and info and info.get("status") == "succeeded" and info.get("result_ref"):
+            # the same question on the same inputs was answered before (the job is
+            # de-duplicated): that answer is the current one again if its inputs are, and it
+            # now answers this, later request (a job still running applies it when it ends)
+            svc.recs.reactivate(str(info["result_ref"]), reference, settings=settings)
+        return JSONResponse({"job_id": job, "job": info}, status_code=202)
 
     @r.get("/recommendations/current")
     def current_rec(manager_key: str = Query(..., max_length=64)) -> dict[str, Any]:
         need_db()
         assert svc.recs is not None
         ctx = svc.context()
-        rec = svc.recs.current(manager_key, ctx.gameweek)
+        # when nothing is current any more, the most recent one is served marked historical
+        # (its lifecycle block), never as current, so the page can say what changed
+        rec = svc.recs.current(manager_key, ctx.gameweek) or svc.recs.latest_for_gameweek(
+            manager_key, ctx.gameweek
+        )
         if rec is None:
             raise HTTPException(
                 404,
                 f"no recommendation yet for GW{ctx.gameweek}; POST {API}/recommendations/generate",
             )
-        return {**rec, **state_staleness(rec), "names": rec_names(rec), "freshness": fresh()}
+        return rec_response(rec)
 
     @r.get("/recommendations/{rec_id}")
     def get_rec(request: Request, rec_id: str) -> dict[str, Any]:
         rec = owner_of_rec(request, rec_id)
-        return {**rec, **state_staleness(rec), "names": rec_names(rec), "freshness": fresh()}
+        return rec_response(rec)
+
+    def rec_response(rec: dict[str, Any]) -> dict[str, Any]:
+        return {
+            **rec,
+            **state_staleness(rec),
+            "lifecycle": rec_lifecycle(rec),
+            "names": rec_names(rec),
+            "freshness": fresh(),
+        }
+
+    @r.get("/recommendations/{rec_id}/changes")
+    def rec_changes(
+        request: Request, rec_id: str = PathParam(..., max_length=80)
+    ) -> dict[str, Any]:
+        """Why a recommendation is no longer current and what differs between the inputs it
+        used (stored state, snapshot, forecast) and the inputs served now (M1.3)."""
+        rec = owner_of_rec(request, rec_id)
+        lc = rec_lifecycle(rec)
+        codes: set[int] = set()
+        watch = rec.get("watch") or {}
+        codes.update(int(c) for c in watch.get("players", {}))
+        for step in (rec.get("chosen") or {}).get("timeline", []):
+            codes.update(int(c) for c in step.get("transfers_in", []))
+        if svc.states is not None and rec.get("state_id"):
+            st = svc.states.get(str(rec["state_id"]), rec["manager_key"])
+            if st is not None:
+                codes.update(st.codes)
+        gws = [int(x["gameweek"]) for x in (rec.get("chosen") or {}).get("timeline", [])]
+        out = explain_changes(
+            svc,
+            lc,
+            rec["manager_key"],
+            sorted(codes),
+            gws,
+            watch.get("prediction_run_id") or rec.get("prediction_run_id"),
+            max(1, len(gws)),
+            old_cutoff=watch.get("cutoff"),
+            old_season=watch.get("season"),
+        )
+        return _jsonable({**out, "recommendation_id": rec_id, "freshness": fresh()})
 
     def state_staleness(rec: dict[str, Any]) -> dict[str, Any]:
         """Whether the manager's squad changed since this recommendation was computed. The
@@ -1109,7 +1266,23 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     def decisions(manager_key: str = Query(..., max_length=64)) -> dict[str, Any]:
         need_db()
         assert svc.recs is not None
-        return {"journal": svc.recs.journal(manager_key)}
+        reference = follow_promotion(svc)
+        latest = svc.states.latest(manager_key) if svc.states is not None else None
+        journal = svc.recs.journal(manager_key)
+        for e in journal:  # the same verdict Home and the recommendation pages derive
+            e["lifecycle"] = lifecycle_block(
+                svc,
+                "recommendation",
+                e["id"],
+                manager_key,
+                e["status"],
+                e.get("state_id"),
+                e.get("snapshot_id"),
+                e.get("invalidation"),
+                reference=reference,
+                latest=latest,
+            )
+        return {"journal": journal}
 
     @r.post("/decisions/{rec_id}/feedback")
     def feedback(request: Request, rec_id: str, body: s.FeedbackIn) -> dict[str, Any]:

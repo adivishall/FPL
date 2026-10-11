@@ -482,6 +482,8 @@ erDiagram
     string ruleset_version
     jsonb model_versions
     boolean degraded
+    datetime invalidated_at
+    jsonb invalidation_json
   }
   record_revisions {
     biginteger id PK
@@ -623,6 +625,8 @@ erDiagram
     text error
     datetime created_at
     datetime finished_at
+    datetime invalidated_at
+    jsonb invalidation_json
   }
   backtest_runs ||--o{ backtest_decisions : "backtest_id"
   data_jobs ||--o{ data_quality_events : "job_id"

@@ -38,6 +38,7 @@ from sqlalchemy import select
 from fpl_api.alerts import evaluate_alerts
 from fpl_api.container import AppServices, build_recommendation
 from fpl_api.copilot import compute_squad_analysis
+from fpl_api.lifecycle import INPUTS_MISMATCH, invalidate_for_snapshot, reason
 from fpl_api.retention import prune
 from fpl_api.services import mark_serving_ready
 from fpl_api.settings import Settings
@@ -62,6 +63,8 @@ def _job_forecast(svc: AppServices, p: dict[str, Any]) -> str:
     serving = (season, gw) == (ctx.season, ctx.gameweek) and p.get("n_sims") is None
     if serving and fc.provenance.get("data_snapshot_id") == snapshot:
         mark_serving_ready(svc.settings, snapshot, key)  # the API may now promote it
+        if svc.engine is not None:  # the promotion event: older results become historical
+            invalidate_for_snapshot(svc.engine, svc.serving_snapshot_id(), svc.settings)
     return key
 
 
@@ -87,6 +90,7 @@ def _job_recommendation(svc: AppServices, p: dict[str, Any]) -> str:
         run_stability=p.get("stability", True),
         run_scenarios=p.get("scenarios", True),
         run_chips=p.get("chips", True),
+        requested_at=p.get("_requested_at"),
     )
     return str(rec_id)
 
@@ -155,18 +159,57 @@ def _job_workbench(svc: AppServices, p: dict[str, Any]) -> str:
     run = svc.workbench.get(p["run_id"])
     if run is None or run["manager_key"] != p["manager_key"] or run["state_id"] != p["state_id"]:
         raise LookupError(f"workbench run {p['run_id']} is not available for {p['manager_key']}")
+    if run["status"] == "succeeded":
+        return str(run["id"])  # delivered again: the run is computed already
     state = svc.states.get(run["state_id"], run["manager_key"])
     if state is None:
         svc.workbench.fail(run["id"], "the squad state this run was made for is no longer stored")
         raise LookupError(f"squad state {run['state_id']} is not available for {p['manager_key']}")
-    svc.workbench.start(run["id"])
+    if not svc.workbench.start(run["id"]):
+        return _not_reopened(svc, run["id"])
     try:
-        payload = compute_workbench(svc, run, state)
+        # exactly the snapshot (and so the forecast) the run names — a worker may already
+        # have loaded a newer export that the API has not promoted
+        payload = compute_workbench(svc.at_snapshot(run["snapshot_id"]), run, state)
     except Exception as exc:
         svc.workbench.fail(run["id"], f"{type(exc).__name__}: {exc}")
         raise
-    svc.workbench.finish(run["id"], payload)
+    used = {"snapshot_id": payload["snapshot_id"], "forecast_key": payload["forecast_key"]}
+    named = {"snapshot_id": run["snapshot_id"], "forecast_key": run["forecast_key"]}
+    forced = (
+        None
+        if used == named
+        else reason(
+            INPUTS_MISMATCH,
+            "the run was computed on other inputs than the ones it names",
+            named,
+            used,
+            datetime.now(UTC).isoformat(),
+        )
+    )
+    if not svc.workbench.finish(
+        run["id"],
+        payload,
+        serving_snapshot_id=svc.serving_snapshot_id(),
+        settings=svc.settings,
+        forced=forced,
+    ):
+        return _not_reopened(svc, run["id"])
     return str(run["id"])
+
+
+def _not_reopened(svc: AppServices, run_id: str) -> str:
+    """A job found its run no longer running (another job finished it, or it was given up on
+    and failed). Succeeded: nothing to do. Otherwise this job did not compute it and must not
+    be recorded as succeeded — a retry would be de-duplicated onto it and never run."""
+    assert svc.workbench is not None
+    run = svc.workbench.get(run_id)
+    if run is not None and run["status"] == "succeeded":
+        return run_id
+    raise RuntimeError(
+        f"workbench run {run_id} was given up on before this job could compute it "
+        f"({run['status'] if run else 'gone'}); evaluate again"
+    )
 
 
 def _job_retention(svc: AppServices, p: dict[str, Any]) -> str:
@@ -227,6 +270,12 @@ class JobBackend:
         return "rq" if self._queue is not None else "inline"
 
     def submit(self, kind: str, params: dict[str, Any]) -> str:
+        return self.submit_reused(kind, params)[0]
+
+    def submit_reused(self, kind: str, params: dict[str, Any]) -> tuple[str, bool]:
+        """The job for this request and whether it already existed (the same request on the
+        same snapshot is answered once). A recommendation asked for again records the time on
+        the existing job: the answer then counts as requested now (M1.3 ordering)."""
         if kind not in JOB_KINDS:
             raise ValueError(f"unknown job kind {kind}")
         if self.svc.engine is None:
@@ -244,7 +293,9 @@ class JobBackend:
             ).all()
             for dup in dups:
                 if dup.status == "succeeded" or not _expired(dup, now):
-                    return dup.id
+                    if kind == "recommendation":
+                        dup.request_json = {**dup.request_json, LAST_ASKED: now.isoformat()}
+                    return dup.id, True
                 dup.status, dup.error, dup.finished_at = "failed", ABANDONED, now
                 self.svc.metrics.job_failures.labels(dup.kind, "interrupted").inc()
                 log.warning("job_interrupted", job_id=dup.id, kind=dup.kind, error=ABANDONED)
@@ -253,16 +304,24 @@ class JobBackend:
                 m.JobRow(id=job_id, kind=kind, status="queued", request_hash=h, request_json=params)
             )
         if self._queue is not None:
-            self._queue.enqueue(
-                "fpl_api.jobs.run_job",
-                job_id,
-                job_id=job_id,  # same id in Redis: the reaper can ask RQ about this job
-                job_timeout=int(JOB_LEASE[kind].total_seconds()),
-                on_failure=Callback(on_rq_failure),
-            )
+            try:
+                self._queue.enqueue(
+                    "fpl_api.jobs.run_job",
+                    job_id,
+                    job_id=job_id,  # same id in Redis: the reaper can ask RQ about this job
+                    job_timeout=int(JOB_LEASE[kind].total_seconds()),
+                    on_failure=Callback(on_rq_failure),
+                )
+            except Exception as exc:  # never leave a queued row no worker will ever run:
+                with session_scope(self.svc.engine) as s:  # the same request may be retried
+                    r = s.get(m.JobRow, job_id)
+                    if r is not None and r.status == "queued":
+                        r.status, r.finished_at = "failed", datetime.now(UTC)
+                        r.error = f"could not be queued: {type(exc).__name__}"
+                raise
         else:
             execute(self.svc, job_id)
-        return job_id
+        return job_id, False
 
     def manager_of(self, job_id: str) -> str | None:
         """The manager key a job was submitted for (None for system jobs such as forecasts)."""
@@ -330,6 +389,8 @@ def execute(svc: AppServices, job_id: str) -> None:
             raise KeyError(job_id)
         r.status, r.started_at = "running", datetime.now(UTC)
         kind, params = r.kind, dict(r.request_json)
+        if kind == "recommendation":  # competing jobs are ordered by request time (M1.3)
+            params["_requested_at"] = _last_asked(r)
     try:
         ref = JOB_KINDS[kind](svc, params)
         status, error = "succeeded", None
@@ -346,6 +407,35 @@ def execute(svc: AppServices, job_id: str) -> None:
         assert r is not None
         r.status, r.result_ref, r.error = status, ref, error
         r.finished_at, r.progress = datetime.now(UTC), 1.0
+    if kind == "recommendation" and status == "succeeded" and ref and svc.recs is not None:
+        _apply_late_asks(svc, job_id, str(ref), params["_requested_at"])
+
+
+LAST_ASKED = "_last_asked_at"  # set on a job when the same request is made again
+
+
+def _last_asked(r: m.JobRow) -> datetime:
+    created = r.created_at if r.created_at.tzinfo else r.created_at.replace(tzinfo=UTC)
+    last = (r.request_json or {}).get(LAST_ASKED)
+    return max(created, datetime.fromisoformat(last)) if last else created
+
+
+def _apply_late_asks(svc: AppServices, job_id: str, rec_id: str, used: datetime) -> None:
+    """The same recommendation was asked for again while this job ran (the request was
+    de-duplicated onto it): the answer counts as requested at that later time. Read after the
+    job is recorded succeeded, so a re-ask is applied either here or by the route that sees
+    the job succeeded — never lost in between."""
+    assert svc.engine is not None and svc.recs is not None
+    try:
+        with session_scope(svc.engine) as s:
+            r = s.get(m.JobRow, job_id)
+            last = _last_asked(r) if r is not None else used
+        if last > used:
+            svc.recs.reactivate(
+                rec_id, svc.serving_snapshot_id(), settings=svc.settings, requested_at=last
+            )
+    except Exception:  # ordering refinement only: the result itself is stored
+        log.warning("late_ask_not_applied", job_id=job_id, rec_id=rec_id, exc_info=True)
 
 
 @lru_cache(maxsize=1)

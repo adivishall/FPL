@@ -7,11 +7,12 @@ squad state or snapshot) and the identifiers that trace it to its inputs.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pandas as pd
-from sqlalchemy import Engine, delete, select
+import structlog
+from sqlalchemy import Engine, delete, select, update
 
 from fpl_api.services import CurrentContext
 from fpl_decision.workbench import WORKBENCH_VERSION, PlanSpec, evaluate_plans
@@ -23,6 +24,11 @@ from fpl_storage import models as m
 from fpl_storage.db import session_scope
 
 JOB_KIND = "workbench"
+# a run is queued and handed its job id in one request; still without one after this long, the
+# enqueue was lost (the request failed or the process died between the two) and it is re-queued
+LOST_ENQUEUE = timedelta(minutes=2)
+
+log = structlog.get_logger("fpl_api.workbench")
 
 
 def _row(r: m.WorkbenchRunRow, result: bool = True) -> dict[str, Any]:
@@ -42,6 +48,8 @@ def _row(r: m.WorkbenchRunRow, result: bool = True) -> dict[str, Any]:
         "error": r.error,
         "created_at": r.created_at.isoformat(),
         "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+        "invalidated_at": r.invalidated_at.isoformat() if r.invalidated_at else None,
+        "invalidation": dict(r.invalidation_json) if r.invalidation_json else None,
     }
 
 
@@ -83,9 +91,19 @@ class WorkbenchStore:
         horizon: int,
         profile: str,
         request: dict[str, Any],
+        serving_snapshot_id: str | None = None,
+        settings: Any = None,
     ) -> tuple[dict[str, Any], bool]:
         """The run for this question on these inputs, and whether it needs (re)computing: a
-        queued, running or finished run is returned as is; a failed one is re-queued."""
+        queued, running or finished run is returned as is; a failed one, or a queued one whose
+        enqueue was lost, is re-queued. A finished run that was stored historical while its
+        inputs are exactly the current ones again (squad re-saved, snapshot not older than the
+        promoted one) is current again (M1.3)."""
+        from fpl_api.lifecycle import (  # noqa: PLC0415 (import cycle)
+            INPUTS_MISMATCH,
+            reactivation_allowed,
+        )
+
         rid = self.run_id(manager_key, state_id, snapshot_id, forecast_key, request)
         with session_scope(self.engine) as s:
             r = s.get(m.WorkbenchRunRow, rid)
@@ -105,9 +123,36 @@ class WorkbenchStore:
                 s.add(r)
                 s.flush()
                 return _row(r), True
-            if r.status == "failed":
+            now = datetime.now(UTC)
+            created = r.created_at if r.created_at.tzinfo else r.created_at.replace(tzinfo=UTC)
+            mismatch = (r.invalidation_json or {}).get("kind") == INPUTS_MISMATCH
+            if (
+                r.status == "failed"
+                or (r.status == "queued" and r.job_id is None and now - created > LOST_ENQUEUE)
+                or (r.status == "succeeded" and mismatch)
+            ):
+                # failed, never handed a job, or computed on other inputs than it names: this
+                # question is computed again (a mismatched result is never made current)
                 r.status, r.error, r.job_id, r.finished_at = "queued", None, None, None
+                if mismatch:
+                    r.result_json, r.invalidated_at, r.invalidation_json = None, None, None
                 return _row(r), True
+            if (
+                r.status == "succeeded"
+                and r.invalidated_at is not None
+                and serving_snapshot_id is not None
+                and reactivation_allowed(
+                    s,
+                    r.manager_key,
+                    r.state_id,
+                    r.data_snapshot_id,
+                    serving_snapshot_id,
+                    settings,
+                    check_state=False,
+                )
+            ):
+                log.info("workbench_run_reactivated", run_id=r.id, previous=r.invalidation_json)
+                r.invalidated_at, r.invalidation_json = None, None
             return _row(r), False
 
     def recent(self, manager_key: str, limit: int = 10) -> list[dict[str, Any]]:
@@ -126,18 +171,59 @@ class WorkbenchStore:
             if r is not None:
                 r.job_id = job_id
 
-    def start(self, run_id: str) -> None:
+    def start(self, run_id: str) -> bool:
+        """queued → running. False when the run is finished or failed already: a job that is
+        delivered again (or runs after the reaper gave up on it) never reopens a run."""
         with session_scope(self.engine) as s:
-            r = s.get(m.WorkbenchRunRow, run_id)
-            if r is not None:
-                r.status = "running"
+            res = s.execute(
+                update(m.WorkbenchRunRow)
+                .where(
+                    m.WorkbenchRunRow.id == run_id,
+                    m.WorkbenchRunRow.status.in_(("queued", "running")),
+                )
+                .values(status="running")
+                .execution_options(synchronize_session=False)
+            )
+            return bool(getattr(res, "rowcount", 0))
 
-    def finish(self, run_id: str, result: dict[str, Any]) -> None:
+    def finish(
+        self,
+        run_id: str,
+        result: dict[str, Any],
+        serving_snapshot_id: str | None = None,
+        settings: Any = None,
+        forced: dict[str, Any] | None = None,
+    ) -> bool:
+        """Store the result of a running run. If its snapshot is older than the promoted one by
+        now (or ``forced`` names another reason) it is stored historical at once; a newer squad
+        state is not persisted — it stays a derived verdict (M1.3 lifecycle). False when the
+        run was not running (finished or failed meanwhile): nothing is overwritten."""
+        from fpl_api.lifecycle import finalisation_check  # noqa: PLC0415 (import cycle)
+
         with session_scope(self.engine) as s:
-            r = s.get(m.WorkbenchRunRow, run_id)
-            if r is not None:
-                r.status, r.result_json, r.error = "succeeded", result, None
-                r.finished_at = datetime.now(UTC)
+            r = s.scalars(
+                select(m.WorkbenchRunRow).where(m.WorkbenchRunRow.id == run_id).with_for_update()
+            ).first()
+            if r is None or r.status != "running":
+                return False
+            now = datetime.now(UTC)
+            r.status, r.result_json, r.error = "succeeded", result, None
+            r.finished_at = now
+            stale = (
+                finalisation_check(
+                    s,
+                    r.manager_key,
+                    r.state_id,
+                    r.data_snapshot_id,
+                    serving_snapshot_id,
+                    settings,
+                    check_state=False,
+                )
+                or forced
+            )
+            if stale is not None:
+                r.invalidated_at, r.invalidation_json = now, stale
+            return True
 
     def fail(self, run_id: str, error: str) -> None:
         with session_scope(self.engine) as s:
@@ -208,6 +294,7 @@ def compute_workbench(svc: Any, run: dict[str, Any], st: ManagerState) -> dict[s
             "model_versions": {k: str(v) for k, v in prov.get("model_versions", {}).items()},
         },
         "computed_at": datetime.now(UTC).isoformat(),
+        "season": ctx.season,
         "horizon": h,
         "profile": run["profile"],
         "result": res.model_dump(mode="json"),

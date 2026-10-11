@@ -675,7 +675,7 @@ class RecommendationRow(Base):
     action_type: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(
         String(16), default="active"
-    )  # active|superseded|invalidated
+    )  # active|superseded|invalidated (fpl_api.lifecycle)
     expected_value: Mapped[float] = mapped_column(Float)
     expected_gain_vs_hold: Mapped[float] = mapped_column(Float)
     downside: Mapped[float] = mapped_column(Float)
@@ -690,6 +690,10 @@ class RecommendationRow(Base):
     ruleset_version: Mapped[str] = mapped_column(String(32))
     model_versions: Mapped[dict[str, Any]] = mapped_column(JSONB)
     degraded: Mapped[bool] = mapped_column(Boolean, default=False)
+    # M1.3 lifecycle: when and why this result stopped being current (the result itself, its
+    # identifiers and its trace stay immutable); null while current or merely superseded
+    invalidated_at: Mapped[datetime | None] = _ts(nullable=True)
+    invalidation_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     __table_args__ = (
         CheckConstraint("action_type in ('HOLD','TRANSFER','HIT','CHIP')", name="action_type"),
         CheckConstraint("confidence between 0 and 1", name="confidence_range"),
@@ -923,6 +927,10 @@ class WorkbenchRunRow(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _created()
     finished_at: Mapped[datetime | None] = _ts(nullable=True)
+    # M1.3 lifecycle: a succeeded run whose data snapshot was superseded (or whose inputs had
+    # moved on before it was finalised) is historical; the result and its identifiers stay
+    invalidated_at: Mapped[datetime | None] = _ts(nullable=True)
+    invalidation_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
 
 class ProductEventRow(Base):

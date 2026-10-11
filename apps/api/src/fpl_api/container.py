@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import datetime
 from typing import Any
 
 import pandas as pd
@@ -44,6 +45,10 @@ from fpl_storage.db import make_engine
 
 class UnsupportedHorizon(ValueError):
     """A request asked for a planning horizon this deployment does not serve."""
+
+
+class SnapshotUnavailable(LookupError):
+    """A request named a data snapshot that is no longer stored (or not the pinned one)."""
 
 
 log = structlog.get_logger("fpl_api")
@@ -92,6 +97,41 @@ class AppServices:
     # ------------------------------------------------------------------ shared building blocks
     def context(self) -> CurrentContext:
         return self.data.current()
+
+    def serving_snapshot_id(self) -> str:
+        """The promoted snapshot (newest with a ready serving forecast): the reference every
+        result is judged against, the same in the API and in a worker (M1.3 lifecycle)."""
+        return self.data.promoted_snapshot_id()
+
+    def at_snapshot(self, snapshot_id: str) -> AppServices:
+        """These services computing on exactly ``snapshot_id``: a job evaluates the inputs its
+        request names, never whatever newer export this process has loaded since (a worker
+        loads every export before the API promotes it). Shares the database, stores and
+        metrics; the dataset and forecasts are the named snapshot's."""
+        if self.data.pinned:
+            if self.data.snapshot_id != snapshot_id:
+                raise SnapshotUnavailable(
+                    f"data snapshot {snapshot_id} is not the one this deployment serves"
+                )
+            return self
+        path = self.data.snapshot_path(snapshot_id)
+        if path is None:
+            raise SnapshotUnavailable(f"data snapshot {snapshot_id} is no longer stored")
+        if self.data.path == path:
+            return self
+        settings = self.settings.model_copy(update={"snapshot_dir": path})
+        data = DataService(settings)
+        forecasts = ForecastService(settings, data, self.metrics)
+        if self.engine is not None:
+            lineage = LineageStore(self.engine, settings)
+            forecasts.on_forecast = lambda fc, h, p: lineage.record_forecast(fc, data.ds, h, p)
+        return replace(
+            self,
+            settings=settings,
+            data=data,
+            forecasts=forecasts,
+            prices=PriceService(settings, data),
+        )
 
     def horizon(self, requested: int | None) -> int:
         """The planning horizon to use; a request beyond what this deployment serves is refused,
@@ -169,6 +209,7 @@ def build_recommendation(
     preferences: Preferences | None = None,
     config: OptimizerConfig | None = None,
     persist: bool = True,
+    requested_at: datetime | None = None,
 ) -> tuple[str | None, RecommendationPackage]:
     ctx = svc.context()
     h = svc.horizon(horizon)
@@ -235,6 +276,9 @@ def build_recommendation(
             watch,
             fc.run_id,
             input_hash=computed,
+            serving_snapshot_id=svc.serving_snapshot_id(),
+            settings=svc.settings,
+            requested_at=requested_at,
         )
     svc.metrics.recommendations.labels("success").inc()
     return rec_id, pkg

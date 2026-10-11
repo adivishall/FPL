@@ -36,6 +36,7 @@ from sqlalchemy import func, select
 
 from fpl_api.container import AppServices
 from fpl_api.jobs import JobBackend, services
+from fpl_api.lifecycle import invalidate_for_snapshot
 from fpl_api.services import ForecastUnavailable
 from fpl_domain.config import load_versioned_config
 from fpl_ingestion import cli as ingest_cli
@@ -97,6 +98,13 @@ def due_tasks(schedule: Schedule, last: dict[str, str], now: datetime) -> list[t
 
 def task_forecast_precompute(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
     ctx = svc.context()
+    # the promotion sweep again (idempotent): completes one that failed after the snapshot's
+    # ready marker was written, so no result on an older snapshot stays recorded as current
+    swept = (
+        invalidate_for_snapshot(svc.engine, svc.serving_snapshot_id(), svc.settings)
+        if svc.engine is not None
+        else {}
+    )
     try:
         svc.forecasts.get(ctx.season, ctx.gameweek, svc.settings.forecast_horizon, compute=False)
         # the forecast is in place: precompute each manager's Copilot Home analysis for this
@@ -107,10 +115,11 @@ def task_forecast_precompute(svc: AppServices, jobs: JobBackend, b: str) -> dict
             "season": ctx.season,
             "gameweek": ctx.gameweek,
             "analyses": analyses,
+            "invalidated": swept,
         }
     except ForecastUnavailable:
         job = jobs.submit("forecast", {"season": ctx.season, "gameweek": ctx.gameweek})
-        return {"status": "submitted", "job_id": job}
+        return {"status": "submitted", "job_id": job, "invalidated": swept}
 
 
 def _submit_squad_analyses(svc: AppServices, jobs: JobBackend) -> int:

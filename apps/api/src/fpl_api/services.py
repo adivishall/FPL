@@ -26,7 +26,7 @@ import joblib
 import pandas as pd
 import structlog
 import yaml
-from sqlalchemy import Engine, select, update
+from sqlalchemy import Engine, select, text
 
 from fpl_api.observability import Metrics
 from fpl_api.settings import Settings
@@ -130,18 +130,41 @@ class DataService:
         self._path: Path | None = None
         self._checked = 0.0
         self._lock = threading.Lock()
+        self._created: dict[str, str] = {}  # manifest created_at by snapshot (immutable)
 
-    def _newest(self) -> Path:
+    @property
+    def root(self) -> Path:
+        return self.settings.snapshots_root or (REPO_ROOT / "data" / "snapshots")
+
+    @property
+    def pinned(self) -> bool:
+        """An injected dataset or a pinned ``snapshot_dir``: never swapped."""
+        return self._pinned
+
+    @property
+    def path(self) -> Path | None:
+        """The directory of the loaded snapshot (None before the first access or when the
+        dataset was injected)."""
+        return self._path
+
+    def _created_at(self, p: Path) -> str:
+        c = self._created.get(p.name)
+        if c is None:
+            c = str(json.loads((p / "manifest.json").read_text())["created_at"])
+            self._created[p.name] = c
+        return c
+
+    def _newest(self, ready_only: bool | None = None) -> Path:
         if self.settings.snapshot_dir is not None:
             return self.settings.snapshot_dir
-        root = self.settings.snapshots_root or (REPO_ROOT / "data" / "snapshots")
+        root = self.root
         found = sorted(
             (p for p in root.glob("snap_*") if (p / "manifest.json").exists()),
-            key=lambda p: json.loads((p / "manifest.json").read_text())["created_at"],
+            key=self._created_at,
         )
         if not found:
             raise FileNotFoundError(f"no canonical snapshot under {root}")
-        if self.settings.serve_ready_snapshots_only:
+        if self.settings.serve_ready_snapshots_only if ready_only is None else ready_only:
             ready = [p for p in found if is_serving_ready(self.settings, p.name)]
             # first deployment: nothing is ready yet — serve the newest and compute on demand
             return ready[-1] if ready else found[-1]
@@ -150,6 +173,26 @@ class DataService:
     def refresh(self) -> None:
         """Look for a newer snapshot on the next access (e.g. right after an export)."""
         self._checked = 0.0
+
+    def promoted_snapshot_id(self) -> str:
+        """The snapshot results are judged against (M1.3 lifecycle): the newest one whose
+        serving forecast is ready — exactly the one the API promotes — or the newest export
+        while none is ready yet. Read from disk and independent of this process's own
+        ``serve_ready_snapshots_only``, so the API and a worker that already computes on a
+        newer, not yet promoted export agree on what is current."""
+        if self._pinned:
+            return self.snapshot_id
+        return self._newest(ready_only=True).name
+
+    def snapshot_path(self, snapshot_id: str) -> Path | None:
+        """Where an exported snapshot lives, if it is still stored."""
+        if (
+            self.settings.snapshot_dir is not None
+            and self.settings.snapshot_dir.name == snapshot_id
+        ):
+            return self.settings.snapshot_dir
+        p = self.root / snapshot_id
+        return p if (p / "manifest.json").exists() else None
 
     @property
     def ds(self) -> CanonicalDataset:
@@ -492,21 +535,37 @@ class RecommendationStore:
         watch: dict[str, Any] | None = None,
         prediction_run_id: str | None = None,
         input_hash: str | None = None,
+        serving_snapshot_id: str | None = None,
+        settings: Any = None,
+        requested_at: datetime | None = None,
     ) -> str:
+        """``serving_snapshot_id`` is the promoted snapshot when the result is finalised: a
+        package computed for an older snapshot, or for a squad state that is no longer the
+        manager's latest, is stored as historical (``invalidated``, with the reason) and never
+        supersedes the current recommendation; one *requested* before the current one (an
+        older job finishing later) is stored ``superseded`` (M1.3 lifecycle). Saving a package
+        that is already stored re-activates it when its inputs are current again."""
+        from fpl_api.lifecycle import finalisation_check  # noqa: PLC0415 (import cycle)
+
         rec_id = pkg.decision_id.replace("dec_", "rec_", 1)
+        req = _aware(requested_at) or datetime.now(UTC)
         with session_scope(self.engine) as s:
-            if s.get(m.RecommendationRow, rec_id) is not None:
+            _lock_gameweek(s, manager_key, pkg.gameweek)
+            existing = s.get(m.RecommendationRow, rec_id)
+            if existing is not None:
+                _reactivate(s, existing, serving_snapshot_id, settings, req)
                 return rec_id
             season_id = ensure_season(s, pkg.season)
-            s.execute(
-                update(m.RecommendationRow)
-                .where(
-                    m.RecommendationRow.payload_json["manager_key"].astext == manager_key,
-                    m.RecommendationRow.gw == pkg.gameweek,
-                    m.RecommendationRow.status == "active",
-                )
-                .values(status="superseded")
+            stale = finalisation_check(
+                s, manager_key, state_id, pkg.snapshot_id, serving_snapshot_id, settings
             )
+            status = "invalidated"
+            if stale is None:
+                status = (
+                    "active"
+                    if _supersede_older(s, manager_key, pkg.gameweek, req, rec_id)
+                    else "superseded"
+                )
             alts = [a.gain_horizon.probability_positive for a in pkg.alternatives]
             conf = pkg.decision.get("confidence")
             if conf is None:  # HOLD: probability that no considered move beats holding
@@ -540,6 +599,7 @@ class RecommendationStore:
             payload["manager_key"] = manager_key
             payload["markdown"] = markdown
             payload["watch"] = watch or {}  # inputs baseline for re-optimisation alerts (§74)
+            payload["requested_at"] = req.isoformat()  # orders competing jobs (M1.3)
             s.add(
                 m.RecommendationRow(
                     id=rec_id,
@@ -547,7 +607,9 @@ class RecommendationStore:
                     season_id=season_id,
                     gw=pkg.gameweek,
                     action_type=pkg.decision["action"],
-                    status="active",
+                    status=status,
+                    invalidated_at=None if stale is None else datetime.now(UTC),
+                    invalidation_json=stale,
                     expected_value=float(pkg.decision["expected_points"]),
                     expected_gain_vs_hold=float(pkg.decision["expected_gain_vs_hold"]),
                     downside=float(pkg.chosen.gain_horizon.p10),
@@ -579,18 +641,31 @@ class RecommendationStore:
                 )
         return rec_id
 
+    def reactivate(
+        self,
+        rec_id: str,
+        serving_snapshot_id: str | None,
+        settings: Any = None,
+        requested_at: datetime | None = None,
+    ) -> bool:
+        """Asking again for a recommendation that is already stored (the job is de-duplicated):
+        it becomes the current one again when its inputs are exactly the current ones — the
+        squad re-saved, its snapshot not older than the promoted one. True when it is active."""
+        req = _aware(requested_at) or datetime.now(UTC)
+        with session_scope(self.engine) as s:
+            row = s.get(m.RecommendationRow, rec_id)
+            if row is None:
+                return False
+            _lock_gameweek(s, str(row.payload_json.get("manager_key") or ""), row.gw)
+            s.refresh(row)
+            return _reactivate(s, row, serving_snapshot_id, settings, req)
+
     def get(self, rec_id: str) -> dict[str, Any] | None:
         with session_scope(self.engine) as s:
             row = s.get(m.RecommendationRow, rec_id)
             if row is None:
                 return None
-            return {
-                "id": row.id,
-                "status": row.status,
-                "state_id": row.manager_state_id,
-                "created_at": row.created_at.isoformat(),
-                **row.payload_json,
-            }
+            return _rec_dict(row)
 
     def current(self, manager_key: str, gw: int) -> dict[str, Any] | None:
         with session_scope(self.engine) as s:
@@ -606,13 +681,7 @@ class RecommendationStore:
             ).first()
             if row is None:
                 return None
-            return {
-                "id": row.id,
-                "status": row.status,
-                "state_id": row.manager_state_id,
-                "created_at": row.created_at.isoformat(),
-                **row.payload_json,
-            }
+            return _rec_dict(row)
 
     def latest_for_gameweek(self, manager_key: str, gw: int) -> dict[str, Any] | None:
         """The most recent recommendation for a gameweek, whatever its status (post-GW review)."""
@@ -628,12 +697,7 @@ class RecommendationStore:
             ).first()
             if row is None:
                 return None
-            return {
-                "id": row.id,
-                "status": row.status,
-                "state_id": row.manager_state_id,
-                **row.payload_json,
-            }
+            return _rec_dict(row)
 
     def journal(self, manager_key: str, limit: int = 50) -> list[dict[str, Any]]:
         with session_scope(self.engine) as s:
@@ -661,6 +725,12 @@ class RecommendationStore:
                         "confidence_label": r.confidence_label,
                         "stability": r.stability,
                         "created_at": r.created_at.isoformat(),
+                        "state_id": r.manager_state_id,
+                        "snapshot_id": r.data_snapshot_id,
+                        "invalidated_at": r.invalidated_at.isoformat()
+                        if r.invalidated_at
+                        else None,
+                        "invalidation": r.invalidation_json,
                         "feedback": [
                             {
                                 "followed": f.followed,
@@ -690,5 +760,93 @@ class RecommendationStore:
             )
 
 
+def _rec_dict(row: m.RecommendationRow) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "status": row.status,
+        "state_id": row.manager_state_id,
+        "data_snapshot_id": row.data_snapshot_id,
+        "created_at": row.created_at.isoformat(),
+        "invalidated_at": row.invalidated_at.isoformat() if row.invalidated_at else None,
+        "invalidation": row.invalidation_json,
+        **row.payload_json,
+    }
+
+
 def _label(p: float) -> str:
     return "high" if p >= 0.75 else ("medium" if p >= 0.6 else "low")
+
+
+def _aware(ts: datetime | str | None) -> datetime | None:
+    if ts is None:
+        return None
+    if isinstance(ts, str):
+        ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    return ts.astimezone(UTC) if ts.tzinfo else ts.replace(tzinfo=UTC)
+
+
+def _lock_gameweek(s: Any, manager_key: str, gw: int) -> None:
+    """Serialise the writers of one manager's recommendation for one gameweek (the transaction
+    holds the lock): two jobs finishing together can never both leave a current one."""
+    s.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+        {"k": f"recommendation:{manager_key}:{gw}"},
+    )
+
+
+def _requested(row: m.RecommendationRow) -> datetime:
+    return (
+        _aware(row.payload_json.get("requested_at"))
+        or _aware(row.created_at)
+        or datetime.min.replace(tzinfo=UTC)
+    )
+
+
+def _supersede_older(s: Any, manager_key: str, gw: int, req: datetime, keep: str) -> bool:
+    """Supersede the current recommendation(s) for this gameweek that were requested before
+    ``req``. False — and nothing changes — when one requested later is current: an older job
+    that finishes last never replaces the answer to a newer request."""
+    active = s.scalars(
+        select(m.RecommendationRow).where(
+            m.RecommendationRow.payload_json["manager_key"].astext == manager_key,
+            m.RecommendationRow.gw == gw,
+            m.RecommendationRow.status == "active",
+            m.RecommendationRow.id != keep,
+        )
+    ).all()
+    if any(_requested(r) > req for r in active):
+        return False
+    for r in active:
+        r.status = "superseded"
+    return True
+
+
+def _reactivate(
+    s: Any,
+    row: m.RecommendationRow,
+    serving_snapshot_id: str | None,
+    settings: Any,
+    req: datetime,
+) -> bool:
+    from fpl_api.lifecycle import reactivation_allowed  # noqa: PLC0415 (import cycle)
+
+    manager_key = str(row.payload_json.get("manager_key") or "")
+    if row.status == "active":  # asked again: it is the answer to the later request now
+        if req > _requested(row):
+            row.payload_json = {**row.payload_json, "requested_at": req.isoformat()}
+        return True
+    if not reactivation_allowed(
+        s, manager_key, row.manager_state_id, row.data_snapshot_id, serving_snapshot_id, settings
+    ):
+        return False
+    if not _supersede_older(s, manager_key, row.gw, req, row.id):
+        return False
+    log.info(
+        "recommendation_reactivated",
+        rec_id=row.id,
+        previous_status=row.status,
+        previous_invalidation=row.invalidation_json,
+    )
+    row.status, row.invalidated_at, row.invalidation_json = "active", None, None
+    row.payload_json = {**row.payload_json, "requested_at": req.isoformat()}
+    return True
