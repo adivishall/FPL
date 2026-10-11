@@ -74,11 +74,11 @@ All other settings are `fpl_api.settings.Settings` fields with the `FPL_` prefix
    `ml/reports/performance.md`).
 5. `docker compose up -d` (api, worker, scheduler, web).
 6. `uv run python infra/scripts/smoke.py --api http://localhost:8000 --web http://localhost:3000`.
-7. Full production-topology browser suite (21 flows: a signed-in beta user registered through
+7. Full production-topology browser suite (22 flows: a signed-in beta user registered through
    the web origin, proxy-only traffic, key and session enforcement, FPL-ID onboarding when
    `E2E_FPL_ENTRY_ID` names a public entry, the player picker, squad, captain/bench, worker jobs,
-   alerts, settings incl. the load race, traceability, export/delete, Backtest Lab, error states,
-   rate limiting):
+   the Transfer Workbench, the result lifecycle after a squad change, alerts, settings incl. the
+   load race, traceability, export/delete, Backtest Lab, error states, rate limiting):
 
    ```bash
    cd apps/web && E2E_BASE_URL=http://127.0.0.1:3000 E2E_API_URL=http://127.0.0.1:8000 \
@@ -221,7 +221,14 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
   docker compose run --rm migrate && docker compose up -d` (add `-f docker-compose.yml -f
   docker-compose.public.yml` on a public host). Take a backup first.
 * **Database**: migrations are validated upgrade → downgrade → upgrade in CI (M1.2 adds
-  `0003` `workbench_runs`; the `migrate` service applies it before the API and worker start). To roll back the
+  `0003` `workbench_runs`; M1.3 adds `0004`, two nullable lifecycle columns on
+  `recommendations` and `workbench_runs`; the `migrate` service applies them before the API and
+  worker start). Rolling `0004` back drops the two columns (when and why a result became
+  historical) but no result: recommendations keep their `status`, so those already
+  `invalidated` stay non-current under the previous image, while workbench runs lose their
+  historical marker and fall back to the M1.2 `stale_state` / `stale_snapshot` flags; the
+  previous image no longer invalidates on promotion. Roll the images and the schema back
+  together (an M1.3 image needs `0004`). To roll back the
   schema: `docker compose run --rm migrate alembic downgrade -1` with the previous image.
 * **Images**: pin the previous tag in `docker-compose.override.yml` and `up -d`.
 * **Forecast horizon or model configuration changes** invalidate the serving forecast's key:
@@ -230,7 +237,10 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
 * **Models**: forecasts are keyed by model-config hash; reverting `config/models/*.yaml`
   restores the previous model on the next forecast. Registered artifacts roll back with
   `ModelRegistry.rollback` (`fpl_storage.registry`), which re-promotes the previous version.
-* **Data**: snapshots are immutable and content-addressed; pin one with `FPL_SNAPSHOT_DIR`.
+* **Data**: snapshots are immutable and content-addressed; pin one with `FPL_SNAPSHOT_DIR`,
+  set in `.env` so the api, worker and scheduler all pin the same one. A pinned deployment
+  never promotes: results on any other snapshot (including the newer one being rolled back)
+  are shown as historical, and the scheduler's sweep records them so (M1.3).
 
 ## Retention
 

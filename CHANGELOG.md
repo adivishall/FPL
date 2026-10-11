@@ -2,6 +2,57 @@
 
 User-visible behaviour changes (§78). Milestones follow `docs/BUILD_STATUS.md`.
 
+## M1.3 — Snapshot-aware invalidation and "What changed?" (2026-10-11)
+
+### Added
+- **Result lifecycle**: every recommendation, Transfer Workbench run and Copilot Home analysis
+  says whether it is *current*, *historical* (stale or superseded), *computing* or *failed*, and
+  why: a newer data snapshot was promoted (recorded with both snapshot ids and when it was
+  detected), the squad was saved again (old and new state), or a job finished after its inputs
+  had moved on. A promoted snapshot invalidates every result on an older one; a worker that
+  started against old inputs stores its result as historical and never replaces the current one.
+- **What changed?** on Home and the Transfer Workbench: the stored-state diff (players, bank,
+  free transfers), the snapshot-to-snapshot diff for the players and gameweeks the result used
+  (availability, chance of playing, news, price, fixture counts, changed tables) when the older
+  snapshot is still stored, and the forecast versions; otherwise an explicit "not available"
+  with the identifiers. Regenerate / re-evaluate actions reuse the existing jobs.
+- Journal entries and the Future Planner show the same verdict (current / superseded /
+  historical, with the reasons); a historical plan in the Future Planner is labelled so and
+  gives no "play now" chip advice.
+- Asking the same question again on inputs that are current again (a squad saved back) makes
+  the stored answer current again instead of leaving the manager with only historical results.
+- API: `lifecycle` block on affected responses (with `served_snapshot_id`, the promoted
+  snapshot the verdict is judged against, and `snapshot_stale`), on every `/decisions` row,
+  `GET /recommendations/{id}/changes`, `GET /workbench/runs/{id}/changes`; migration 0004 adds
+  `invalidated_at` and `invalidation_json` to `recommendations` and `workbench_runs`.
+
+### Changed
+- `GET /recommendations/current` serves the most recent recommendation marked historical when
+  none is current (previously a 404), so the page can explain and offer to regenerate.
+- A recommendation requested earlier but finished later no longer replaces the answer to a
+  newer request; concurrent saves for one gameweek are serialised.
+- A Transfer Workbench run is computed on exactly the snapshot and forecast it names, even when
+  the worker has already loaded a newer export; Retry asks the failed run's own question again.
+- The API swaps to a newly promoted snapshot on the next verdict, regeneration or evaluation
+  rather than at its next periodic check.
+- Optimiser honesty (defect 53): plans found after the optimiser's preferred plan failed the
+  rules replay are labelled "best valid plan among those explored; not proven optimal (…)"
+  instead of "proven optimal" — the cut that removed the illegal plan also removed the legal
+  plans sharing its first move. Plans and numbers are unchanged.
+
+### Fixed
+- Ownership: a request naming a manager key in the query and another in the JSON body is
+  checked for both (previously only the query key was checked, so a signed-in user could act
+  on another manager's data through the body).
+- A job whose enqueue fails is marked failed at once, so the same request can be retried.
+- With a snapshot pinned (`FPL_SNAPSHOT_DIR`, the documented data rollback), results on any
+  other snapshot — including the newer one rolled back — are historical, not current.
+- A Transfer Workbench run whose job was given up on can be retried (it no longer stays queued
+  forever), and a run computed on other inputs than it names is recomputed rather than shown
+  as current. Home labels the "best valid plan among those explored" optimality correctly.
+- Pages no longer show their "nothing here yet" state (e.g. "No recommendation" with a Generate
+  button) for a moment before their data starts loading.
+
 ## M1.2 — Whole-squad Transfer Workbench (2026-10-11)
 
 ### Added

@@ -11,12 +11,23 @@ generated reports so they cannot drift from this page.
 * **Selection bias.** The design was iterated on the evaluated seasons; 2026-27 is the first
   unseen season (§3).
 * **Optimiser limits.** Chip-open solves run to the 60 s limit and return validated incumbents,
-  labelled "best found within the solver limit; not proven optimal" (§5).
+  labelled "best found within the solver limit; not proven optimal" (§5). With a club already
+  over the limit (an inherited excess) the MILP can let it grow back, the rules replay rejects
+  that plan, and the plan recommended instead is labelled "best valid plan among those explored;
+  not proven optimal" (defect 53, §5).
 * **Planning horizon.** Forecasts are trained and evaluated for five gameweeks (target horizons
   0–4); the API refuses longer horizons rather than serve an extrapolation (§3).
 * **Latency.** Recommendations take 42–90 s as worker jobs; the Transfer Workbench runs its
   plan comparison as a job too (HOLD + 3 replacements + best plan: tens of seconds, §5); the
   older `POST /replacements` endpoint still holds a request open for 13–49 s (§5).
+* **Result lifecycle.** Snapshot promotion and finalisation races are handled (`docs/architecture/
+  result-lifecycle.md`); the "what changed" snapshot diff needs the superseded snapshot's export
+  on disk (retention keeps referenced snapshots, caches dropped) and otherwise reports only the
+  identifiers; model-configuration changes are recorded (`model_versions`, `config_refs`) but
+  do not by themselves invalidate a result; nothing is regenerated automatically. Between a live
+  export and its promotion the worker computes on the newer export: a recommendation made then
+  is current on that snapshot, and a missing Copilot Home analysis shows as *computing* until
+  the promotion.
 * **Reproducibility across machines.** The engine reproduces itself byte-exactly on one machine;
   on another CPU class the forecasts, objectives and tie-breaks differ, and shared x86_64 CI
   runners differ from each other (`docs/BUILD_STATUS.md` §2d defect 52). Golden parity is
@@ -124,6 +135,16 @@ generated reports so they cannot drift from this page.
   (API `optimality`, report and UI: "proven optimal" or "best found within the solver limit (…);
   not proven optimal"). Measured timings,
   timeout frequency and the cost of candidate pooling: `ml/reports/optimizer_benchmark.md`.
+* Inherited club excess (defect 53, open): when the squad already holds more players of a club
+  than the limit (a mid-season club move), the MILP caps the club at that initial count for
+  every planned gameweek, while the rules allow an excess to be kept or reduced but never
+  increased again. A plan that sells one such player now and buys another later is rejected by
+  the independent rules replay and never recommended. Its no-good cut also removes the *legal*
+  plans that share its first move, so the plans found afterwards are only the best valid plans
+  explored and are labelled "best valid plan among those explored; not proven optimal (…)"
+  rather than "proven optimal" (pinned by `tests/unit/optimizer/test_inherited_club_excess.py`;
+  the golden fixture's cheapest-players squad holds five players of one club and hits this).
+  The formulation fix — a per-gameweek allowance that can only fall — is backlog.
 * Measured on 48 realistic squad states (`ml/reports/optimizer_benchmark.md`): every chip-open
   solve (all usable chips, 5 GW) ran to the 60 s limit (48 of 48; p50 63.8 s wall) and returns a
   warm-started, validated incumbent rather than a proven optimum; one of 36 8-GW transfer solves

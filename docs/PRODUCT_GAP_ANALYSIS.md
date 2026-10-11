@@ -23,7 +23,8 @@ forecasting or optimiser code, and creates the identity layer every later milest
 **Status (2026-10-11):** M1.1a is implemented and verified locally (`docs/BUILD_STATUS.md` §2c),
 and the whole-squad Transfer Workbench (M1.2: HOLD baseline, exact transfers, engine
 replacements, the optimiser's plans with hit accounting, independent legality, job execution
-bound to the squad state) is implemented (§2d); next are invalidation and the journal with
+bound to the squad state) is implemented (§2d), and M1.3 (result lifecycle: snapshot-aware
+invalidation, finalisation races, "what changed"; §2e) is implemented; next is the journal with
 prospective evaluation. The assistant, mini-league intelligence and the extension are not started.
 
 One naming risk first: **"FPL Copilot" is an existing product** (fplcopilot.com, "AI-Powered

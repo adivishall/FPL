@@ -54,6 +54,7 @@ handler (ADR-0001 #3).
 | `GET /workbench/context?manager_key=` | Transfer Workbench (M1.2): the squad with purchase and selling prices, next-GW and horizon expectations, availability, bank, transfers, chips and current weak spots | |
 | `POST /workbench/evaluate` | Evaluate concrete plans (HOLD always; your transfer, engine replacements for a player, the optimiser's best plan) for one stored squad state as a job; the same question on the same inputs returns the same run | `202` queued, `200` when already computed |
 | `GET /workbench/runs?manager_key=`, `GET /workbench/runs/{id}` | A manager's recent runs; one run with its result, `stale_state` / `stale_snapshot` flags and the names it needs | owner only |
+| `GET /recommendations/{id}/changes`, `GET /workbench/runs/{id}/changes` | Result lifecycle (M1.3): why a result is no longer current and what differs between the inputs it used and the inputs served now — stored-state diff, snapshot-to-snapshot diff when the superseded snapshot is still on disk, forecast versions; honest `available: false` otherwise | owner only |
 | `POST /scenarios`, `POST /what-if`, `POST /simulate` | Scenario re-simulation of the squad; optional transfer compared with holding under each scenario | |
 | `POST /recommendations/generate` | Full decision package (stability, scenarios, chips, evidence) as a job | `202` |
 | `GET /recommendations/current?manager_key=` | Active recommendation for the current gameweek | |
@@ -73,6 +74,37 @@ handler (ADR-0001 #3).
 | `DELETE /managers/{key}` | Erase manager-linked rows; audit entry stores only a key hash | |
 | `GET /jobs/{id}` | Job status | |
 | `GET /metrics` (no prefix) | Prometheus metrics (§76.1; see docs/DEPLOYMENT.md) | |
+
+## Result lifecycle (M1.3)
+
+Every recommendation, workbench run, Copilot Home response and `/decisions` row carries a
+`lifecycle` block:
+
+```json
+{"state": "stale", "current": false,
+ "reasons": [{"kind": "snapshot_promoted", "detail": "a newer data snapshot was promoted to serving",
+              "old": "snap_a…", "new": "snap_b…", "detected_at": "2026-10-11T09:10:00+00:00"}],
+ "state_id": "mstate_…", "latest_state_id": "mstate_…",
+ "snapshot_id": "snap_a…", "served_snapshot_id": "snap_b…", "snapshot_stale": true,
+ "next_action": "regenerate", "evaluated_at": "…"}
+```
+
+`served_snapshot_id` is the promoted snapshot (the newest with a ready serving forecast) every
+verdict is judged against; `snapshot_stale` is true only when the result's snapshot is *older*
+than it — a result computed on a newer, not yet promoted export is current. `state` is one of
+`current` (actionable now), `stale` (its inputs are no longer the current ones), `superseded`
+(a recommendation requested later replaced it), `pending` (queued or running), `failed` (retry
+by submitting the same question again). Reason kinds: `snapshot_promoted` (persisted:
+`recommendations.status = invalidated`, `invalidated_at` / `invalidation_json` on both tables),
+`squad_changed` (derived: the state is not the manager's latest), `superseded`,
+`inputs_changed_before_finalised` (the job finished after its inputs moved on; stored as
+historical from birth). Asking the same question again when a historical answer's inputs are
+exactly the current ones again (the squad saved back, its snapshot still promoted) makes that
+stored answer current again. `GET /recommendations/current` serves the current recommendation,
+or — when none is current — the most recent one marked historical, never as current; `404`
+only when there is none. Requests that name a manager key in more than one place (path, query,
+body) must own every one of them (`403` otherwise). `docs/architecture/result-lifecycle.md` has
+the state machine, triggers, worker races and the "what changed" rules.
 
 ## Transfer Workbench contract (M1.2)
 
