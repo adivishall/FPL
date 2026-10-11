@@ -20,7 +20,7 @@ handler (ADR-0001 #3).
   forecast key). Identical queued/finished requests are de-duplicated.
 * **Security** (§35, §75): optional API keys (`X-API-Key`, stored as SHA-256 only) for all
   non-GET routes and for every read of manager-linked data — any GET carrying `manager_key`, and
-  `/squad`, `/settings`, `/notifications`, `/decisions`, `/recommendations/*`, `/jobs/*`,
+  `/squad`, `/settings`, `/notifications`, `/decisions`, `/journal*`, `/recommendations/*`, `/jobs/*`,
   `/managers/*` (401 without a key, 403 with a wrong one); reference data (players, fixtures,
   gameweeks, reports, models, health, metrics) stays public. Token-bucket
   rate limits per client (stricter for optimisation/simulation routes), applied before
@@ -59,8 +59,13 @@ handler (ADR-0001 #3).
 | `POST /recommendations/generate` | Full decision package (stability, scenarios, chips, evidence) as a job | `202` |
 | `GET /recommendations/current?manager_key=` | Active recommendation for the current gameweek | |
 | `GET /recommendations/{id}` | Immutable stored package incl. Markdown explanation | |
-| `GET /decisions?manager_key=` | Decision journal with feedback | |
-| `POST /decisions/{id}/feedback` | Followed / ignored / partial, note, realised points | |
+| `GET /decisions?manager_key=` | The manager's recommendations with their lifecycle verdict and the decisions recorded against each (`feedback`, newest first: `entry_id`, `state` active / superseded, adherence, rationale, self-reported points) | |
+| `POST /decisions/{id}/feedback` | Pre-M1.4 feedback, kept for compatibility: `followed` records the recommended plan as a journal decision; `ignored` / `partial` record "something else" (adherence rejected / modified); the realised points typed by the user are kept as self-reported (also on a repeat of the same feedback), never used by the evaluation | owner only; `409` when a different verdict would replace a decision recorded before the deadline after it |
+| `GET /journal?manager_key=` | Decision journal (M1.4): recorded decisions, newest first; filters `gameweek`, `action`, `evaluation`, `include_superseded` | |
+| `POST /journal` | Record a decision against an owned recommendation or workbench run, with the decision-time evidence copied into the record | `201` new, `200` the identical submission again; `404` foreign or unknown source; `409` after the deadline when a pre-deadline decision exists |
+| `GET /journal/{id}` | One decision: evidence, recorded action, verification, the source's verdict now, evaluation history | owner only |
+| `POST /journal/{id}/confirm` | The manager confirms they made the recorded action in FPL | owner only; not for DEFER / UNKNOWN |
+| `POST /journal/{id}/evaluate` | Evaluate (and, after the deadline, verify) the decision now as a job | `202`; owner only; `409` for a replaced decision (only the one that stands is evaluated) |
 | `POST /backtests` | Start a walk-forward backtest (job) | |
 | `GET /backtests`, `GET /backtests/{id}` | Published report summary + stored runs; run detail | |
 | `GET /reports`, `GET /reports/{name}`, `GET /reports/figures/{file}` | Published experiment reports (allow-listed) | |
@@ -105,6 +110,62 @@ or — when none is current — the most recent one marked historical, never as 
 only when there is none. Requests that name a manager key in more than one place (path, query,
 body) must own every one of them (`403` otherwise). `docs/architecture/result-lifecycle.md` has
 the state machine, triggers, worker races and the "what changed" rules.
+
+## Decision journal (M1.4)
+
+`POST /journal` body:
+
+```json
+{"manager_key": "fpl-123", "source": "recommendation", "source_id": "rec_…",
+ "choice": "recommended", "plan": null, "captain": null, "vice_captain": null,
+ "rationale": "optional, ≤ 1000 characters"}
+```
+
+`source` is `recommendation` or `workbench`; `choice` is `recommended` (the source's
+recommended plan), `hold`, `plan` (a workbench plan, `plan` = `"<index>:<label>"` from the run's
+`plans`; only plans that passed the rules replay, `422` otherwise), `defer` ("I'll decide
+later") or `other` ("I did something else" — recorded, never reconstructed or scored). `captain` / `vice_captain` optionally change the chosen plan's armband
+(two different starters of that plan; `422` otherwise). Every manager key in the request must be
+owned, and the source must belong to that manager (`404` otherwise, without revealing whether it
+exists). Recording against a historical source is allowed and returns a `warning`.
+
+An entry:
+
+```json
+{"entry_id": "jd_…", "manager_key": "fpl-123", "season": "2026-27", "gameweek": 3,
+ "deadline_at": "…", "recorded_at": "…", "prospective": true, "state": "active",
+ "superseded_by": null,
+ "source": {"kind": "recommendation", "id": "rec_…", "plan": "recommended"},
+ "state_id": "mstate_…", "data_snapshot_id": "snap_…", "prediction_run_id": "pred_…",
+ "recommended_action": "TRANSFER", "action": "HOLD", "adherence": "rejected",
+ "sells": [], "buys": [], "hit_points": 0, "captain": 123, "vice_captain": 456, "chip": null,
+ "rationale": "…", "confirmed_at": null,
+ "verification": "matches", "verification_detail": {"…": "…"}, "verified_at": "…",
+ "evaluation_status": "final", "evaluated_at": "…", "self_reported_points": null,
+ "latest_evaluation": {"id": 7, "seq": 3, "status": "final", "evaluator_version": "journal-eval-1",
+                       "data_snapshot_id": "snap_…", "realized_points": 61,
+                       "realized_hold_points": 61, "realized_recommended_points": 57,
+                       "detail": {"statements": ["…"], "caveat": "…"}, "revises_id": null,
+                       "evaluated_at": "…"},
+ "source_now": {"state": "stale", "current": false, "reasons": ["…"]},
+ "names": {"123": "…"}, "links": {"trace": "/recommendations/rec_…/trace", "workbench_run": null}}
+```
+
+`GET /journal/{id}` returns `evidence` (the immutable decision-time evidence: identifiers,
+squad, recommended / HOLD / chosen plans with lineups and expectations, the system's rationale)
+and `evaluations` (every stored evaluation, newest first; a revision names the one it revises)
+instead of `latest_evaluation`.
+`action`: `HOLD`, `TRANSFER`, `HIT`, `CHIP`, `DEFER`, `UNKNOWN`. `adherence` (derived from the
+recommended and chosen plans): `followed`, `modified`, `rejected`, `deferred`.
+`evaluation_status`: `pending` (no relevant match played), `partial` (some relevant fixtures
+unplayed or unrecorded, or every one recorded but not yet final — FPL has not finalised the
+gameweek or the rows were loaded before the finalisation lag — then with provisional totals),
+`final`, `unavailable` (nothing reconstructible to score, with the reason; a "something else"
+decision ends here once the reference totals for holding and the recommendation are final).
+`evidence` is `null` for a decision migrated from pre-M1.4 feedback.
+`verification`: `matches`, `differs`, `observed`, `unavailable` (FPL-ID squads only, after the
+deadline). The evaluator never grades a decision from one outcome; the methodology and its
+limits are in `docs/architecture/decision-journal.md`.
 
 ## Transfer Workbench contract (M1.2)
 

@@ -41,6 +41,7 @@ manager's data); the app's header still carries its working title, "FPL Decision
 | **Risk and downside** | p10 / p90 of the gain, "what could go wrong" scenarios, stability of the choice under forecast perturbations |
 | **Rules you can trust** | an independent validator replays every plan through the FPL rules; illegal plans are never recommended |
 | **"Is this still current?"** | every recommendation and workbench run says whether it is current or historical — a newer data snapshot was promoted, or the squad was saved again — and **What changed?** shows the actual differences (players, availability, news, prices, fixtures, forecast versions) from stored data |
+| **Decision journal**: what Copilot recommended, what you decided, what happened, and how that compares with what was expected | record a decision from Home or the Workbench (follow, hold, another plan, a different captain, decide later); the decision-time evidence is frozen with it; after the gameweek your action, HOLD and the recommended plan are scored on official results — final only when FPL finalises the gameweek, never graded from one outcome |
 | **Traceability** | any recommendation walks back to the optimisation run, prediction run, feature snapshot, data snapshot and pinned source revision |
 | **Background processing** | recommendations and plan comparisons run as worker jobs (tens of seconds); the page never blocks on a solve |
 
@@ -56,11 +57,11 @@ manager's data); the app's header still carries its working title, "FPL Decision
 </table>
 
 Also: alerts with materiality thresholds (deadline, availability, price risk, plan invalidation),
-a decision journal of past recommendations with feedback, a Backtest Lab and a data-health page.
+a Backtest Lab and a data-health page.
 
-**Not built yet** (roadmap, `docs/PRODUCT_GAP_ANALYSIS.md`): the decision journal with
-*prospective* outcome evaluation (next milestone), mini-league strategy, a conversational
-assistant and a browser extension.
+**Not built yet** (roadmap, `docs/PRODUCT_GAP_ANALYSIS.md`): a season review and live-season
+calibration on top of the journal, mini-league strategy, a conversational assistant and a
+browser extension.
 
 ## How it works
 
@@ -110,6 +111,10 @@ Deeper: [optimiser](docs/architecture/optimizer.md) · [result lifecycle](docs/a
   brute-force-checked MILP ([optimiser](docs/architecture/optimizer.md),
   [benchmark](ml/reports/optimizer_benchmark.md)). Plans are labelled *proven optimal* only when
   the solver proved it.
+* **Prospective evaluation without hindsight.** A recorded decision keeps the evidence it was
+  made on (plans, lineups, expectations, identifiers), pre-deadline decisions cannot be replaced
+  after the deadline, evaluations are insert-only and idempotent, and official corrections add
+  a revision instead of overwriting ([design](docs/architecture/decision-journal.md)).
 * **Result lifecycle.** Recommendations and workbench runs are judged against the promoted data
   snapshot; promotion invalidates older results idempotently, late or out-of-order jobs never
   replace newer answers, and "What changed?" is built from stored inputs only, never invented
@@ -239,9 +244,9 @@ step), key or session errors, live-source failures, backups and restore: see
 * **Done:** data pipeline and point-in-time evaluation; forecasting and simulation; MILP planner
   and validator; decision engine with risk, chips and scenarios; API, worker, scheduler and web
   app; invite-only accounts and FPL-ID onboarding (M1.1a); Transfer Workbench (M1.2); result
-  lifecycle and "What changed?" (M1.3).
-* **Next:** the decision journal with prospective outcome evaluation — recording each decision
-  before the deadline and scoring it against what happened.
+  lifecycle and "What changed?" (M1.3); decision journal with prospective outcome evaluation
+  (M1.4).
+* **Next:** the season review and live-season calibration on the journal's records.
 * **Not done:** a public deployment (it needs a host, a domain and secrets); mini-league
   strategy, an assistant and a browser extension; evaluation of the models on the 2026-27 season
   as it is played.

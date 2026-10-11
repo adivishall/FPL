@@ -28,6 +28,11 @@ generated reports so they cannot drift from this page.
   export and its promotion the worker computes on the newer export: a recommendation made then
   is current on that snapshot, and a missing Copilot Home analysis shows as *computing* until
   the promotion.
+* **Decision journal.** One gameweek's outcome is a single draw: the journal reports what
+  happened against what was expected and never grades a decision from it. Only decisions the
+  application can reconstruct are scored ("something else" is recorded, not evaluated);
+  HOLD's XI is rebuilt for recommendation sources; evaluation is final only once FPL finalises
+  the gameweek; verification against the official picks needs an FPL ID (§4a).
 * **Reproducibility across machines.** The engine reproduces itself byte-exactly on one machine;
   on another CPU class the forecasts, objectives and tie-breaks differ, and shared x86_64 CI
   runners differ from each other (`docs/BUILD_STATUS.md` §2d defect 52). Golden parity is
@@ -127,6 +132,64 @@ generated reports so they cannot drift from this page.
 * The decision engine's thresholds (`min_gain`, `min_prob_positive`) trade activity for
   stability; plans beyond the first week are provisional (most next-week plans change).
 * The "FPL-style heuristic" baseline is an approximation; the official algorithm is not public.
+
+## 4a. Decision journal and outcome evaluation (M1.4)
+
+Design and methodology: `docs/architecture/decision-journal.md`.
+
+* **No grading from one outcome.** A gameweek's points are one draw from the forecast
+  distribution; the evaluation places the result against the decision-time 80 % range and
+  expected difference to HOLD and says so, but it does not call a decision good or bad, and one
+  manager's journal is not a calibration study. Live-season calibration of the models is still
+  separate work (§4).
+* **What can be evaluated.** Only plans whose content is stored: the recommendation's plan and
+  HOLD, any evaluated Transfer Workbench plan, each optionally with a different captain /
+  vice-captain. "I did something else" is recorded as `UNKNOWN` and never reconstructed or
+  scored (the counterfactual HOLD and recommended totals are still shown). Chips are evaluated
+  only as part of a stored plan; recommendations and workbench runs do not plan chips today.
+* **HOLD for a recommendation.** A recommendation stores HOLD's armband but not its XI; the
+  journal rebuilds the XI from the decision-time expected points of the unchanged squad (the
+  backtest's convention) and labels it *reconstructed*. When those expectations are incomplete,
+  HOLD is reported as not scorable rather than invented. Workbench runs store HOLD's lineup.
+* **Armband changes.** The decision-time expectation and paired gain belong to the plan as the
+  engine built it (with its own captain); when the manager changes the armband, the comparison
+  with that expectation is labelled, the expected-difference band is not reported, and the
+  plan's own armband is scored separately to show the armband's effect.
+* **Bands, not percentiles.** Only the mean, p10 and p90 (and p50 where stored) are kept, not the
+  simulation samples, so a result is placed below / inside / above the 80 % range, not at an
+  exact percentile.
+* **Final means finalised.** Totals stay hidden until every relevant fixture (the decision-time
+  clubs of every player in the scored plans) is recorded, and are *provisional* until FPL marks
+  the gameweek `finished` and `data_checked` **and** the result rows were loaded after the
+  ruleset's finalisation lag (72 hours after the last match for 2026-27 — an assumption, not an
+  FPL signal), so a final evaluation arrives about three to four days after the gameweek's last
+  match; an official correction after that writes a revised evaluation (the previous one is
+  kept). Results are loaded by the `live_results` task (one paced pass of about 11 minutes, then
+  a daily re-check for four days after the last match) and evaluated by the hourly journal job;
+  FPL corrections after that window are not fetched (§2). If no load lands between the
+  finalisation lag and the end of that window (the first load very late, or every retry
+  failing), the rows become final only with the next gameweek's load — and after GW38 there is
+  none, so such a decision would stay *partial* with provisional totals.
+* **Postponements and double gameweeks.** A fixture that moved out of the gameweek after the
+  decision is listed and not scored there (FPL scores it where it is played); double gameweeks
+  sum both matches. A player who changes club after the decision is judged complete on their
+  decision-time club's fixtures.
+* **Automatic substitutions** follow the domain rules (bench order, formation, vice-captain
+  only when the captain did not play) on per-player gameweek minutes; they reproduce official
+  points on the historical rows (§1), but the journal's own bench order is the plan's stored or
+  reconstructed order, which may differ from the order the manager set in FPL.
+* **Verification** compares squad, captain, vice-captain and chip with the official picks of the
+  gameweek, for squads imported with an FPL ID, after the deadline; a manual squad cannot be
+  verified, bench order is not compared, and a failed or disabled live source leaves it
+  *unavailable* — retried hourly for seven days after the deadline, then only on request. The
+  recorded decision is never changed by it.
+* **Pre-M1.4 feedback** is kept as decisions without decision-time evidence: shown, never
+  evaluated or verified, and the realised points typed into the old form stay self-reported.
+* **Deadline rule.** A decision recorded before the deadline cannot be replaced after it; one
+  first recorded after the deadline is accepted and labelled non-prospective.
+* **Defects 52 and 53** still apply to the sources being journalled: recommendations are
+  byte-reproducible on one machine only, and a plan after an inherited club excess may be the
+  best valid plan explored rather than a proven optimum (§5).
 
 ## 5. Optimisation and computation
 

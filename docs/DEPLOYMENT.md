@@ -228,7 +228,16 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
   `invalidated` stay non-current under the previous image, while workbench runs lose their
   historical marker and fall back to the M1.2 `stale_state` / `stale_snapshot` flags; the
   previous image no longer invalidates on promotion. Roll the images and the schema back
-  together (an M1.3 image needs `0004`). To roll back the
+  together (an M1.3 image needs `0004`). M1.4 adds `0005` (decision journal): it adds the
+  journal's columns to `decision_journal` (typed action, adherence, decision-time evidence,
+  verification, evaluation status), backfills every existing feedback row from its
+  recommendation (labelled `jd_legacy_…`, evaluation `unavailable`: no decision-time evidence
+  was stored for it), keeps only the newest row per manager and gameweek active, and creates
+  the insert-only `decision_evaluations` table. Rolling `0005` back drops `decision_evaluations`
+  and the new columns, maps adherence back to the old vocabulary (`deferred` becomes empty) and
+  **deletes the decisions recorded against Transfer Workbench runs** (the `0004` schema needs a
+  recommendation) — export the affected managers first if they matter. Roll the images and the
+  schema back together (an M1.4 image needs `0005`). To roll back the
   schema: `docker compose run --rm migrate alembic downgrade -1` with the previous image.
 * **Images**: pin the previous tag in `docker-compose.override.yml` and `up -d`.
 * **Forecast horizon or model configuration changes** invalidate the serving forecast's key:
@@ -250,13 +259,16 @@ The scheduler submits a `retention` job hourly (`fpl_api/retention.py`):
 
 * kept with caches: the `FPL_SNAPSHOT_RETENTION_KEEP` newest snapshots (default 24), the one the
   API serves, and every evaluation snapshot pinned in `config/backtest/*.yaml`;
-* kept without caches: any other snapshot a stored recommendation, backtest run or registered
-  model references (its decisions stay traceable and re-derivable; caches are recomputable);
+* kept without caches: any other snapshot a stored recommendation, workbench run, journal
+  decision, backtest run or registered model references (its decisions stay traceable and re-derivable; caches are recomputable);
 * deleted: all other snapshots with their feature caches and serving markers, forecast/price
   caches unused by a kept serving forecast and older than `FPL_ARTIFACT_RETENTION_HOURS`
   (default 24), exports interrupted before their manifest and temporary files of killed writers.
 
-Database rows are never deleted. A path that cannot be deleted fails the job after the rest is
+Database rows are never deleted (journal decisions and their evaluations included; the
+hourly `journal` task evaluates and verifies decisions whose outcome can still change —
+pending or partial, final within the last seven days, not yet verified, or whose check failed
+for a retryable reason within seven days of the deadline). A path that cannot be deleted fails the job after the rest is
 done (`failure=error`, `JobFailures` alert); `0` disables pruning. Not pruned: `/data/raw` (the
 captured source payloads that canonical rows cite as provenance, ~0.3 MB per hourly capture) and
 the PostgreSQL tables of live observations — both grow slowly and need an archival policy before
@@ -313,9 +325,10 @@ Recovery time measured here: ~1.5 minutes to a running stack, plus the serving f
 ## Privacy operations (§75)
 
 * Export: `GET /api/v1/managers/{key}/export` (owner or operator) returns every manager-linked
-  row. Erase: `DELETE /api/v1/managers/{key}` deletes them in one transaction (including the
-  precomputed analyses) and releases the key from its owner; `DELETE /api/v1/auth/me` erases an
-  account with every manager it owns, its sessions and its analytics events.
+  row, journal decisions and their evaluations included. Erase: `DELETE /api/v1/managers/{key}`
+  deletes them in one transaction (including the precomputed analyses and the journal) and
+  releases the key from its owner; `DELETE /api/v1/auth/me` erases an account with every
+  manager it owns, its sessions and its analytics events.
 * Both are recorded in `audit_log` with a SHA-256 of the key only.
 * No FPL credentials are accepted or stored anywhere; sync uses the public entry id.
 
@@ -371,7 +384,8 @@ check the `data_jobs` rows of type `live_results` and the scheduler log.
 `JobInterruptions`. A job whose worker died (OOM kill, container replaced, host asleep long
 enough for RQ's timeout to fire on wake) is closed by the scheduler's reaper as
 `failed: abandoned …` — immediately when RQ reports the job failed or unknown, otherwise when its
-lease expires (forecast/recommendation 30 min, alerts/retention 15 min, backtest 6 h) — and an
+lease expires (forecast/recommendation 30 min, workbench 20 min, alerts/retention/journal
+15 min, squad analysis 10 min, backtest 6 h) — and an
 identical request then starts a new attempt. RQ's own job timeout is recorded as
 `interrupted: …`. All of these have `failure=interrupted` in `GET /jobs/{id}` and in
 `fpl_jobs_failed`; every job publishes its result only at the end (one database transaction,

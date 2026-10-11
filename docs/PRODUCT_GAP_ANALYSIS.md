@@ -20,12 +20,14 @@ what happened next, no accounts, and no assistant. The recommended first milesto
 access layer** (M1.1a below): it removes the biggest onboarding and latency barriers, touches no
 forecasting or optimiser code, and creates the identity layer every later milestone needs.
 
-**Status (2026-10-11):** M1.1a is implemented and verified locally (`docs/BUILD_STATUS.md` §2c),
+**Status (2026-10-12):** M1.1a is implemented and verified locally (`docs/BUILD_STATUS.md` §2c),
 and the whole-squad Transfer Workbench (M1.2: HOLD baseline, exact transfers, engine
 replacements, the optimiser's plans with hit accounting, independent legality, job execution
 bound to the squad state) is implemented (§2d), and M1.3 (result lifecycle: snapshot-aware
-invalidation, finalisation races, "what changed"; §2e) is implemented; next is the journal with
-prospective evaluation. The assistant, mini-league intelligence and the extension are not started.
+invalidation, finalisation races, "what changed"; §2e) is implemented, and M1.4 (the decision
+journal with prospective outcome evaluation, C10's core; §2f) is implemented. The season review
+and live-season calibration parts of C10, the assistant, mini-league intelligence and the
+extension are not started.
 
 One naming risk first: **"FPL Copilot" is an existing product** (fplcopilot.com, "AI-Powered
 Fantasy Premier League Optimizer", with a solver, chip strategies and mini-league pages). The
@@ -47,6 +49,7 @@ only.
 | Live intelligence and recommendation invalidation | **Partial** | freshness block on every response, degraded banner on 5 of 13 pages; `invalidation` alert exists (`apps/api/src/fpl_api/alerts.py:230-306`) but the `invalidated` status is never set, `/recommendations/current` never compares snapshot ids, and nothing re-plans automatically |
 | Mini-league / rival strategy | **Library only** | `league.py` (`head_to_head`, `template_gaps`, `plan_choice_vs_rival`) is imported only by a unit test; `league_rivals` and `differential_tolerance` settings exist in the schema and are never read; the classic-league standings client has no caller |
 | Decision journal with prospective evaluation | **Partial** | `/decisions` with followed/ignored/partial, note and user-typed `realized_points`; `realized_hold_points`, `forecast_error` and `review_json` columns are never written; the post-gameweek alert computes realised vs expected but does not persist it; no prospective evaluation of the live season |
+| ↳ *Status after M1.4* | **Exists** (core) | recorded decisions with immutable decision-time evidence, adherence, confirmation and first-party verification; automatic evaluation (pending / partial / final / unavailable) of the recorded action, HOLD and the recommended plan on official results, with insert-only revisions (`docs/architecture/decision-journal.md`); season review and live-season calibration still missing |
 | Chrome extension | **Missing** | nothing in the repository; the backend has every read endpoint an overlay would need, but no per-user credential an extension could hold |
 | Accounts, beta access, product analytics | **Missing** | one operator API key, free-form `manager_key` (web default `"demo"`), anyone behind the site login can read or erase any manager; no usage analytics of any kind (Prometheus only) |
 
@@ -186,6 +189,16 @@ code; "Differentiation" is honest about where competitors already are.
 | **Success metric** | Share of users who connect a league; return rate on match days |
 
 ### C10. Decision journal with prospective evaluation (priority 6)
+
+**Status (M1.4, 2026-10-12):** the journal and per-decision prospective evaluation are
+implemented (`docs/BUILD_STATUS.md` §2f): a decision is recorded with its decision-time evidence
+(it never changes afterwards), adherence is derived from the recommended and chosen plans,
+first-party picks verify FPL-ID squads after the deadline, and an hourly job scores the
+recorded action, HOLD and the recommended plan with the domain scoring rules once results are
+recorded — final only when FPL finalises the gameweek, revisions kept, no grading from a single
+outcome. Still missing from the rows below: the season review page and live-season calibration
+of the models. The "regret" metric is reported as a difference to HOLD and to the recommended
+plan, with the decision-time expectation beside it, not as a verdict.
 
 | | |
 |---|---|

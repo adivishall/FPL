@@ -2,6 +2,46 @@
 
 User-visible behaviour changes (§78). Milestones follow `docs/BUILD_STATUS.md`.
 
+## M1.4 — Decision journal and prospective outcome evaluation (2026-10-12)
+
+### Added
+- **Record your decision** under the recommendation on Home and under a plan in the Transfer
+  Workbench: follow the recommendation, hold, choose another evaluated plan, change the
+  captain / vice-captain, "I'll decide later", or "I did something else", with an optional
+  note. Recording against a historical result is allowed and says so.
+- Each decision keeps the **decision-time evidence** it was made on — the recommended plan,
+  HOLD and your chosen plan with lineups, armbands, hits and their expected points (mean and
+  80 % range) and expected difference to HOLD, the squad, the clubs' fixtures, and every
+  identifier (snapshot, forecast, model versions, ruleset) — and never changes afterwards. A
+  change of mind before the deadline supersedes the earlier record (both kept); after the
+  deadline a pre-deadline decision cannot be replaced.
+- **What happened**: an hourly job (and "Evaluate now" on the entry page) scores your recorded
+  action, holding and the recommended plan on the official results with the FPL scoring rules
+  (automatic substitutions, vice-captain, chips, hits): *pending* before the relevant matches,
+  *partial* while some are missing (provisional totals once all are in), *final* once FPL
+  finalises the gameweek and the results have been reloaded after the finalisation lag (about
+  three to four days after the last match). Each result is set against what was expected when you decided, with
+  the caveat that one gameweek is a single draw — no decision is graded good or bad from it.
+  Official corrections add a revised evaluation; earlier ones are kept.
+- **Verification** for squads imported with an FPL ID: after the deadline the official picks
+  of the gameweek are compared with the recorded action (matches / differs), without changing
+  the record; "I made this move" lets you confirm it yourself.
+- Journal page: "Your decisions" with filters (gameweek, action, evaluation, superseded), the
+  recommendations table shows your decision for each, and an entry page shows the four
+  questions, the evidence, provenance and the evaluation history.
+- API: `GET/POST /journal`, `GET /journal/{id}`, `POST /journal/{id}/confirm`,
+  `POST /journal/{id}/evaluate`; migration 0005 (journal columns, `decision_evaluations`);
+  scheduler task `journal` (hourly). Export and erasure include the journal.
+
+### Changed
+- `POST /decisions/{id}/feedback` records a journal decision: "followed" is the recommended
+  plan; "ignored" / "partial" are recorded as "something else" (not evaluated). Realised points
+  typed by hand are kept as self-reported and are never used as the outcome.
+- Existing feedback rows are migrated as legacy decisions whose evaluation and verification
+  are *unavailable*: no decision-time evidence was stored for them, so none is invented; their
+  entry pages say so.
+- `GET /decisions` feedback rows carry `entry_id` and `state` (active / superseded).
+
 ## M1.3 — Snapshot-aware invalidation and "What changed?" (2026-10-11)
 
 ### Added

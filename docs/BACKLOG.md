@@ -8,10 +8,11 @@ these items around user value (and adds identity, beta access and analytics as l
 is `docs/PRODUCT_GAP_ANALYSIS.md`.
 
 **Done since the gap analysis:** M1.1a (Copilot Home and beta foundation — identity, onboarding,
-player search, precomputed Home, analytics; `docs/BUILD_STATUS.md` §2c). **Next:** the whole-squad
-Transfer Workbench (HOLD vs transfer ladder, multiple combinations, affordability and hits), then
-decision invalidation, the journal with prospective evaluation, and later the assistant,
-mini-league intelligence and the extension (`docs/PRODUCT_GAP_ANALYSIS.md` §6).
+player search, precomputed Home, analytics; `docs/BUILD_STATUS.md` §2c), M1.2 (whole-squad
+Transfer Workbench, §2d), M1.3 (result lifecycle and "What changed?", §2e) and M1.4 (decision
+journal with prospective outcome evaluation, §2f). **Next:** the items below that build on the
+journal (season review, live calibration), then the assistant, mini-league intelligence and the
+extension (`docs/PRODUCT_GAP_ANALYSIS.md` §6).
 
 ## V1.1
 
@@ -33,7 +34,12 @@ mini-league intelligence and the extension (`docs/PRODUCT_GAP_ANALYSIS.md` §6).
 | Calibrate injury / news availability | the status layer is configuration, not a fitted model | no historical news; capture live status changes first |
 | Observe availability alerts on real status changes | alert logic is unit-tested only | `docs/KNOWN_LIMITATIONS.md` §1 |
 | League awareness and template exposure in the API/UI | library functions exist, not exposed | `fpl_decision/league.py` |
-| Per-decision regret attribution | close the loop between forecast error and decision quality | audit: closed feedback loop |
+| Season review from the journal | the journal evaluates each decision on its own; a season view (cumulative realised vs expected difference to HOLD, adherence, how often results fell inside the decision-time range) needs enough gameweeks to mean anything and must keep the one-draw caveat | `docs/architecture/decision-journal.md` |
+| Live-season calibration of the served models | the journal compares one manager's outcomes with their forecasts; calibration of P(start), minutes and points over all players on 2026-27 results (the offline metrics on live gameweeks) is separate | `docs/KNOWN_LIMITATIONS.md` §4 |
+| Journal: store per-plan outcome samples | evaluations place a result against the stored p10 / p90; keeping each plan's simulated totals would give an exact percentile | `docs/KNOWN_LIMITATIONS.md` §4a |
+| Journal: store HOLD's XI in the recommendation package | HOLD's lineup is rebuilt from decision-time expectations for recommendation sources (labelled); the engine already computes it | `docs/KNOWN_LIMITATIONS.md` §4a |
+| Journal: record a decision the workbench never evaluated | "something else" is recorded but not scored; evaluating it means submitting it to the workbench first (or a free-form plan builder with the same rules replay) | `docs/KNOWN_LIMITATIONS.md` §4a |
+| Per-decision regret attribution | close the loop between forecast error and decision quality (the journal now stores realised vs expected per decision) | audit: closed feedback loop |
 | Ingestion-level drift gate; baseline-forecast fallback | defence in depth for data and model failures | audit rows (PARTIAL) |
 | Alertmanager routing | alerts are visible in Prometheus but not pushed | 12 rules loaded |
 | Archival of raw captures and live-observation tables | `/data/raw` and live tables are not pruned | `docs/DEPLOYMENT.md` → *Retention* |
