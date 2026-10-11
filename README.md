@@ -1,281 +1,259 @@
-# FPL Decision Engine
+# FPL Copilot
 
-[![ci](https://github.com/adivishall/fpl-copilot/actions/workflows/ci.yml/badge.svg?branch=claude/modest-noether-qauiji)](https://github.com/adivishall/fpl-copilot/actions/workflows/ci.yml)
+[![CI](https://github.com/adivishall/fpl-copilot/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/adivishall/fpl-copilot/actions/workflows/ci.yml?query=branch%3Adevelop)
+![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/web-Next.js-000000?logo=nextdotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/db-PostgreSQL%2016-4169E1?logo=postgresql&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A decision-support system for Fantasy Premier League that makes transfer, captaincy and chip
-decisions under uncertainty. It starts from a manager's real squad, forecasts each player's minutes and **point distribution**, searches legal transfer and
-chip paths over several gameweeks with a mixed-integer program, compares every plan against
-**doing nothing**, stress-tests the choice, and explains it from stored evidence — with every
-recommendation traceable back to the exact data snapshot, model versions and source revision.
+**A probabilistic decision engine for Fantasy Premier League managers: it forecasts every
+player's points as a distribution, plans legal transfers across several gameweeks, compares each
+plan with doing nothing, and tells you when an answer is no longer current.**
 
-![Overview: recommendation with evidence, downside and the do-nothing counterfactual](docs/images/overview-recommendation.png)
+Every week an FPL manager decides whether to transfer, take a points hit, play a chip and who to
+captain — under uncertain minutes, injuries, fixtures and prices, with rules (budget, selling
+prices, club limits, banked transfers) that make "the best player" the wrong question. Most tools
+give one expected-points number per player and a "best transfer". FPL Copilot starts from the
+manager's real squad and state, simulates outcomes jointly, optimises the whole squad over the
+coming gameweeks, checks every plan against the rules independently, and shows the evidence,
+the downside and what happens if you do nothing.
 
-It is evaluated the way it would be used: replayed week by week through three historical seasons
-with only the information available before each deadline, against six benchmark strategies.
+> **Status:** active development — milestone M1.3 (result lifecycle) complete. The full
+> production topology (TLS proxy, web, API, worker, scheduler, PostgreSQL, Redis) is verified
+> **locally** with Docker Compose. **There is no public demo yet.**
 
-## What is different from a typical FPL optimiser
+[![Copilot Home: the manager's situation, squad health, recommended action with its lifecycle status and captain profiles](docs/images/copilot-home.png)](docs/images/copilot-home-full.png)
 
-| Typical optimiser | This project |
+<sub>Screenshots are from the locally deployed stack with a squad built by the optimiser (no real
+manager's data); the app's header still carries its working title, "FPL Decision Engine".</sub>
+
+## What it does today
+
+| For the manager | How |
 |---|---|
-| One expected-points number per player | Joint Monte Carlo distributions (shared match outcomes, minutes, bonus) per player × gameweek |
-| "Best transfer" every week | HOLD / TRANSFER / HIT / CHIP decided by *paired* simulated gain vs holding, with thresholds |
-| Re-optimises from scratch | Multi-gameweek MILP over the real state: bank, purchase prices, selling-price rule, banked free transfers, two chip sets, Free Hit reversion |
-| Backtest on final data | Point-in-time data model; schedule as *published* at each cutoff; future-perturbation tests |
-| Opaque output | Evidence-based explanations, downside scenarios, a "what if you do nothing" counterfactual, and a lineage trace |
+| **Import your real squad** with your FPL ID (public data only — never your FPL password), or enter it manually | squad, bank, purchase prices and chips from the official API; invite-only accounts own their managers |
+| **Copilot Home**: situation, squad health signals, recommended action, captain profiles, fixture outlook | an analysis the worker precomputes per squad and data snapshot |
+| **Player forecasts with uncertainty** | minutes, start probability and a full points distribution per player and gameweek (p10–p90), not a single number |
+| **Captaincy and transfer decisions** — HOLD, TRANSFER, HIT or CHIP | every candidate plan is scored against *holding* on the same simulated samples; a move must clear a minimum expected gain and a probability of beating HOLD |
+| **Transfer Workbench**: compare your own transfer, the engine's replacements for a player and the optimiser's best plan, for the whole squad | each option solved as a full multi-gameweek plan; hit costs shown separately from gross gains; solver status shown |
+| **Multi-gameweek planning** (1–5 gameweeks served; the evaluated forecast horizon) | mixed-integer optimisation over budget with exact selling prices, banked free transfers, hits, both chip sets, captain and bench |
+| **Risk and downside** | p10 / p90 of the gain, "what could go wrong" scenarios, stability of the choice under forecast perturbations |
+| **Rules you can trust** | an independent validator replays every plan through the FPL rules; illegal plans are never recommended |
+| **"Is this still current?"** | every recommendation and workbench run says whether it is current or historical — a newer data snapshot was promoted, or the squad was saved again — and **What changed?** shows the actual differences (players, availability, news, prices, fixtures, forecast versions) from stored data |
+| **Traceability** | any recommendation walks back to the optimisation run, prediction run, feature snapshot, data snapshot and pinned source revision |
+| **Background processing** | recommendations and plan comparisons run as worker jobs (tens of seconds); the page never blocks on a solve |
 
-## Architecture
+<table>
+  <tr>
+    <td width="50%"><a href="docs/images/transfer-workbench.png"><img src="docs/images/transfer-workbench.png" alt="Transfer Workbench: whole-squad plans compared with holding"></a><br><sub><b>Transfer Workbench</b> — your transfer, the engine's replacements and the optimiser's plans, each against holding, with hit costs, risk and solver status.</sub></td>
+    <td width="50%"><a href="docs/images/what-changed.png"><img src="docs/images/what-changed.png" alt="A historical workbench run explaining what changed"></a><br><sub><b>What changed?</b> — a run whose squad was saved again is marked historical, with the stored difference.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/images/traceability.png"><img src="docs/images/traceability.png" alt="Traceability chain and explanation"></a><br><sub><b>Traceability</b> — recommendation → optimisation run → prediction set → feature snapshot → data snapshot → source revision.</sub></td>
+    <td width="50%"><a href="docs/images/backtest-lab.png"><img src="docs/images/backtest-lab.png" alt="Backtest Lab"></a><br><sub><b>Backtest Lab</b> — walk-forward evaluation against six benchmark strategies.</sub></td>
+  </tr>
+</table>
+
+Also: alerts with materiality thresholds (deadline, availability, price risk, plan invalidation),
+a decision journal of past recommendations with feedback, a Backtest Lab and a data-health page.
+
+**Not built yet** (roadmap, `docs/PRODUCT_GAP_ANALYSIS.md`): the decision journal with
+*prospective* outcome evaluation (next milestone), mini-league strategy, a conversational
+assistant and a browser extension.
+
+## How it works
 
 ```mermaid
 flowchart LR
-  subgraph Sources
-    V[vaastav archive<br/>pinned commit] --- F[FPL API<br/>live]
-  end
-  Sources --> I[Ingestion<br/>contracts · quality gates · raw store]
-  I --> PG[(PostgreSQL<br/>canonical tables · lineage · jobs)]
-  PG --> S[Canonical snapshot<br/>content-hashed Parquet]
-  S --> PIT[Point-in-time view<br/>+ schedule rule S1]
-  PIT --> FE[Features<br/>49 registered]
-  FE --> M[Minutes · rates · team strength<br/>LightGBM + Bayesian shrinkage]
-  M --> MC[Joint Monte Carlo<br/>1,000 samples]
-  MC --> O[MILP planner<br/>HiGHS + independent validator]
-  O --> D[Decision engine<br/>paired gains · chips · scenarios · stability]
-  D --> E[Evidence + explanation<br/>+ lineage]
-  E --> API[FastAPI]
-  API --> WEB[Next.js UI via<br/>server-side key proxy]
-  Q[(Redis / RQ)] --- W[Worker + scheduler]
-  W --> PG
-  API --> Q
+  A[FPL API<br/>+ pinned historical archive] --> B[Ingestion<br/>contracts · quality gates]
+  B --> C[(PostgreSQL<br/>canonical data · lineage)]
+  C --> D[Snapshot<br/>content-hashed, point-in-time]
+  D --> E[Forecasts<br/>minutes · rates · team strength]
+  E --> F[Joint Monte Carlo<br/>1,000 samples]
+  F --> G[MILP planner<br/>HiGHS]
+  G --> H[Independent<br/>rules validator]
+  H --> I[Decision engine<br/>vs HOLD · risk · chips]
+  I --> J[FastAPI + worker jobs<br/>Redis / RQ]
+  J --> K[Next.js web app]
 ```
 
-Deployed with Docker Compose: `postgres`, `redis`, `migrate`, `api`, `worker`, `scheduler`,
-`web` (+ optional `prometheus`). The browser only talks to the web server, which proxies
-`/backend/*` to the API and holds the API key; the worker computes forecasts, recommendations,
-alert evaluations and backtests; the scheduler refreshes live data hourly and the API promotes a
-new snapshot only once its forecast is precomputed. Architecture decisions: `docs/decisions/`.
+1. **Data.** Live FPL captures and a pinned historical archive are ingested through typed
+   contracts and quality gates; every observation keeps its *availability* time, and each data
+   snapshot is content-addressed, so a result can name exactly what it saw.
+2. **Forecasts.** Calibrated minutes models, shrunk per-90 rates and a team-strength model feed a
+   joint simulation of goals, assists, clean sheets, saves, defensive contributions, cards and
+   bonus, scored with the season's versioned rules.
+3. **Plans.** A mixed-integer program plans the squad over the horizon; every returned plan is
+   replayed by an independent validator; the decision engine compares the best plan, HOLD and
+   alternatives on the *same* samples.
+4. **Serving.** FastAPI serves results; a worker computes forecasts, recommendations and
+   workbench runs as jobs; a scheduler refreshes live data hourly and promotes a new snapshot
+   only once its forecast is ready; results judged against older inputs are marked historical.
+5. **Web.** The browser talks only to the Next.js server, which proxies the API with a key the
+   browser never sees.
 
-## Data pipeline
+Deeper: [optimiser](docs/architecture/optimizer.md) · [result lifecycle](docs/architecture/result-lifecycle.md) ·
+[database schema](docs/architecture/database-schema.md) · [rules verification](docs/architecture/rules-verification.md) ·
+[architecture decisions](docs/decisions/) · [API](docs/API.md).
 
-Raw payloads are stored content-addressed; each canonical row records the payload it came from;
-every observation carries an *availability* timestamp separate from its event time (ADR-0004).
-The canonical snapshot id is a hash of all tables — rebuilding from the pinned historical commit
-gives `snap_b64560a8c4f434ad984e` on macOS and inside the Linux container alike. Live captures
-from the official API (prices, availability, news, fixtures, deadlines, and completed-match
-results with each fixture's price and ownership) produce new snapshots; historical evaluation is
-pinned to the archive snapshot and never sees them.
+## Engineering highlights
 
-**Schedule rule S1.** Archives contain only the *final* fixture list, so a match postponed on the
-day looks "known" months earlier. The point-in-time view reconstructs each moved fixture's
-original round (an exact, uniqueness-checked assignment over the double round-robin) and shows
-the schedule as it was published at every cutoff. Finding and fixing this look-ahead invalidated
-the project's earlier backtest numbers; the report shows what changed.
+* **Point-in-time evaluation.** Backtests replay three seasons week by week with only what was
+  known before each deadline. A schedule look-ahead (postponed fixtures visible early in
+  archived data) was found and fixed, and the published numbers were regenerated —
+  [backtest protocol](docs/BACKTEST_PROTOCOL.md).
+* **Uncertainty, not point estimates.** Distributions are evaluated with CRPS and PIT coverage;
+  pre-registered promotion gates; [model card](docs/MODEL_CARD.md).
+* **Optimisation under real constraints** — budget with selling prices, club limits, free-transfer
+  banking, hits, chip windows, Free Hit reversion — with an independent validator and a
+  brute-force-checked MILP ([optimiser](docs/architecture/optimizer.md),
+  [benchmark](ml/reports/optimizer_benchmark.md)). Plans are labelled *proven optimal* only when
+  the solver proved it.
+* **Result lifecycle.** Recommendations and workbench runs are judged against the promoted data
+  snapshot; promotion invalidates older results idempotently, late or out-of-order jobs never
+  replace newer answers, and "What changed?" is built from stored inputs only, never invented
+  ([design](docs/architecture/result-lifecycle.md)).
+* **Security.** Invite-only accounts (scrypt, hashed HttpOnly sessions), ownership checked for
+  every manager key a request names, hashed API keys in two privilege classes, SSRF-guarded
+  webhooks, rate limits, export and erasure ([deployment](docs/DEPLOYMENT.md), [security policy](SECURITY.md)).
+* **Lineage.** Recommendation → optimisation run → prediction run → feature snapshot → data
+  snapshot → source revision, with integrity checks.
+* **Operations.** Docker Compose stack with health checks, atomic publication of job results,
+  classified job failures, snapshot retention, backups tested by a full restore, Prometheus
+  metrics and alert rules; CI runs lint, types, layering contracts, tests, an optimiser suite,
+  browser flows, dependency and secret scans and container builds on every push.
 
-## Forecasting
+## Evidence
 
-Expected minutes and start probability (calibrated LightGBM), per-90 attacking and defensive
-rates with Bühlmann–Straub shrinkage to position/price priors, and a recency-weighted team
-strength model feed a **joint simulation**: goals, assists, clean sheets, saves, defensive
-contributions, cards and bonus are sampled per fixture with shared randomness, then scored with
-the versioned rules of each season. Out of sample over 114 weekly cutoffs
-(`ml/reports/forecast_eval.md`):
+All figures link to the generated reports; development-machine timings come from one Apple M4.
 
-| | MC model | best simple baseline | climatology |
+**Forecasts** — out of sample over 114 weekly cutoffs in three seasons
+([report](ml/reports/forecast_eval.md)):
+
+| horizon 0, all players | Monte Carlo model | best simple baseline | climatology |
 |---|---|---|---|
-| RMSE, points (h0) | **1.924** | 2.031 (CI of difference excludes 0) | 2.351 |
+| RMSE (points) | **1.924** | 2.031 (paired 95 % CI of the difference excludes 0) | 2.351 |
 | CRPS | **0.628** | — | 0.722 |
-| Randomised-PIT 80 % coverage | **0.804** | — | — |
+| central 80 % interval coverage (randomised PIT) | **0.804** | — | 0.800 |
 | P(start) Brier / ECE | **0.083 / 0.011** | 0.101 / 0.021 | — |
 
-Pre-registered promotion gates pass; one gate was redefined after seeing results and is recorded
-as such in the model card (`docs/MODEL_CARD.md`).
-
-## Optimisation and decisions
-
-A MILP (HiGHS, `mip_rel_gap` 0) plans 1–8 gameweeks (configurable cap): squad composition, budget with exact
-selling prices, free-transfer banking (up to 5), hits, both chip sets with their windows, Free
-Hit reversion, captain/vice and bench order. Every returned plan is replayed through the domain
-state machine by an independent validator. The decision engine compares the best plan, HOLD and
-alternatives on the *same* simulated samples and only recommends a move that clears a minimum
-expected gain and a probability of beating HOLD; a chip planner values each chip now versus
-waiting; scenarios (minutes shocks, injuries, team attack, postponements, price moves) stress
-the choice; a replacement picker rebuilds the whole squad for a chosen outgoing player.
-Optimiser benchmark on realistic workloads (`ml/reports/optimizer_benchmark.md`; 612 solves plus 48
-HOLD-and-alternatives runs on 48 real squad states across three seasons, single-threaded HiGHS on an Apple M4):
-
-| | result |
-|---|---|
-| Returned plans passing independent validation | 100 % (634 checked) |
-| Transfer plan, 5 GW / 8 GW | p50 3.9 s, p95 13.4 s / p50 16.0 s, p95 43.5 s (1 of 36 hit the 60 s limit) |
-| HOLD + 3 alternatives, 5 GW | p50 24.9 s, p95 70.5 s |
-| MILP vs greedy one-transfer heuristic (same objective) | higher in 94 % of states; p50 +5.5, max +97 points |
-| Candidate pool vs full player universe | 0.000 points lost in 24 of 24 states |
-| Identical re-solve | same action and objective in 100 % |
-| Chip-open (all usable chips, 5 GW) | **always hits the 60 s limit** (48/48): validated incumbent, no optimality proof |
-
-## Walk-forward backtest (three seasons, 114 gameweeks)
-
-Every strategy starts each season from the same squad and is replayed through all 38 gameweeks
-with actual FPL scoring, automatic substitutions and hits (`ml/reports/backtest.md`,
-protocol `docs/BACKTEST_PROTOCOL.md`). Engine minus benchmark, total over 114 gameweeks, 95 %
-season-stratified bootstrap CI:
+**Decisions** — walk-forward backtest, 114 gameweeks, engine minus benchmark with 95 %
+season-stratified bootstrap CIs ([report](ml/reports/backtest.md)):
 
 | vs | difference | 95 % CI | reading |
 |---|---|---|---|
-| `hold` (never transfer) | +1905 | [+1454, +2381] | better |
+| never transfer (`hold`) | +1905 | [+1454, +2381] | better |
 | `form` | +742 | [+391, +1076] | better |
-| `fpl_style_heuristic` | +732 | [+369, +1094] | better |
-| `simple_xp` | +626 | [+311, +956] | better |
-| `engine_no_chips` | +306 | [+28, +593] | better, barely (value of chip timing) |
-| `single_gw_mc` (same forecast, 1-week optimiser) | +223 | [−126, +584] | **inconclusive** |
+| FPL-style heuristic | +732 | [+369, +1094] | better |
+| expected-points greedy (`simple_xp`) | +626 | [+311, +956] | better |
+| same engine without chips | +306 | [+28, +593] | better, barely |
+| same forecast, one-week optimiser | +223 | [−126, +584] | **inconclusive** |
 
-Per season the picture is weaker: in 2023-24 the engine scored **73 points less** than
-`single_gw_mc` (CI includes 0), and 10 of the 15 single-season comparisons against benchmarks
-other than `hold` are inconclusive. In 2024-25 the engine is ahead of `form` (+210 [+45, +363])
-and `fpl_style_heuristic` (+195 [+30, +350]); against `single_gw_mc` (+135 [−72, +347]) and
-`engine_no_chips` (+109 [−51, +273]) it is inconclusive; removing the schedule leak turned the
-earlier "better than `simple_xp`" into inconclusive (+140 [−26, +304]) and the earlier
-inconclusive result against `hold` into better (+543 [+263, +813]). The
-evidence supports "probabilistic forecasting + optimisation beats simple heuristics"; it does
-**not** show that multi-gameweek planning beats a one-week optimiser on the same forecast. All
-decisions were legal (100 %), with zero look-ahead violations. Re-running the replays after the
-last optimiser fix reproduced 11 of 21 strategy-seasons decision-for-decision; the other 10
-diverge only from GW34 on, where that fix (no value for transfers banked past GW38) applies. No rank claims: the archive has no distribution of other managers' scores.
+The evidence supports "probabilistic forecasting + optimisation beats simple heuristics". It does
+**not** show that multi-gameweek planning beats a one-week optimiser on the same forecast, and
+most single-season comparisons are inconclusive. No rank claims: the archive has no distribution
+of other managers' scores.
 
-## Alerts, explanations and traceability
+**Optimiser** ([benchmark](ml/reports/optimizer_benchmark.md); 48 real squad states, 612 solves):
+100 % of 634 returned plans pass independent validation; 5-GW transfer plans p50 3.9 s / p95
+13.4 s; the MILP beats a greedy one-transfer heuristic in 94 % of states; chip-open solves always
+reach the 60 s limit and are labelled *not proven optimal*.
 
-Alerts (§74) fire only above materiality thresholds and deduplicate by state: deadline reminders
-in the manager's time zone, availability and role changes, unexpected benching, the probability
-that price moves make a planned transfer unaffordable, fixture changes inside the plan horizon,
-recommendation invalidation and a post-gameweek review — replayed on real data in
-`ml/reports/alerts_audit.md`. Every recommendation can be walked back
-recommendation → optimisation run → prediction run → feature snapshot → data snapshot → pinned
-source revision, with integrity checks (`GET /api/v1/recommendations/{id}/trace`).
+**Tests** (current branch, development machine; [build status](docs/BUILD_STATUS.md)):
 
-## Testing
-
-Measured on the final code (`docs/BUILD_STATUS.md`):
-
-| Suite | Result |
+| suite | result |
 |---|---|
-| Python fast tier — unit, Hypothesis property tests, integration on real PostgreSQL and Redis | 384 passed, 0 failed, 0 skipped |
-| Slow tier — official points reproduced on all 113,870 historical player-match rows | 2 passed |
-| Network tier — versioned 2026-27 ruleset and per-player match histories vs the live FPL API | 4 passed |
-| Playwright, production topology — browser → TLS proxy (login) → Next.js proxy → API key → API → PostgreSQL / Redis / worker, on the Docker Compose stack | 19 passed |
-| Playwright, development flows | 7 passed |
-| Backup → restore into a new stack with empty volumes | every table's row count equal (40/40 lines); manager data, traces, worker, scheduler and TLS verified |
-| ruff, mypy (110 files), import-linter (4 layering contracts), `tsc`, `next build` | clean |
+| Python fast tier — unit, property and integration tests on real PostgreSQL and Redis | 453 passed |
+| slow + network tiers — official points on 113,870 historical rows; rules vs the live FPL API | 6 passed |
+| browser flows, development stack (incl. a real snapshot promotion) | 13 passed |
+| browser flows, production topology on the Docker Compose stack (web proxy → API → worker; live FPL-ID import) | 22 passed |
+| ruff, mypy (116 files), import-linter (4 contracts), TypeScript, `next build` | clean |
 
-The production suite covers key enforcement (missing / invalid / valid), that the proxy key never
-reaches the browser, squad build, captain / vice / bench, worker-generated recommendations,
-price predictions, replacement → what-if without mutating state, alert de-duplication,
-time-zone and webhook validation, settings that cannot be edited or saved before the stored
-values arrive (a held-response race regression), after a failed load, or be overwritten by a late
-response for a previous manager, the optimiser's "proven optimal / not proven optimal" label,
-traceability, export and erasure, the Backtest Lab, API error / auth / outage states and rate
-limiting. GitHub Actions runs lint, types, tests, the optimiser
-suite, e2e, dependency and secret scans and container builds on every push.
+**Open findings** (disclosed, not hidden):
+* *Cross-machine reproducibility* — the engine reproduces itself byte-for-byte on one machine,
+  but different CPUs (and even shared CI runners) produce slightly different forecasts and
+  plans. The byte-exact golden test runs on the development platform; CI checks run-to-run
+  self-consistency and uploads its output for comparison, but gives no cross-platform guarantee.
+* *Inherited club excess* — with more players from one club than the limit (possible after a
+  mid-season transfer), the optimiser can propose a plan the validator rejects; the validator
+  blocks it and the fallback is labelled "best valid plan among those explored; not proven
+  optimal". The formulation fix is open.
 
-## Deployment and operations
+## Run it locally
 
-`docker compose up -d` runs PostgreSQL, Redis, migrations, the API, the RQ worker, the
-scheduler and the web server (+ Prometheus with `--profile monitoring`); verified locally with
-health checks for every service, persistence across restarts and recovery from a killed worker
-(`docs/DEPLOYMENT.md`). The scheduler captures live data hourly and completed-match results once
-a gameweek finishes, precomputes forecasts (the API
-promotes a new snapshot only once its forecast is ready), evaluates alerts and prunes old
-snapshots and caches. Failed jobs are classified as code `error` or environmental `interrupted`
-(killed, lost, timed out); results are published atomically, so an interrupted job leaves
-nothing partial and is simply re-run.
-
-Public deployment adds one service (`docker-compose.public.yml`): a Caddy reverse proxy that is
-the only public listener — automatic TLS certificates, HTTP→HTTPS, HSTS and security headers, and
-an optional outer site login for a closed beta. Backups (`infra/scripts/backup.sh`) cover the
-database and the canonical snapshots and raw captures; a restore into empty volumes was tested
-end to end (`docs/DEPLOYMENT.md`). **No public URL exists yet**: it needs a host, a domain and
-secrets from the operator.
-
-Security model: invite-only accounts with server-side ownership of every manager key (scrypt
-passwords, hashed 30-day sessions in an HttpOnly cookie, cross-user access tests on every
-manager-scoped route); hashed API keys (constant-time check) in two classes — operator keys with
-full access and the web proxy's key, which reaches public data only without a signed-in user;
-the browser never sees a key (server-side proxy); per-user token-bucket rate limits; SSRF-guarded
-webhooks (HTTPS, host allow-list, public addresses only, no redirects); export and erasure of all
-manager data and of whole accounts; audit log and application logs hold only hashes of keys
-(`docs/DEPLOYMENT.md` → *Accounts and beta access*; limits in KNOWN_LIMITATIONS §6).
-
-Using it (M1.1a): sign in with an invitation, import your team with your FPL ID (public data,
-no FPL password), and **Copilot Home** shows the situation, squad health signals with their
-sources, the recommended action, captain profiles, your squad with forecasts and status, and the
-fixture outlook — from an analysis the worker precomputes (first call ~20 ms, warm p95 ~17 ms,
-analysis ready ~2.6 s after a squad change on the development machine). A searchable player
-picker replaces player codes; manual entry remains as a fallback. The **Transfer Workbench**
-(M1.2) compares concrete plans for the whole squad against holding — your own transfer, the
-engine's replacements for a player, the optimiser's best plan with or without hits — each solved
-as a full multi-gameweek plan on the same forecast and simulation, validated against the rules,
-with hit costs separated from gross gains, solver status shown, and the run traced to the exact
-squad state, snapshot and forecast it used.
-
-## Running it
+Prerequisites: Docker with Compose (the stack was verified on a 4-vCPU Docker VM),
+[uv](https://docs.astral.sh/uv/) with Python 3.12, and Node.js 22 for the web build and browser
+tests. The first data load downloads the pinned historical archive and calls the live FPL API.
 
 ```bash
-uv sync --frozen && make ci                     # Python 3.12 workspace, all checks
-infra/scripts/dev_postgres.sh start             # local PostgreSQL (or docker compose up -d postgres redis)
-uv run fpl-ingest historical --all && uv run fpl-ingest export-snapshot
-uv run python ml/experiments/backtest.py        # three seasons (resumable; ~1 h in parallel)
-cp .env.example .env                            # set keys/passwords, then:
-docker compose up -d                            # full stack on :3000 (web) / :8000 (API)
+git clone https://github.com/adivishall/fpl-copilot.git && cd fpl-copilot
+cp .env.example .env    # then set POSTGRES_PASSWORD (and the same password in FPL_DATABASE_URL)
 ```
 
-Measured performance on one development machine (Apple M4; Docker VM with 4 vCPUs):
+Generate two API keys — an operator key and the web server's key — and put their **hashes** in
+`.env` (`FPL_API_KEYS_SHA256`, `FPL_WEB_API_KEYS_SHA256`) and the web key itself in
+`FPL_WEB_API_KEY`:
 
-| | measured | source |
-|---|---|---|
-| Reads through the web proxy (p50 / p95) | 22 / 25 ms (`/gameweeks/current`), 42 / 45 ms (`/players`), 37 / 41 ms (player forecast) | `performance.md`, 2026-10-05 |
-| Forecast, cold (667 players × 8 GW × 1,000 samples) / warm disk / warm memory | 70.6 s (feature building 49.8 s) / 0.03 s / 0.06 ms | `performance_stages.md` 2026-10-07; `performance.md` |
-| Recommendation job (alternatives, stability, scenarios, chips), deployed worker | 42 s at 3 GW, 90 s at 5 GW | 2026-10-07 |
-| 5-GW recommendation with 1 vs 4 solver processes | 161 s → 105 s, identical output | `performance_stages.md` |
-| Replacement picker (1 player, 5 GW; solved in the request) | 12.5–48.9 s, depending on the player | 2026-10-07 |
-| What-if (1 scenario, 5 GW) / alert evaluation job round trip | 8.1 s / 1.6 s | `performance.md`, 2026-10-05 |
+```bash
+docker compose run --rm api fpl-api create-key    # run twice; prints a key and its hash
+```
 
-The cold forecast is computed by the worker before a snapshot goes live, so no request waits for
-it. A recommendation is mostly exact MILP solves (stability perturbations, chip weeks) and
-fixture-shock re-simulations; independent solves run in parallel processes.
+Start the databases, apply migrations, load the historical data and precompute the forecast:
 
-Recommendations therefore run as background jobs; heavy requests are minutes, not milliseconds.
+```bash
+docker compose up -d postgres redis
+docker compose run --rm migrate
+docker compose run --rm scheduler fpl-ingest historical --all
+docker compose run --rm scheduler fpl-ingest export-snapshot
+docker compose up -d
+docker compose run --rm scheduler fpl-worker run-once forecast_precompute   # 1–3 minutes
+```
 
-## What the evidence supports
+Check it and open the app:
 
-**Proven in this repository** (tested or measured):
+```bash
+curl -s -H "x-api-key: <operator key>" http://localhost:8000/api/v1/health
+docker compose run --rm api fpl-api create-invite   # an invitation code to register with
+```
 
-* Every returned plan is legal: 100 % of 634 benchmark plans and of every backtest decision pass
-  independent validation; time-limited plans are labelled "not proven optimal".
-* No look-ahead in the backtests (0 violations, with the schedule leak found and fixed); official
-  points reproduced from components on all 113,870 historical player-match rows.
-* Over three seasons, probabilistic forecasting + optimisation beats the simple heuristics:
-  `form` +742, `fpl_style_heuristic` +732, `simple_xp` +626, `hold` +1905 (95 % CIs exclude 0).
-* The production topology works end to end — TLS proxy, server-side key, API, worker, scheduler —
-  and a backup restores into a new stack with every row intact.
+Then open <http://localhost:3000>, register with the invitation, and import your team with your
+FPL ID. The web app is on `:3000`, the API on `:8000` (both bound to localhost).
 
-**Supported but limited:**
+Tests and checks:
 
-* Chip timing adds value over the three seasons (+306 [+28, +593]) but not in any single season.
-* Live 2026-27 data is captured and ingested (results GW1–GW5); the models have not yet been
-  evaluated on 2026-27 outcomes.
-* Timings come from one machine.
+```bash
+uv sync --frozen
+make ci                                  # ruff, mypy, import-linter, fast tests
+uv run pytest -m "slow or network"       # needs the historical download and internet access
+cd apps/web && npm ci && npm run build && npx playwright test   # development browser flows
+```
 
-**Not proven:**
+Stop with `docker compose down` (data stays in the named volumes; `down -v` deletes it).
+Troubleshooting — `503 forecast not ready` after a new snapshot (run the `forecast_precompute`
+step), key or session errors, live-source failures, backups and restore: see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-* That multi-gameweek planning beats a one-week optimiser on the same forecast (+223,
-  CI [−126, +584]).
-* Anything about rank: the archive has no distribution of other managers' scores.
-* Performance on 2026-27, the first season not used during development (selection bias).
-* Public, multi-user operation.
+## Status and roadmap
 
-## Status and limitations
+* **Done:** data pipeline and point-in-time evaluation; forecasting and simulation; MILP planner
+  and validator; decision engine with risk, chips and scenarios; API, worker, scheduler and web
+  app; invite-only accounts and FPL-ID onboarding (M1.1a); Transfer Workbench (M1.2); result
+  lifecycle and "What changed?" (M1.3).
+* **Next:** the decision journal with prospective outcome evaluation — recording each decision
+  before the deadline and scoring it against what happened.
+* **Not done:** a public deployment (it needs a host, a domain and secrets); mini-league
+  strategy, an assistant and a browser extension; evaluation of the models on the 2026-27 season
+  as it is played.
+* **Known limitations:** [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) — e.g. heavy
+  requests take tens of seconds, timings come from one machine, the availability model is
+  uncalibrated, and the design was iterated on the evaluated seasons.
 
-Specification audit: `docs/FINAL_AUDIT.md` (99 requirements: 81 COMPLETE, 15 PARTIAL, 2 NOT
-IMPLEMENTED, 0 BLOCKED, 1 NOT VERIFIABLE), ending with the **V1 release status**: every release
-blocker is resolved except a public URL, which waits on operator inputs (host, domain,
-secrets). What is not done or not proven — single-tenant security, latency of heavy requests,
-selection bias, development-machine timings and more — is in `docs/KNOWN_LIMITATIONS.md`; future
-work in `docs/BACKLOG.md`; product gap analysis, competitor comparison and roadmap in
-`docs/PRODUCT_GAP_ANALYSIS.md`; progress record in `docs/BUILD_STATUS.md`.
+Progress record: [docs/BUILD_STATUS.md](docs/BUILD_STATUS.md) · backlog:
+[docs/BACKLOG.md](docs/BACKLOG.md) · changes: [CHANGELOG.md](CHANGELOG.md) ·
+contributing: [CONTRIBUTING.md](CONTRIBUTING.md) · security: [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE). Fantasy Premier League data belongs to the Premier League; this project is not
+affiliated with or endorsed by the Premier League or the FPL game.
