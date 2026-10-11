@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { lifecycleLabel, lifecycleTone } from "@/components/lifecycle";
 import { Badge, Card, State, confidenceTone, useApi } from "@/components/ui";
-import { post } from "@/lib/api";
+import { post, type Lifecycle } from "@/lib/api";
 import { pct, signed, when } from "@/lib/format";
 import { loadSettings } from "@/lib/settings";
 
@@ -13,6 +14,11 @@ interface Entry {
   gameweek: number;
   action: string;
   status: string;
+  state_id?: string | null;
+  snapshot_id?: string | null;
+  invalidated_at?: string | null;
+  invalidation?: { kind: string; detail: string; old: unknown; new: unknown; detected_at: string | null } | null;
+  lifecycle: Lifecycle; // the same derived verdict Home and the recommendation pages show
   expected_gain_vs_hold: number;
   confidence: number;
   stability: string | null;
@@ -42,7 +48,12 @@ export default function Journal() {
                 <td>{e.action}</td>
                 <td>{signed(e.expected_gain_vs_hold)}</td>
                 <td><Badge tone={confidenceTone(e.confidence)}>{pct(e.confidence)}</Badge></td>
-                <td>{e.status}</td>
+                <td data-testid={`journal-status-${e.id}`} data-state={e.lifecycle.state}>
+                  <Badge tone={lifecycleTone(e.lifecycle)}>{lifecycleLabel(e.lifecycle)}</Badge>
+                  {e.lifecycle.reasons.map((r, i) => (
+                    <div className="small" key={i}>{r.detail}{r.detected_at ? ` (${when(r.detected_at)})` : ""}</div>
+                  ))}
+                </td>
                 <td>
                   {e.feedback[0] ? e.feedback[0].followed : (
                     <span className="row">

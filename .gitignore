@@ -47,3 +47,4 @@ infra/deployment/caddy/auth.caddy
 # database / data backups (infra/scripts/backup.sh)
 backups/
 apps/web/e2e/.auth/
+apps/web/e2e/.e2e-stack.json

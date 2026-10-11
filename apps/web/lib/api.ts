@@ -164,7 +164,71 @@ export interface ChipPlan {
   reason: string;
 }
 
+// ---------------------------------------------------------------- result lifecycle (M1.3)
+export interface LifecycleReason {
+  kind: "snapshot_promoted" | "squad_changed" | "superseded" | "inputs_changed_before_finalised" | string;
+  detail: string;
+  old: unknown;
+  new: unknown;
+  detected_at: string | null;
+}
+
+export interface Lifecycle {
+  state: "current" | "stale" | "superseded" | "pending" | "failed";
+  current: boolean;
+  reasons: LifecycleReason[];
+  state_id: string | null;
+  latest_state_id: string | null;
+  snapshot_id: string | null;
+  served_snapshot_id: string; // the promoted snapshot the verdict is judged against
+  snapshot_stale?: boolean; // the result's snapshot is older than the promoted one
+  next_action: "regenerate" | "retry" | null;
+  evaluated_at: string;
+}
+
+export interface Changes {
+  lifecycle: Lifecycle;
+  state: {
+    available: boolean;
+    reason?: string;
+    old_state_id: string;
+    new_state_id: string;
+    players_out?: { player_code: number; name: string }[];
+    players_in?: { player_code: number; name: string }[];
+    bank?: { old: number; new: number };
+    free_transfers?: { old: number; new: number };
+    captured_at?: string | null;
+  } | null;
+  snapshot: {
+    available: boolean;
+    reason?: string;
+    old_snapshot_id: string;
+    new_snapshot_id: string;
+    old_as_of: string | null;
+    new_as_of: string | null;
+    tables_changed?: string[] | null;
+    players?: ({ player_code: number; name: string } & Record<string, { old: unknown; new: unknown } | number | string>)[];
+    fixtures?: { gameweek: number; old_fixtures: number; new_fixtures: number }[];
+    season_changed?: { old: string; new: string };
+    old_cutoff?: string;
+    new_cutoff?: string;
+  } | null;
+  forecast: {
+    available: boolean;
+    reason?: string;
+    old_prediction_run_id: string | null;
+    new_prediction_run_id?: string;
+    changed?: boolean;
+    old_model_versions?: Record<string, string>;
+    new_model_versions?: Record<string, string>;
+  } | null;
+}
+
 export interface Recommendation {
+  lifecycle?: Lifecycle;
+  invalidated_at?: string | null;
+  invalidation?: LifecycleReason | null;
+  data_snapshot_id?: string | null;
   state_id?: string | null; // the stored squad state this plan evaluated
   stale_state?: boolean; // the squad was saved again since: the plan describes a previous squad
   latest_state_id?: string | null;
@@ -321,8 +385,16 @@ export interface HomeData {
   analysis: SquadAnalysis | null;
   pending: boolean;
   stale: boolean;
+  lifecycle?: Lifecycle | null; // the analysis's verdict (M1.3)
   job_id?: string | null;
-  recommendation: { id: string; decision: { action: string }; state_id?: string | null; stale_state?: boolean } | null;
+  recommendation: {
+    id: string;
+    status?: string;
+    decision: { action: string };
+    state_id?: string | null;
+    stale_state?: boolean;
+    lifecycle?: Lifecycle;
+  } | null;
 }
 
 export interface SquadState {
@@ -543,6 +615,9 @@ export interface WorkbenchRun {
   stale_state: boolean;
   latest_state_id: string | null;
   stale_snapshot: boolean;
+  lifecycle: Lifecycle;
+  invalidated_at: string | null;
+  invalidation: LifecycleReason | null;
   job: { status: string; error: string | null; failure: string | null } | null;
   names: Record<string, string | null>;
   freshness: Freshness;

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { LifecycleBadge, WhatChanged } from "@/components/lifecycle";
 import { PlayerPicker } from "@/components/player-picker";
 import { Badge, Card, PlayerName, Prob, State, confidenceTone, useApi } from "@/components/ui";
 import { track } from "@/lib/analytics";
@@ -32,10 +33,36 @@ export default function TransferWorkbench() {
   const [maxTransfers, setMaxTransfers] = useState<string>("");
   const [horizon, setHorizon] = useState<number>(settings.horizon);
   const [hMax, setHMax] = useState<number | undefined>(undefined);
-  const [run, setRun] = useState<WorkbenchRun | null>(null);
+  const [run, setRunState] = useState<WorkbenchRun | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  // the run this page is showing: a poll or a late response for another run never replaces it
+  const shown = useRef<string | null>(null);
+  const setRun = useCallback((r: WorkbenchRun | null, expect?: string) => {
+    if (expect && shown.current !== expect) return;
+    shown.current = r?.id ?? null;
+    setRunState(r);
+  }, []);
+  // on load, show the manager's most recent run with its lifecycle verdict (never as current
+  // unless the API says so)
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const latest = await api<{ runs: { id: string }[] }>(`/workbench/runs?manager_key=${settings.managerKey}&limit=1`);
+        const id = latest.runs[0]?.id;
+        if (!id || cancelled || shown.current) return;
+        const r = await api<WorkbenchRun>(`/workbench/runs/${id}`);
+        if (!cancelled && !shown.current) setRun(r);
+      } catch {
+        /* no previous run or not reachable: the page starts empty */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.managerKey, setRun]);
 
   useEffect(() => {
     void horizonMax().then((m) => {
@@ -56,12 +83,13 @@ export default function TransferWorkbench() {
   // a queued or running evaluation is polled until it finishes (the browser never waits on a solve)
   const refresh = useCallback(async () => {
     if (!run) return;
+    const id = run.id;
     try {
-      setRun(await api<WorkbenchRun>(`/workbench/runs/${run.id}`));
+      setRun(await api<WorkbenchRun>(`/workbench/runs/${id}`), id);
     } catch (e) {
       setErr(e instanceof ApiError ? `${e.status}: ${e.message}` : String(e));
     }
-  }, [run]);
+  }, [run, setRun]);
   useEffect(() => {
     if (!pending) return;
     const t = setTimeout(() => void refresh(), 3000);
@@ -74,14 +102,30 @@ export default function TransferWorkbench() {
     if (out !== null && mode === "replace") plans.push({ kind: "replace", label: "replace", out_player: out, candidates: 3 });
     if (out !== null && mode === "transfer" && incoming) plans.push({ kind: "transfer", label: "your transfer", sells: [out], buys: [incoming.player_code] });
     if (includeBest) plans.push({ kind: "best", label: "best", allow_hits: allowHits, max_transfers: maxTransfers ? Number(maxTransfers) : null, alternatives: 1 });
+    await submit({ manager_key: settings.managerKey, horizon, profile: settings.profile, plans });
+  }
+
+  // retrying a failed run asks *its* question again (its plans, horizon, profile and squad
+  // state), not whatever the form holds now: the same run is re-queued
+  async function retry(r: WorkbenchRun) {
+    await submit({ manager_key: settings.managerKey, state_id: r.state_id, horizon: r.request.horizon, profile: r.request.profile, plans: r.request.plans });
+  }
+
+  async function submit(body: { manager_key: string; state_id?: string; horizon: number; profile: string; plans: PlanSpec[] }) {
     setBusy(true);
     setErr(null);
     setSelected(null);
     try {
-      const r = await post<WorkbenchRun>("/workbench/evaluate", { manager_key: settings.managerKey, horizon, profile: settings.profile, plans });
+      // a new evaluation replaces whatever was shown: the previous run's plans leave the page
+      // now (they are not the answer to this question), and while the request is in flight
+      // nothing else (the initial latest-run load, a late poll) may put another run on it
+      shown.current = "pending";
+      setRunState(null);
+      const r = await post<WorkbenchRun>("/workbench/evaluate", body);
       setRun(r);
-      track("workbench_evaluated", { plans: plans.length, horizon });
+      track("workbench_evaluated", { plans: body.plans.length, horizon: body.horizon });
     } catch (e) {
+      shown.current = null;
       setErr(e instanceof ApiError ? `${e.status}: ${e.message}` : String(e));
     } finally {
       setBusy(false);
@@ -205,20 +249,31 @@ export default function TransferWorkbench() {
               {pending ? " · solving in the background, this page updates by itself" : null}
               {run.status === "failed" ? (
                 <>
-                  {" "}· {run.error ?? run.job?.error ?? "the evaluation failed"} <button className="secondary" onClick={() => void evaluate()}>Retry</button>
+                  {" "}· {run.error ?? run.job?.error ?? "the evaluation failed"} <button className="secondary" onClick={() => void retry(run)} data-testid="retry-run">Retry</button>
                 </>
               ) : null}
             </p>
+          ) : null}
+          {run?.lifecycle ? (
+            <div data-testid="run-lifecycle" data-state={run.lifecycle.state}>
+              <LifecycleBadge lc={run.lifecycle} testId="run-lifecycle-badge" />
+              {!run.lifecycle.current && run.lifecycle.state !== "pending" && run.lifecycle.state !== "failed" ? (
+                <>
+                  <WhatChanged path={`/workbench/runs/${run.id}/changes`} />
+                  <p className="small">Evaluate again to compare plans for your current squad and the data served now.</p>
+                </>
+              ) : null}
+            </div>
           ) : null}
           {run?.stale_state ? (
             <p className="error" data-testid="stale-run">
               Your squad changed after this run was requested (state {run.state_id} → {run.latest_state_id}); evaluate again for the current squad.
             </p>
           ) : null}
-          {run?.stale_snapshot ? <p className="error">The data snapshot changed since this run; evaluate again for current data.</p> : null}
+          {run?.stale_snapshot ? <p className="error" data-testid="stale-snapshot">The data snapshot changed since this run; evaluate again for current data.</p> : null}
         </Card>
 
-        <Card title="Plans compared with holding" testId="plans" wide>
+        <Card title={run && run.lifecycle && !run.lifecycle.current && run.status === "succeeded" ? "Plans compared with holding (historical run — not current)" : "Plans compared with holding"} testId="plans" wide>
           {!res && !pending ? <p className="muted">Choose a player to sell (or just evaluate) to compare plans.</p> : null}
           {pending && !res ? <p role="status">Solving every plan on the whole squad…</p> : null}
           {res && hold ? (

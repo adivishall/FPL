@@ -157,3 +157,88 @@ test("copilot home shows the situation, squad health, captain profiles, the squa
   await expect(page.getByTestId("captain-profiles").locator("tbody tr").first()).toContainText(names[String(lu.captaincy.expected)]!);
 });
 
+
+// ---------------------------------------------------------------- result lifecycle (M1.3)
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+test("a saved squad makes the last workbench run historical with the state diff, and the run is shown again after a reload", async ({ page }) => {
+  await page.goto("/transfers");
+  await expect(page.getByTestId("wb-state")).toContainText("free transfer");
+  await page.getByTestId("include-best").uncheck();
+  await page.getByTestId("evaluate").click();
+  await expect(page.getByTestId("plan-hold")).toBeVisible({ timeout: 240_000 });
+  await expect(page.getByTestId("run-lifecycle")).toHaveAttribute("data-state", "current");
+  const runId = (await page.getByTestId("run-status").textContent())?.match(/Run (\S+)/)?.[1] ?? "";
+  expect(runId).not.toBe("");
+  // the squad is saved again with a different bank: the run's inputs are no longer current
+  const key = JSON.parse(await page.evaluate(() => window.localStorage.getItem("fpl.settings.v1")!)).managerKey as string;
+  const st = await (await page.request.get(`/backend/squad?manager_key=${key}`)).json();
+  const saved = await page.request.post("/backend/squad", {
+    data: { manager_key: key, picks: st.state.squad.map((p: { player_code: number }) => ({ player_code: p.player_code })), bank: st.state.bank + 7, free_transfers: st.state.free_transfers },
+  });
+  expect(saved.ok(), await saved.text()).toBe(true);
+  await page.reload();
+  await expect(page.getByTestId("run-status")).toContainText(runId); // the last run is shown again…
+  await expect(page.getByTestId("run-lifecycle")).toHaveAttribute("data-state", "stale"); // …but never as current
+  await expect(page.getByTestId("lifecycle-reasons")).toContainText("your squad was saved again");
+  await expect(page.getByTestId("plans")).toContainText("historical run");
+  await page.getByTestId("what-changed-button").click();
+  await expect(page.getByTestId("changed-state")).toContainText(/Bank .* → /);
+  // re-evaluating for the current squad gives a current run; the old one stays historical
+  await page.getByTestId("evaluate").click();
+  await expect(page.getByTestId("run-lifecycle")).toHaveAttribute("data-state", "current", { timeout: 240_000 });
+  expect((await page.getByTestId("run-status").textContent())!).not.toContain(runId);
+  const old = await (await page.request.get(`/backend/workbench/runs/${runId}`)).json();
+  expect(old.lifecycle.state).toBe("stale");
+});
+
+test("promoting a newer data snapshot makes the recommendation historical, explains what changed, and regeneration makes a current one", async ({ page }) => {
+  const infoPath = join(__dirname, ".e2e-stack.json");
+  test.skip(!existsSync(infoPath), "the e2e API stack did not publish its snapshot layout");
+  const info = JSON.parse(readFileSync(infoPath, "utf8")) as { snapshots_root: string; artifact_dir: string; served_snapshot: string; staged_snapshot: string; staged_snapshot_id: string };
+  await page.goto("/");
+  const generate = page.getByTestId("generate");
+  const decision = page.getByTestId("decision-text");
+  await expect(generate.or(decision).first()).toBeVisible();
+  if (!(await decision.isVisible())) await generate.click();
+  await expect(decision).toBeVisible({ timeout: 240_000 });
+  // an earlier flow may have saved the squad again: regenerate until the plan is current
+  if ((await page.getByTestId("rec-lifecycle").getAttribute("data-state")) !== "current") {
+    await page.getByTestId("regenerate").click();
+  }
+  await expect(page.getByTestId("rec-lifecycle")).toHaveAttribute("data-state", "current", { timeout: 240_000 });
+  // --- promotion: snapshot B enters the snapshots root with a ready marker (what the live
+  // refresh and the forecast job do); the API swaps within a second
+  const target = join(info.snapshots_root, info.staged_snapshot_id);
+  if (!existsSync(target)) cpSync(info.staged_snapshot, target, { recursive: true });
+  mkdirSync(join(info.artifact_dir, "serving"), { recursive: true });
+  writeFileSync(join(info.artifact_dir, "serving", `${info.staged_snapshot_id}.ready`), JSON.stringify({ forecast_key: "fc_e2e_b" }));
+  await expect
+    .poll(async () => (await (await page.request.get("/backend/gameweeks/current")).json()).freshness.data_snapshot_id, { timeout: 30_000 })
+    .toBe(info.staged_snapshot_id);
+  await page.reload();
+  await expect(page.getByTestId("rec-lifecycle")).toHaveAttribute("data-state", "stale", { timeout: 60_000 });
+  await expect(page.getByTestId("lifecycle-reasons")).toContainText(info.staged_snapshot_id);
+  await page.getByTestId("what-changed-button").click();
+  const changed = page.getByTestId("changed-snapshot");
+  await expect(changed).toContainText(info.staged_snapshot_id, { timeout: 240_000 }); // the forecast for B may be computed on demand
+  await expect(changed).toContainText("player_snapshots");
+  // the Future Planner shows the same plan as historical, never as the recommended path
+  await page.goto("/planner");
+  await expect(page.getByTestId("planner-lifecycle")).toHaveAttribute("data-state", "stale");
+  await expect(page.getByTestId("path")).toContainText("historical — not current");
+  await page.goto("/");
+  // --- regenerate against the newer snapshot: current again; the old record is historical
+  await page.getByTestId("regenerate").click();
+  await expect(page.getByTestId("rec-lifecycle")).toHaveAttribute("data-state", "current", { timeout: 240_000 });
+  const key = JSON.parse(await page.evaluate(() => window.localStorage.getItem("fpl.settings.v1")!)).managerKey as string;
+  const journal = await (await page.request.get(`/backend/decisions?manager_key=${key}`)).json();
+  const statuses = (journal.journal as { status: string }[]).map((e) => e.status);
+  expect(statuses).toContain("invalidated");
+  expect(statuses.filter((s) => s === "active")).toHaveLength(1);
+  await page.goto("/journal");
+  await expect(page.getByTestId("journal")).toContainText("historical");
+  // the journal's badges are the same derived verdict: exactly one current recommendation
+  await expect(page.locator('[data-testid^="journal-status-"][data-state="current"]')).toHaveCount(1);
+});

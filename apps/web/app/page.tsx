@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { useUser } from "@/components/auth";
+import { LifecycleBadge, WhatChanged } from "@/components/lifecycle";
 import { Badge, Card, DistBar, FreshnessBanner, PlayerName, Prob, State, confidenceTone, useApi } from "@/components/ui";
 import { track, trackReturnVisit } from "@/lib/analytics";
 import { ApiError, jobFailureMessage, post, type HomeData, type HomePlayer, type Recommendation, type SquadState, type SyncResult, waitForJob } from "@/lib/api";
@@ -152,7 +153,12 @@ export default function Home() {
               <span data-testid="analysis-status">
                 computed {when(a.computed_at)} on snapshot <code>{a.snapshot_id}</code>
                 {h?.pending ? <> · <Badge tone="warn">updating</Badge> a newer analysis is being computed</> : null}
-                {h?.stale && !h.pending ? <> · <Badge tone="warn">stale</Badge> for a previous squad or snapshot</> : null}
+                {h?.stale && !h.pending ? (
+                  <>
+                    {" "}· <Badge tone="warn">stale</Badge> for a previous squad or snapshot
+                    {h.lifecycle?.reasons?.length ? <span data-testid="analysis-reasons"> ({h.lifecycle.reasons.map((x) => x.detail).join("; ")})</span> : null}
+                  </>
+                ) : null}
               </span>
             </div>
             {refreshMsg ? <p className="small" role="status" data-testid="home-refresh-msg">{refreshMsg}</p> : null}
@@ -191,7 +197,20 @@ export default function Home() {
             </div>
           ) : null}
           {err ? <p className="error" role="alert">{err}</p> : null}
-          {r?.stale_state ? (
+          {r?.lifecycle ? (
+            <div className="row" data-testid="rec-lifecycle" data-state={r.lifecycle.state}>
+              <LifecycleBadge lc={r.lifecycle} testId="rec-lifecycle-badge" />
+              {!r.lifecycle.current && r.lifecycle.state !== "pending" ? (
+                <>
+                  <WhatChanged path={`/recommendations/${r.id}/changes`} />
+                  <button onClick={generate} disabled={!!busy} data-testid="regenerate">{busy ? `Working… (${busy})` : "Regenerate for the current data"}</button>
+                </>
+              ) : (
+                <span className="small">snapshot {r.lifecycle.snapshot_id} · squad state {r.lifecycle.state_id}</span>
+              )}
+            </div>
+          ) : null}
+          {r?.stale_state && !r.lifecycle ? (
             <p className="small" role="status" data-testid="stale-state">
               <Badge tone="warn">squad changed</Badge> This plan was computed for a previous version of your squad (state {r.state_id}); it does not describe the squad you have now.{" "}
               <button onClick={generate} disabled={!!busy}>{busy ? `Working… (${busy})` : "Regenerate for the current squad"}</button>

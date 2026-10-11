@@ -101,7 +101,10 @@ export function Prob({ p }: { p: number | null | undefined }) {
 export function useApi<T>(path: string | null, deps: unknown[] = []) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // loading from the first render when there is something to load: otherwise the page shows
+  // its "nothing here yet" state (e.g. "No recommendation" + Generate) for a frame before the
+  // request starts
+  const [loading, setLoading] = useState(path !== null);
   const load = useCallback(async () => {
     if (!path) return;
     setLoading(true);

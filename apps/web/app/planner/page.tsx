@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
+import { LifecycleBadge } from "@/components/lifecycle";
 import { Badge, Card, PlayerName, State, useApi } from "@/components/ui";
 import type { Recommendation, SquadState } from "@/lib/api";
 import { money, pct, pts, signed } from "@/lib/format";
@@ -13,13 +15,26 @@ export default function FuturePlanner() {
   const squad = useApi<SquadState>(`/squad?manager_key=${settings.managerKey}`);
   const r = rec.data;
   const names = squad.data?.names;
+  // the API serves the most recent recommendation even when it is no longer current (marked
+  // by its lifecycle verdict): a historical plan is labelled so and gives no "play now" advice
+  const historical = r?.lifecycle ? !r.lifecycle.current : false;
   return (
     <>
       <h1>Future Planner</h1>
       <State loading={rec.loading} error={rec.error} />
+      {r?.lifecycle ? (
+        <div data-testid="planner-lifecycle" data-state={r.lifecycle.state}>
+          <LifecycleBadge lc={r.lifecycle} testId="planner-lifecycle-badge" />
+          {historical ? (
+            <p className="small">
+              This plan was computed for earlier inputs. <Link href="/">Regenerate it on the Overview</Link> before acting on it.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {r ? (
         <div className="grid">
-          <Card title="Recommended path" wide testId="path">
+          <Card title={historical ? "Recommended path (historical — not current)" : "Recommended path"} wide testId="path">
             <table>
               <thead><tr><th>GW</th><th>Action</th><th>Moves</th><th>Chip</th><th>xP</th><th>Δ vs hold</th><th>P(Δ&gt;0)</th><th>FT</th><th>Bank</th><th>Captain</th><th>Fixtures</th></tr></thead>
               <tbody>
@@ -50,7 +65,7 @@ export default function FuturePlanner() {
                   <tr key={c.chip_id}>
                     <td>{c.chip_id}</td>
                     <td>GW{c.window[0]}–{c.window[1]}</td>
-                    <td><Badge tone={c.recommendation === "play now" ? "good" : "neutral"}>{c.recommendation}</Badge></td>
+                    <td><Badge tone={!historical && c.recommendation === "play now" ? "good" : "neutral"}>{historical ? `${c.recommendation} (when computed)` : c.recommendation}</Badge></td>
                     <td>{c.best_gameweek ? `GW${c.best_gameweek}` : "—"}</td>
                     <td>{signed(c.value_now, 1)}</td>
                     <td>{signed(c.value_of_waiting, 1)}</td>

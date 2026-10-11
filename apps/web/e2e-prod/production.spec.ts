@@ -227,6 +227,50 @@ test("transfer workbench: whole-squad plans vs hold as a job → what-if, withou
   expect(after.state.squad).toEqual(before.state.squad);
 });
 
+test("result lifecycle: a saved squad makes the last workbench run and the recommendation historical, with what changed, and new results are current again", async ({ page }) => {
+  await asManager(page);
+  // runs after the squad and recommendation tests above and before export/delete erases them
+  const before = await (await api.get(`/api/v1/squad?manager_key=${MANAGER}`, { headers: { "x-api-key": OPS_KEY } })).json();
+  expect(before.state?.squad).toHaveLength(15);
+  const rec = await (await web.get(`/backend/recommendations/current?manager_key=${MANAGER}`)).json();
+  expect(rec.lifecycle.state).toBe("current");
+  // a current run for the manager's present squad (the hold baseline only: cheap)
+  const run = await (await web.post("/backend/workbench/evaluate", { data: { manager_key: MANAGER, horizon: 1, plans: [{ kind: "hold" }] } })).json();
+  await expect.poll(async () => (await (await web.get(`/backend/workbench/runs/${run.id}`)).json()).status, { timeout: 300_000 }).toBe("succeeded");
+  const current = await (await web.get(`/backend/workbench/runs/${run.id}`)).json();
+  expect(current.lifecycle.state).toBe("current");
+  // the squad is saved again with a different bank
+  const saved = await web.post("/backend/squad", {
+    data: { manager_key: MANAGER, picks: before.state.squad.map((p: { player_code: number }) => ({ player_code: p.player_code })), bank: before.state.bank + 5, free_transfers: before.state.free_transfers },
+  });
+  expect(saved.ok(), await saved.text()).toBe(true);
+  try {
+    await page.goto("/transfers");
+    await expect(page.getByTestId("run-status")).toContainText(run.id); // the last run is shown…
+    await expect(page.getByTestId("run-lifecycle")).toHaveAttribute("data-state", "stale"); // …as historical
+    await expect(page.getByTestId("lifecycle-reasons")).toContainText("your squad was saved again");
+    await page.getByTestId("what-changed-button").click();
+    await expect(page.getByTestId("changed-state")).toContainText(/Bank .* → /);
+    await expect(page.getByTestId("changed-state")).toContainText(`${before.state_id} → `);
+    // the recommendation generated earlier in this run was built on the previous state
+    await page.goto("/");
+    await expect(page.getByTestId("rec-lifecycle")).toHaveAttribute("data-state", "stale");
+    await expect(page.getByTestId("regenerate")).toBeVisible();
+    // only the owner can read the run's lifecycle and comparison
+    const other = await api.get(`/api/v1/workbench/runs/${run.id}/changes`, { headers: { "x-api-key": WEB_KEY } });
+    expect(other.status()).toBe(401);
+  } finally {
+    // restore the squad exactly as it was (content-addressed: the earlier state is latest again)
+    await web.post("/backend/squad", {
+      data: { manager_key: MANAGER, picks: before.state.squad.map((p: { player_code: number }) => ({ player_code: p.player_code })), bank: before.state.bank, free_transfers: before.state.free_transfers },
+    });
+  }
+  const again = await (await web.get(`/backend/workbench/runs/${run.id}`)).json();
+  expect(again.lifecycle.state).toBe("current"); // the run's state is the latest once more
+  const recAgain = await (await web.get(`/backend/recommendations/${rec.id}`)).json();
+  expect(recAgain.lifecycle.state).toBe("current");
+});
+
 test("alerts are evaluated by the worker; re-evaluating unchanged data adds nothing", async ({ page }) => {
   await asManager(page);
   await page.goto("/alerts");
