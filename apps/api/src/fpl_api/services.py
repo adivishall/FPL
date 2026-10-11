@@ -171,8 +171,10 @@ class DataService:
         return found[-1]
 
     def refresh(self) -> None:
-        """Look for a newer snapshot on the next access (e.g. right after an export)."""
-        self._checked = 0.0
+        """Look for a newer snapshot on the next access (e.g. right after an export). Not 0:
+        the monotonic clock starts at boot, so on a host up for less than the check interval
+        a "last checked at 0" would still look recent and the look would be skipped."""
+        self._checked = float("-inf")
 
     def promoted_snapshot_id(self) -> str:
         """The snapshot results are judged against (M1.3 lifecycle): the newest one whose

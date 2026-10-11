@@ -522,7 +522,7 @@ def _snapshot_c(squad: list[int]) -> CanonicalDataset:
 
 
 def test_a_result_on_a_newer_snapshot_than_the_promoted_one_stays_current(
-    world: dict[str, Any], squad: list[int]
+    world: dict[str, Any], squad: list[int], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The deployed topology: after an export the worker computes on it at once while the API
     keeps serving the promoted snapshot. A result on the newer export is neither invalidated
@@ -560,7 +560,14 @@ def test_a_result_on_a_newer_snapshot_than_the_promoted_one_stays_current(
     view = client.get(f"/api/v1/workbench/runs/{run['id']}").json()
     assert view["lifecycle"]["state"] == "current" and view["stale_snapshot"] is False
 
-    # an API process that still has B loaded follows the promotion on its next verdict
+    # an API process that still has B loaded follows the promotion on its next verdict — also
+    # on a host booted less than a check interval ago (the monotonic clock starts at boot)
+    import types
+
+    from fpl_api import services as services_mod
+
+    clock = types.SimpleNamespace(monotonic=lambda: 120.0, perf_counter=time.perf_counter)
+    monkeypatch.setattr(services_mod, "time", clock)
     lagging = AppServices.build(settings.model_copy(update={"snapshot_check_seconds": 3600.0}))
     assert lagging.data.snapshot_id == served
     mark_serving_ready(settings, c, "fc_c")  # C is promoted
@@ -570,6 +577,7 @@ def test_a_result_on_a_newer_snapshot_than_the_promoted_one_stays_current(
     )
     assert verdict["state"] == "stale" and verdict["served_snapshot_id"] == c
     assert lagging.data.snapshot_id == c
+    monkeypatch.undo()
 
     counts = invalidate_for_snapshot(svc.engine, c, settings)
     assert counts["workbench_runs"] >= 1
