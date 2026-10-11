@@ -336,6 +336,15 @@ results without hindsight — `docs/architecture/decision-journal.md`.
 | Rollout | `docker compose build api web` from the final source; a `pg_dump` of the stack's database first (17.7 MB, 45 tables with data); the `migrate` service took the schema from `0004` to `0005 (head)` (`alembic current`); this stack had no pre-M1.4 feedback rows, so the backfill was a no-op here (it is exercised by the migration test); `up -d --no-deps api worker scheduler web`: api / worker / scheduler run engine image `3d9fd3ec6c81`, web runs `50ece8d02b80`; all seven services healthy; database volume and data preserved; no error, traceback or schema mismatch in the api / worker / scheduler / web logs; the scheduler's hourly `journal` task ran against the migrated database (no due managers: the production suite's erasure flow removes its test manager's decisions); the two auxiliary web containers used by the production suite were removed afterwards |
 | Defects 52 and 53 | unchanged and still **open**: the engine reproduces itself byte-exactly on one machine only (CI skips the byte-exact golden on Linux), and the MILP's inherited club excess is labelled, not fixed. The journal records what each recommendation and plan said, including its optimality label |
 
+CI: `ac3a9e6` (the three M1.4 commits `7e433ce`, `88931c0`, `ac3a9e6`) —
+[run 38170482994](https://github.com/adivishall/fpl-copilot/actions/runs/38170482994)
+**success** on every job: lint, security, test (481 passed, 7 skipped — the byte-exact golden on
+linux-x86_64 by design, defect 52, and six worker tests that need a local `redis-server` binary
+the runner does not have; they pass on the development machine), optimiser suite (54 passed),
+web e2e (14 passed, including the journal flow and the migrated pre-M1.4 decision) and container
+builds. The documentation commit recording this is checked by its own run (reported with the
+milestone, not written into itself).
+
 ## 3. Environment
 
 Apple M4 (10 logical CPUs), 16 GB RAM, macOS 27.0.1; Python 3.12.15 (uv), Node 22.23, PostgreSQL
