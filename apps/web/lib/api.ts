@@ -187,7 +187,7 @@ export interface Recommendation {
     p90: number;
     confidence: number | null;
     stability: string | null;
-    optimality?: string; // "proven optimal", or best found within the solver limit
+    optimality?: string; // "proven optimal", best found within the solver limit, or best valid plan explored
   };
   chosen: OptionSummary;
   hold: OptionSummary;

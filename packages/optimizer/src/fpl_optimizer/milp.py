@@ -184,6 +184,9 @@ class Solution:
     free_transfers_end: int
     terms: dict[str, float] = field(default_factory=dict)
     values: dict[str, float] = field(default_factory=dict, repr=False)  # by variable name
+    # why the plan, although solved to optimality, is not the optimum of the legal plans
+    # (set by solve_with_alternatives; defect 53)
+    caveat: str | None = None
 
     @property
     def first(self) -> GameweekPlan:
@@ -198,13 +201,15 @@ class Solution:
 
     @property
     def proven_optimal(self) -> bool:
-        """HiGHS proved optimality (the configured relative gap is 0). Otherwise the solver
-        stopped at a limit and this is its best plan: legal and independently validated, but
-        not proven optimal."""
-        return self.status == "Optimal"
+        """HiGHS proved optimality (the configured relative gap is 0) and nothing qualifies it.
+        Otherwise the solver stopped at a limit and this is its best plan: legal and
+        independently validated, but not proven optimal."""
+        return self.status == "Optimal" and self.caveat is None
 
     def optimality(self) -> str:
         """How good the plan is known to be, in words shown to users."""
+        if self.caveat is not None:
+            return f"best valid plan among those explored; not proven optimal ({self.caveat})"
         if self.proven_optimal:
             return "proven optimal"
         gap = self.stats.get("mip_gap")

@@ -231,7 +231,7 @@ export default function Home() {
                 </span>
                 <span className="muted">Optimiser</span>
                 <span data-testid="optimality">
-                  {r.decision.optimality && r.decision.optimality !== "proven optimal" ? <Badge tone="warn">time limit</Badge> : null}{" "}
+                  {r.decision.optimality && r.decision.optimality !== "proven optimal" ? <Badge tone="warn">{r.decision.optimality.startsWith("best valid plan among those explored") ? "best explored" : "time limit"}</Badge> : null}{" "}
                   {r.decision.optimality ?? "not recorded"}
                 </span>
               </div>

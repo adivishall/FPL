@@ -254,7 +254,7 @@ export default function TransferWorkbench() {
                       <td>{p.label === "hold" ? "—" : <Badge tone={confidenceTone(p.gain_horizon.probability_positive)}>{pct(p.gain_horizon.probability_positive)}</Badge>}</td>
                       <td>{p.expected_points_1gw.toFixed(1)}</td>
                       <td className="small">{money(p.bank_after)} / {p.free_transfers_after}</td>
-                      <td>{p.proven_optimal ? <Badge tone="good">proven optimal</Badge> : <Badge tone="warn">best within limit</Badge>}</td>
+                      <td title={p.optimality}>{p.proven_optimal ? <Badge tone="good">proven optimal</Badge> : <Badge tone="warn">{p.optimality.startsWith("best valid plan among those explored") ? "best explored" : "best within limit"}</Badge>}</td>
                       <td><button className="secondary" onClick={() => { setSelected(p.label); track("workbench_plan_selected", { kind: p.kind }); }} data-testid={`details-${p.label}`}>Details</button></td>
                     </tr>
                   ))}

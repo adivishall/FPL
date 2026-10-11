@@ -131,7 +131,7 @@
    "label": "alt-1",
    "objective": 65.27113000000007,
    "objective_gain_vs_hold": 22.43922000000007,
-   "optimality": "proven optimal",
+   "optimality": "best valid plan among those explored; not proven optimal (a plan the optimiser preferred broke a rule and was excluded together with every plan sharing its first-gameweek move)",
    "passes_thresholds": false,
    "sells": [
     40383,
@@ -233,7 +233,7 @@
    "label": "alt-3",
    "objective": 65.25613,
    "objective_gain_vs_hold": 22.42422,
-   "optimality": "proven optimal",
+   "optimality": "best valid plan among those explored; not proven optimal (a plan the optimiser preferred broke a rule and was excluded together with every plan sharing its first-gameweek move)",
    "passes_thresholds": true,
    "sells": [
     40383,
@@ -626,7 +626,7 @@
   "label": "alt-2",
   "objective": 65.25643000000001,
   "objective_gain_vs_hold": 22.42452000000001,
-  "optimality": "proven optimal",
+  "optimality": "best valid plan among those explored; not proven optimal (a plan the optimiser preferred broke a rule and was excluded together with every plan sharing its first-gameweek move)",
   "passes_thresholds": true,
   "sells": [
    21205,
@@ -710,7 +710,7 @@
   "confidence": 0.885,
   "expected_gain_vs_hold": 24.05,
   "expected_points": 19.675,
-  "optimality": "proven optimal",
+  "optimality": "best valid plan among those explored; not proven optimal (a plan the optimiser preferred broke a rule and was excluded together with every plan sharing its first-gameweek move)",
   "p10": 4.0,
   "p50": 19.5,
   "p90": 36.0,

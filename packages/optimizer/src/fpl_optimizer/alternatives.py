@@ -4,7 +4,10 @@ Every optimisation returns the explicit HOLD plan (no transfers this gameweek, o
 afterwards) next to the best plan, and up to N alternative plans whose *first-gameweek action*
 (the set of players sold and bought now — the only part that is committed) differs. Alternatives
 are found by adding a no-good cut on the previous actions and re-solving, so each is the best
-plan among those not yet listed. All plans pass the independent validator.
+plan among those not yet listed. Every plan is checked by the independent validator; a plan that
+fails it is kept, marked invalid, and never chosen. Its cut also excludes the *legal* plans that
+share its first-gameweek action, so the plans found after it are not proven optimal among the
+legal plans and say so (defect 53: an inherited club excess the MILP lets grow back).
 """
 
 from __future__ import annotations
@@ -62,12 +65,20 @@ def solve_with_alternatives(
     hold_val = validate_solution(hold_problem(prob), hold_sol)
     options = [PlanOption("hold", hold_sol, hold_val, 0.0)]
     cuts: list[tuple[dict[tuple[str, int, int], float], float]] = []
+    excluded_invalid = False
     for k in range(n_alternatives + 1):
         try:
             sol = build_and_solve(prob, cuts)
         except OptimizationError:
             break  # no further distinct feasible action
+        if excluded_invalid:
+            sol = replace(
+                sol,
+                caveat="a plan the optimiser preferred broke a rule and was excluded together "
+                "with every plan sharing its first-gameweek move",
+            )
         val = validate_solution(prob, sol)
+        excluded_invalid = excluded_invalid or not val.valid
         label = "best" if k == 0 else f"alt-{k}"
         options.append(PlanOption(label, sol, val, sol.objective - hold_sol.objective))
         cuts.append(_cut(prob, sol))
