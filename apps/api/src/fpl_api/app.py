@@ -27,6 +27,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select, text
 
 from fpl_api import analytics
+from fpl_api import journal as journal_mod
 from fpl_api import schemas as s
 from fpl_api.accounts import (
     OPERATOR,
@@ -46,6 +47,14 @@ from fpl_api.container import (
 )
 from fpl_api.copilot import lineup_and_captaincy
 from fpl_api.jobs import JobBackend
+from fpl_api.journal import (
+    JournalRefused,
+    JournalStore,
+    adherence,
+    choose,
+    evidence_from_recommendation,
+    evidence_from_workbench,
+)
 from fpl_api.lifecycle import explain_changes, follow_promotion, lifecycle_block
 from fpl_api.lineage import trace
 from fpl_api.privacy import audit, delete_manager, export_manager
@@ -1285,14 +1294,230 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         return {"journal": journal}
 
     @r.post("/decisions/{rec_id}/feedback")
-    def feedback(request: Request, rec_id: str, body: s.FeedbackIn) -> dict[str, Any]:
-        owner_of_rec(request, rec_id)
-        assert svc.recs is not None
+    def feedback(
+        request: Request, body: s.FeedbackIn, rec_id: str = PathParam(..., max_length=80)
+    ) -> dict[str, Any]:
+        """Pre-M1.4 feedback, kept for API compatibility: recorded as a journal decision —
+        "followed" is the recommended plan; "ignored" / "partial" mean the manager did
+        something else, which is not recorded (adherence rejected / modified)."""
+        rec = owner_of_rec(request, rec_id)
+        choice = "recommended" if body.followed == "followed" else "other"
+        override = {"ignored": "rejected", "partial": "modified"}.get(body.followed)
+        entry, _created, _warning = record_decision(
+            str(rec["manager_key"]),
+            "recommendation",
+            rec_id,
+            choice,
+            None,
+            None,
+            None,
+            body.note,
+            adherence_override=override,
+            self_reported_points=body.realized_points,
+        )
+        return {"recorded": True, "entry_id": entry["entry_id"]}
+
+    # ------------------------------------------------------------------ decision journal (M1.4)
+    def journal_clock() -> datetime:
+        return journal_mod.clock()  # looked up at call time (tests move the clock)
+
+    def journal_store() -> JournalStore:
+        need_db()
+        assert svc.engine is not None
+        return JournalStore(svc.engine)
+
+    def owner_of_entry(request: Request, entry_id: str) -> dict[str, Any]:
+        e = journal_store().get(entry_id)
+        if e is None:
+            raise HTTPException(404, f"journal entry {entry_id} not found")
+        require_owner(principal_of(request), users, e["manager_key"])
+        return e
+
+    def source_now(kind: str, sid: str | None) -> dict[str, Any] | None:
+        """The source's lifecycle verdict now (it may have become historical since)."""
+        if not sid:
+            return None
+        if kind == "recommendation" and svc.recs is not None:
+            rec = svc.recs.get(sid)
+            return rec_lifecycle(rec) if rec is not None else None
+        if kind == "workbench" and svc.workbench is not None:
+            run = svc.workbench.get(sid)
+            return run_lifecycle(run) if run is not None else None
+        return None
+
+    def entry_view(e: dict[str, Any], detail: bool = False) -> dict[str, Any]:
+        ev = e.get("evidence") or {}
+        codes: set[int] = {int(c) for c in [*e["sells"], *e["buys"]]}
+        for k in ("captain", "vice_captain"):
+            if e.get(k):
+                codes.add(int(e[k]))
+        for plan in ("recommended", "hold", "chosen"):
+            p = ev.get(plan) or {}
+            codes.update(int(c) for c in [*p.get("sells", []), *p.get("buys", [])])
+            codes.update(int(c) for c in [*(p.get("starters") or []), *(p.get("bench") or [])])
+        names = svc.data.names(e["season"]) if codes else {}
+        src = e["source"]
+        out = {
+            **e,
+            "source_now": source_now(src["kind"], src["id"]),
+            "names": {str(c): names.get(c) for c in sorted(codes)},
+            "links": {
+                "trace": f"/recommendations/{src['id']}/trace"
+                if src["kind"] == "recommendation"
+                else None,
+                "workbench_run": f"/workbench/runs/{src['id']}"
+                if src["kind"] == "workbench"
+                else None,
+            },
+        }
+        if not detail:
+            out.pop("evidence", None)
+        elif not out.get("evidence"):
+            out["evidence"] = None  # recorded before the journal kept decision-time evidence
+        return out
+
+    def record_decision(
+        manager_key: str,
+        source: str,
+        source_id: str,
+        choice: str,
+        plan: str | None,
+        captain: int | None,
+        vice_captain: int | None,
+        rationale: str | None,
+        adherence_override: str | None = None,
+        self_reported_points: float | None = None,
+    ) -> tuple[dict[str, Any], bool, str | None]:
+        """Snapshot the decision-time evidence of an owned source and store the decision."""
+        store = journal_store()
+        assert svc.states is not None and svc.recs is not None and svc.workbench is not None
+        now = journal_clock()
+        if source == "recommendation":
+            rec = svc.recs.get(source_id)
+            if rec is None or rec.get("manager_key") != manager_key:
+                raise HTTPException(404, f"recommendation {source_id} not found for this manager")
+            lc = rec_lifecycle(rec)
+            state = svc.states.get(str(rec.get("state_id")), manager_key)
+            if state is None:
+                raise HTTPException(409, "the squad state of this recommendation is not stored")
+            build = evidence_from_recommendation
+            src: dict[str, Any] = rec
+        else:
+            run = svc.workbench.get(source_id)
+            if run is None or run.get("manager_key") != manager_key:
+                raise HTTPException(404, f"workbench run {source_id} not found for this manager")
+            if run["status"] != "succeeded" or not run.get("result"):
+                raise HTTPException(409, "this workbench run has no result to record yet")
+            lc = run_lifecycle(run)
+            state = svc.states.get(str(run["state_id"]), manager_key)
+            if state is None:
+                raise HTTPException(409, "the squad state of this run is not stored")
+            build = evidence_from_workbench
+            src = run
         try:
-            svc.recs.feedback(rec_id, body.followed, body.note, body.realized_points)
-        except KeyError as exc:
-            raise HTTPException(404, f"recommendation {rec_id} not found") from exc
-        return {"recorded": True}
+            if choice == "plan" and source != "workbench":
+                raise JournalRefused(422, "a plan can be chosen from a workbench run only")
+            evidence, options = build(svc, src, state, lc, now)
+            chosen, action, override, offered = choose(options, choice, plan, captain, vice_captain)
+            evidence = evidence.model_copy(
+                update={
+                    "chosen": chosen,
+                    "captain_override": override,
+                    "offered_captain": offered.captain if offered else None,
+                    "offered_vice_captain": offered.vice_captain if offered else None,
+                }
+            )
+            adh = adherence_override or adherence(evidence.recommended, chosen, choice)
+            entry, created = store.record(
+                manager_key, evidence, action, adh, rationale, now, self_reported_points
+            )
+        except JournalRefused as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+        warning = None
+        if not lc.get("current"):
+            why = "; ".join(r.get("detail", "") for r in lc.get("reasons", []) if r.get("detail"))
+            warning = (
+                "Recorded against a historical result"
+                + (f" ({why})" if why else "")
+                + ": Copilot's current advice may differ — regenerate on the Overview or "
+                "evaluate again in the Transfer Workbench."
+            )
+        return entry, created, warning
+
+    @r.get("/journal")
+    def journal_list(
+        manager_key: str = Query(..., max_length=64, pattern=KEY_PATTERN),
+        gameweek: int | None = Query(None, ge=1, le=38),
+        action: str | None = Query(None, pattern="^(HOLD|TRANSFER|HIT|CHIP|DEFER|UNKNOWN)$"),
+        evaluation: str | None = Query(None, pattern="^(pending|partial|final|unavailable)$"),
+        include_superseded: bool = Query(False),
+    ) -> dict[str, Any]:
+        """The manager's recorded decisions, newest first (M1.4)."""
+        rows = journal_store().entries(
+            manager_key, gameweek, action, evaluation, include_superseded
+        )
+        return _jsonable({"entries": [entry_view(e) for e in rows], "freshness": fresh()})
+
+    @r.post("/journal")
+    def journal_record(body: s.JournalIn) -> JSONResponse:
+        """Record a decision against a stored recommendation or workbench run (the source must
+        belong to the same manager); the same submission returns the same entry."""
+        entry, created, warning = record_decision(
+            body.manager_key,
+            body.source,
+            body.source_id,
+            body.choice,
+            body.plan,
+            body.captain,
+            body.vice_captain,
+            body.rationale,
+        )
+        return JSONResponse(
+            _jsonable({"entry": entry_view(entry), "created": created, "warning": warning}),
+            status_code=201 if created else 200,
+        )
+
+    @r.get("/journal/{entry_id}")
+    def journal_entry(
+        request: Request, entry_id: str = PathParam(..., max_length=80)
+    ) -> dict[str, Any]:
+        """One decision with its decision-time evidence, provenance and evaluations."""
+        e = owner_of_entry(request, entry_id)
+        return _jsonable({**entry_view(e, detail=True), "freshness": fresh()})
+
+    @r.post("/journal/{entry_id}/confirm")
+    def journal_confirm(
+        request: Request, entry_id: str = PathParam(..., max_length=80)
+    ) -> dict[str, Any]:
+        """The manager confirms they made the recorded action in FPL."""
+        owner_of_entry(request, entry_id)
+        try:
+            e = journal_store().confirm(entry_id, journal_clock())
+        except JournalRefused as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+        return _jsonable({"entry": entry_view(e)})
+
+    @r.post("/journal/{entry_id}/evaluate")
+    def journal_evaluate(
+        request: Request, entry_id: str = PathParam(..., max_length=80)
+    ) -> JSONResponse:
+        """Evaluate one decision now (a job for its owner; repeated within ten minutes on the
+        same data it returns the same job, and a failed job is run again)."""
+        e = owner_of_entry(request, entry_id)
+        if e["state"] != "active":
+            raise HTTPException(
+                409, "only the decision that stands is evaluated; this one was replaced"
+            )
+        bucket = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M")[:-1]
+        job = jobs.submit(
+            "journal", {"manager_key": e["manager_key"], "entry_id": entry_id, "at": bucket}
+        )
+        info = jobs.get(job)
+        fresh_entry = journal_store().get(entry_id) or e
+        return JSONResponse(
+            _jsonable({"job_id": job, "job": info, "entry": entry_view(fresh_entry, True)}),
+            status_code=202,
+        )
 
     # ------------------------------------------------------------------ backtests & jobs
     @r.post("/backtests")

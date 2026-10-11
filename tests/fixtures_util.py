@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Collection
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
@@ -54,3 +55,97 @@ def canonical_season(season: str) -> CanonicalSeason:
 def fixture_dataset(*seasons: str) -> CanonicalDataset:
     parts = [CanonicalDataset(canonical_season(s).frames()) for s in seasons]
     return CanonicalDataset.concat(parts)
+
+
+_OUTCOME_ZEROES = (
+    "goals",
+    "assists",
+    "clean_sheets",
+    "goals_conceded",
+    "own_goals",
+    "penalties_saved",
+    "penalties_missed",
+    "yellow_cards",
+    "red_cards",
+    "saves",
+    "bonus",
+    "bps",
+    "dc",
+    "cbi",
+    "tackles",
+    "recoveries",
+)
+
+
+def with_gameweek_results(
+    ds: CanonicalDataset,
+    season: str,
+    gw: int,
+    points_of: Callable[[int], int],
+    minutes_of: Callable[[int], int] = lambda _c: 90,
+    fixture_ids: Collection[int] | None = None,
+    final: bool = True,
+) -> CanonicalDataset:
+    """``ds`` with synthetic official results for one gameweek (tests and the e2e stack only).
+    The chosen fixtures (default: all of the gameweek's) are played — scored, ``final`` (or
+    provisional) — and every registered player of both clubs gets a per-fixture row with
+    ``points_of(code)`` points and ``minutes_of(code)`` minutes. The gameweek is ``finalized``
+    once all of its fixtures are final, ``provisional`` when all are played but not final, and
+    ``live`` while some are still to come."""
+    import pandas as pd
+
+    frames = {k: v.copy() for k, v in ds.frames.items()}
+    fx = frames["fixtures"]
+    sel = (fx["season"] == season) & (fx["gw"] == gw)
+    every = {int(i) for i in fx.loc[sel, "fixture_id"]}
+    chosen = every if fixture_ids is None else {int(i) for i in fixture_ids}
+    played = sel & fx["fixture_id"].isin(sorted(chosen))
+    fx.loc[played, "status"] = "final" if final else "provisional"
+    fx.loc[played, "finalized"] = final
+    fx.loc[played, "home_score"] = 1
+    fx.loc[played, "away_score"] = 0
+    fx.loc[played, "result_available_at"] = fx.loc[played, "kickoff_at"] + pd.Timedelta(minutes=150)
+    g = frames["gameweeks"]
+    gsel = (g["season"] == season) & (g["gw"] == gw)
+    if chosen >= every:
+        g.loc[gsel, "status"] = "finalized" if final else "provisional"
+        if final:
+            g.loc[gsel, "finalized_at"] = fx.loc[sel, "kickoff_at"].max() + pd.Timedelta(hours=72)
+    else:
+        g.loc[gsel, "status"] = "live"
+    pm = frames["player_match"]
+    players = frames["players"]
+    players = players[players["season"] == season]
+    rows = []
+    for r in fx[played].itertuples(index=False):
+        for team, opp, home in (
+            (r.home_team_code, r.away_team_code, True),
+            (r.away_team_code, r.home_team_code, False),
+        ):
+            for code in players.loc[players["team_code"] == team, "player_code"]:
+                minutes = int(minutes_of(int(code)))
+                rows.append(
+                    {
+                        "season": season,
+                        "gw": gw,
+                        "fixture_id": int(r.fixture_id),
+                        "player_code": int(code),
+                        "team_code": int(team),
+                        "opponent_team_code": int(opp),
+                        "was_home": home,
+                        "kickoff_at": r.kickoff_at,
+                        "minutes": minutes,
+                        "starts": 1 if minutes >= 60 else 0,
+                        "points": int(points_of(int(code))),
+                        "available_at": r.kickoff_at + pd.Timedelta(minutes=150),
+                        "finalized": final,
+                    }
+                )
+    template = pm[pm["season"] == season].iloc[[0]]
+    new = template.loc[template.index.repeat(len(rows))].reset_index(drop=True)
+    for col in rows[0] if rows else ():
+        new[col] = pd.array([row[col] for row in rows], dtype=pm[col].dtype)
+    for col in _OUTCOME_ZEROES:
+        new[col] = pd.array([0] * len(new), dtype=pm[col].dtype)
+    frames["player_match"] = pd.concat([pm, new], ignore_index=True)
+    return CanonicalDataset(frames, dict(ds.meta))

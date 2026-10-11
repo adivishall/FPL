@@ -36,6 +36,7 @@ from sqlalchemy import func, select
 
 from fpl_api.container import AppServices
 from fpl_api.jobs import JobBackend, services
+from fpl_api.journal import JournalStore
 from fpl_api.lifecycle import invalidate_for_snapshot
 from fpl_api.services import ForecastUnavailable
 from fpl_domain.config import load_versioned_config
@@ -155,6 +156,17 @@ def task_alerts(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
     return {"status": "submitted", "managers": len(keys), "jobs": ids}
 
 
+def task_journal(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
+    """Evaluate decision journals (M1.4): one job per manager with a decision whose outcome or
+    first-party check can still change (``fpl_api.journal.due_clause`` — the rule the job
+    itself applies). Idempotent: unchanged results write nothing."""
+    if svc.engine is None:
+        return {"status": "skipped", "reason": "no database"}
+    keys = JournalStore(svc.engine).due_managers(datetime.now(UTC))
+    ids = [jobs.submit("journal", {"manager_key": k, "at": b}) for k in keys]
+    return {"status": "submitted" if keys else "skipped", "managers": len(keys), "jobs": ids}
+
+
 def task_live_refresh(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
     ctx = svc.context()
     rc = ingest_cli.main(["live", "--season", ctx.season])
@@ -249,6 +261,7 @@ TASKS: dict[str, Callable[[AppServices, JobBackend, str], dict[str, Any]]] = {
     "live_refresh": task_live_refresh,
     "retention": task_retention,
     "live_results": task_live_results,
+    "journal": task_journal,
 }
 
 

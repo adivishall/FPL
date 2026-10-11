@@ -733,8 +733,10 @@ class RecommendationStore:
                         if r.invalidated_at
                         else None,
                         "invalidation": r.invalidation_json,
-                        "feedback": [
+                        "feedback": [  # every decision recorded against it, newest first
                             {
+                                "entry_id": f.entry_id,
+                                "state": f.state,
                                 "followed": f.followed,
                                 "note": f.user_note,
                                 "realized_points": f.realized_points,
@@ -745,21 +747,6 @@ class RecommendationStore:
                     }
                 )
             return out
-
-    def feedback(
-        self, rec_id: str, followed: str, note: str | None, realized_points: float | None
-    ) -> None:
-        with session_scope(self.engine) as s:
-            if s.get(m.RecommendationRow, rec_id) is None:
-                raise KeyError(rec_id)
-            s.add(
-                m.DecisionJournalRow(
-                    recommendation_id=rec_id,
-                    followed=followed,
-                    user_note=note,
-                    realized_points=realized_points,
-                )
-            )
 
 
 def _rec_dict(row: m.RecommendationRow) -> dict[str, Any]:

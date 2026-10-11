@@ -33,6 +33,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -717,18 +718,100 @@ class RecommendationActionRow(Base):
 
 
 class DecisionJournalRow(Base):
-    """User feedback and post-GW review per recommendation (§30 Decision Journal, §38)."""
+    """A manager's recorded decision for one gameweek (§30 Decision Journal; M1.4): the source
+    recommendation or Transfer Workbench plan, what Copilot recommended, what the manager chose
+    (typed columns), and the decision-time evidence (``evidence_json``, validated by
+    ``fpl_api.journal.DecisionEvidence``). Written once and never edited: a change of mind
+    before the deadline writes a new row and marks this one ``superseded``; the manager's
+    confirmation, the first-party verification and the evaluation status are the only fields
+    that change afterwards. ``followed`` holds the adherence (followed | modified | rejected |
+    deferred) and ``user_note`` the manager's own rationale; ``realized_points`` and the other
+    pre-M1.4 columns keep their legacy, self-reported meaning."""
 
     __tablename__ = "decision_journal"
+    __table_args__ = (
+        CheckConstraint(
+            "recommendation_id is not null or workbench_run_id is not null", name="source"
+        ),
+        CheckConstraint("state in ('active','superseded')", name="state"),
+        CheckConstraint(
+            "evaluation_status in ('pending','partial','final','unavailable')",
+            name="evaluation_status",
+        ),
+    )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    recommendation_id: Mapped[str] = mapped_column(ForeignKey("recommendations.id"), index=True)
-    followed: Mapped[str | None] = mapped_column(String(16))  # followed|ignored|partial
+    entry_id: Mapped[str] = mapped_column(String(80), unique=True)  # jd_<hash>
+    manager_key: Mapped[str] = mapped_column(String(64), index=True)
+    recommendation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("recommendations.id"), index=True, nullable=True
+    )
+    workbench_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workbench_runs.id"), index=True, nullable=True
+    )
+    source_plan: Mapped[str | None] = mapped_column(String(128))
+    season: Mapped[str] = mapped_column(String(9))
+    gameweek: Mapped[int] = mapped_column(Integer)
+    deadline_at: Mapped[datetime | None] = _ts(nullable=True)
+    state_id: Mapped[str | None] = mapped_column(String(80))
+    data_snapshot_id: Mapped[str | None] = mapped_column(String(80))
+    prediction_run_id: Mapped[str | None] = mapped_column(String(80))
+    recommended_action: Mapped[str | None] = mapped_column(String(8))
+    action: Mapped[str] = mapped_column(String(8), server_default="UNKNOWN")
+    sells: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    buys: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    hit_points: Mapped[int | None] = mapped_column(Integer)
+    captain: Mapped[int | None] = mapped_column(Integer)
+    vice_captain: Mapped[int | None] = mapped_column(Integer)
+    chip: Mapped[str | None] = mapped_column(String(32))
+    followed: Mapped[str | None] = mapped_column(String(16))  # adherence (see docstring)
     user_note: Mapped[str | None] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(16), server_default="active")
+    superseded_by: Mapped[str | None] = mapped_column(String(80))
+    prospective: Mapped[bool | None] = mapped_column(Boolean)  # recorded before the deadline
     recorded_at: Mapped[datetime] = _created()
+    confirmed_at: Mapped[datetime | None] = _ts(nullable=True)
+    verification: Mapped[str | None] = mapped_column(String(16))  # matches|differs|unavailable
+    verification_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    verified_at: Mapped[datetime | None] = _ts(nullable=True)
+    evidence_json: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    evaluation_status: Mapped[str] = mapped_column(String(16), server_default="pending")
+    evaluated_at: Mapped[datetime | None] = _ts(nullable=True)
     realized_points: Mapped[float | None] = mapped_column(Float)
     realized_hold_points: Mapped[float | None] = mapped_column(Float)
     forecast_error: Mapped[float | None] = mapped_column(Float)
     review_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+
+class DecisionEvaluationRow(Base):
+    """One evaluation of a journal decision against observed first-party results (M1.4).
+    Insert-only: re-evaluating inputs whose ``outcome_digest`` equals the latest evaluation's
+    writes nothing; revised official data writes a new row that ``revises`` the previous final
+    one, which is kept with its provenance. ``seq`` numbers an entry's evaluations (1, 2, …):
+    two writers that saw the same latest evaluation cannot both append after it."""
+
+    __tablename__ = "decision_evaluations"
+    __table_args__ = (
+        UniqueConstraint("entry_id", "seq"),
+        CheckConstraint("status in ('pending','partial','final','unavailable')", name="status"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    entry_id: Mapped[str] = mapped_column(
+        ForeignKey("decision_journal.entry_id", ondelete="CASCADE"), index=True
+    )
+    manager_key: Mapped[str] = mapped_column(String(64), index=True)
+    seq: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16))
+    evaluator_version: Mapped[str] = mapped_column(String(32))
+    outcome_digest: Mapped[str] = mapped_column(String(64))
+    data_snapshot_id: Mapped[str | None] = mapped_column(String(80))
+    realized_points: Mapped[float | None] = mapped_column(Float)
+    realized_hold_points: Mapped[float | None] = mapped_column(Float)
+    realized_recommended_points: Mapped[float | None] = mapped_column(Float)
+    detail_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    revises_id: Mapped[int | None] = mapped_column(
+        ForeignKey("decision_evaluations.id"), nullable=True
+    )
+    evaluated_at: Mapped[datetime] = _created()
 
 
 # =============================================================== evaluation

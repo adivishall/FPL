@@ -162,6 +162,22 @@ class FeedbackIn(_Req):
     realized_points: float | None = Field(None, ge=-50, le=300)
 
 
+class JournalIn(_Req):
+    """Record a decision (M1.4) against a stored recommendation or a Transfer Workbench run.
+    ``choice``: the source's recommended plan, HOLD, one of a run's evaluated plans (``plan`` is
+    its key ``"<index>:<label>"``), "decide later", or "something else" (what was done is then
+    not recorded). An optional captain / vice-captain changes the chosen plan's armband."""
+
+    manager_key: ManagerKey = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_\-]+$")
+    source: Literal["recommendation", "workbench"]
+    source_id: str = Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9_\-]+$")
+    choice: Literal["recommended", "hold", "plan", "defer", "other"]
+    plan: str | None = Field(None, max_length=96)
+    captain: int | None = Field(None, ge=1)
+    vice_captain: int | None = Field(None, ge=1)
+    rationale: str | None = Field(None, max_length=1000)
+
+
 class BacktestIn(_Req):
     season: str = Field(pattern=r"^\d{4}-\d{2}$")
     gameweeks: list[int] | None = None

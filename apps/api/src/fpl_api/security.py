@@ -46,6 +46,7 @@ PRIVILEGED_GET_PREFIXES = (
     "/api/v1/settings",
     "/api/v1/notifications",
     "/api/v1/decisions",
+    "/api/v1/journal",
     "/api/v1/recommendations",
     "/api/v1/jobs",
 )

@@ -38,6 +38,7 @@ from sqlalchemy import select
 from fpl_api.alerts import evaluate_alerts
 from fpl_api.container import AppServices, build_recommendation
 from fpl_api.copilot import compute_squad_analysis
+from fpl_api.journal import run_evaluations
 from fpl_api.lifecycle import INPUTS_MISMATCH, invalidate_for_snapshot, reason
 from fpl_api.retention import prune
 from fpl_api.services import mark_serving_ready
@@ -212,6 +213,13 @@ def _not_reopened(svc: AppServices, run_id: str) -> str:
     )
 
 
+def _job_journal(svc: AppServices, p: dict[str, Any]) -> str:
+    """Evaluate a manager's decision journal (M1.4): idempotent — unchanged results write
+    nothing, so a retry or a second delivery cannot duplicate an evaluation."""
+    written, looked = run_evaluations(svc, p["manager_key"], p.get("entry_id"))
+    return f"journal:{written}/{looked}"
+
+
 def _job_retention(svc: AppServices, p: dict[str, Any]) -> str:
     return prune(svc.settings, svc.engine).summary()
 
@@ -229,6 +237,7 @@ JOB_KINDS: dict[str, JobFn] = {
     "retention": _job_retention,
     "squad_analysis": _job_squad_analysis,
     "workbench": _job_workbench,
+    "journal": _job_journal,
 }
 # Upper bound on a healthy run of each kind: RQ's job timeout and the de-duplication lease.
 JOB_LEASE: dict[str, timedelta] = {
@@ -239,6 +248,7 @@ JOB_LEASE: dict[str, timedelta] = {
     "retention": timedelta(minutes=15),
     "squad_analysis": timedelta(minutes=10),
     "workbench": timedelta(minutes=20),
+    "journal": timedelta(minutes=15),
 }
 ABANDONED = "abandoned: no result within the job lease (worker lost or killed)"
 RQ_GRACE = timedelta(minutes=2)

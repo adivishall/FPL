@@ -366,6 +366,8 @@ def test_manager_linked_reads_need_a_key_reference_reads_do_not(tmp_path: Path) 
         "/api/v1/settings?manager_key=demo",
         "/api/v1/notifications?manager_key=demo",
         "/api/v1/decisions?manager_key=demo",
+        "/api/v1/journal?manager_key=demo",
+        "/api/v1/journal/jd_x",
         "/api/v1/recommendations/current?manager_key=demo",
         "/api/v1/recommendations/rec_x",
         "/api/v1/recommendations/rec_x/trace",

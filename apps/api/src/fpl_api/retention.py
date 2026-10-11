@@ -83,6 +83,7 @@ def referenced_snapshots(engine: Engine | None) -> set[str]:
         for col in (
             m.RecommendationRow.data_snapshot_id,
             m.WorkbenchRunRow.data_snapshot_id,
+            m.DecisionJournalRow.data_snapshot_id,
             m.BacktestRunRow.data_snapshot_id,
             m.ModelRegistryRow.data_snapshot_id,
         ):

@@ -19,3 +19,6 @@ tasks:
   live_results:          # completed-match results of the live season, when due (results_due)
     every_minutes: 60
     enabled: true
+  journal:               # evaluate decision journals on the newest results (fpl_api.journal)
+    every_minutes: 60
+    enabled: true

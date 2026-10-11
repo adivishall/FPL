@@ -94,7 +94,15 @@ def export_manager(engine: Engine, manager_key: str) -> dict[str, Any]:
             "decision_journal": _rows(
                 s.scalars(
                     select(m.DecisionJournalRow).where(
-                        m.DecisionJournalRow.recommendation_id.in_(rid)
+                        (m.DecisionJournalRow.manager_key == manager_key)
+                        | m.DecisionJournalRow.recommendation_id.in_(rid)
+                    )
+                )
+            ),
+            "decision_evaluations": _rows(
+                s.scalars(
+                    select(m.DecisionEvaluationRow).where(
+                        m.DecisionEvaluationRow.manager_key == manager_key
                     )
                 )
             ),
@@ -143,9 +151,23 @@ def delete_manager(engine: Engine, manager_key: str, actor: str | None = None) -
             ),
             s,
         )
+        # the journal first: its decisions reference the manager's recommendations and runs
+        run(
+            "decision_evaluations",
+            delete(m.DecisionEvaluationRow).where(
+                m.DecisionEvaluationRow.manager_key == manager_key
+            ),
+            s,
+        )
         run(
             "decision_journal",
-            delete(m.DecisionJournalRow).where(m.DecisionJournalRow.recommendation_id.in_(rid)),
+            delete(m.DecisionJournalRow).where(
+                (m.DecisionJournalRow.manager_key == manager_key)
+                | m.DecisionJournalRow.recommendation_id.in_(rid)
+                | m.DecisionJournalRow.workbench_run_id.in_(
+                    select(m.WorkbenchRunRow.id).where(m.WorkbenchRunRow.manager_key == manager_key)
+                )
+            ),
             s,
         )
         run(
