@@ -1,6 +1,6 @@
 # FPL Decision Engine
 
-[![ci](https://github.com/adivishall/FPL/actions/workflows/ci.yml/badge.svg?branch=claude/modest-noether-qauiji)](https://github.com/adivishall/FPL/actions/workflows/ci.yml)
+[![ci](https://github.com/adivishall/fpl-copilot/actions/workflows/ci.yml/badge.svg?branch=claude/modest-noether-qauiji)](https://github.com/adivishall/fpl-copilot/actions/workflows/ci.yml)
 
 A decision-support system for Fantasy Premier League that makes transfer, captaincy and chip
 decisions under uncertainty. It starts from a manager's real squad, forecasts each player's minutes and **point distribution**, searches legal transfer and

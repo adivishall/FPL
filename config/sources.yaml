@@ -24,7 +24,7 @@ historical_repo:
 
 fpl_api:
   base_url: "https://fantasy.premierleague.com/api"
-  user_agent: "fpl-decision-engine/0.1 (+https://github.com/adivishall/fpl)"
+  user_agent: "fpl-decision-engine/0.1 (+https://github.com/adivishall/fpl-copilot)"
   timeout_seconds: 20
   max_retries: 5
   backoff_initial_seconds: 1.0
