@@ -220,6 +220,61 @@ def test_users_cannot_touch_each_others_managers(client: TestClient, squad: list
     )
 
 
+def test_a_key_in_the_query_never_vouches_for_another_key_in_the_body(
+    client: TestClient, squad: list[int]
+) -> None:
+    """Ownership is checked for every manager key a request names (path, each query value,
+    JSON body): owning the key in the query string does not let a user act on another
+    manager through the body."""
+    alice = _register(client, "vouch-alice@example.test")["session_token"]
+    bob = _register(client, "vouch-bob@example.test")["session_token"]
+    a_key = _manager(client, alice, squad)
+    b_key = _manager(client, bob, squad, bank=7)
+    picks = [{"player_code": c} for c in squad]
+    for path, body in (
+        ("/api/v1/squad", {"picks": picks, "bank": 3, "free_transfers": 1}),
+        ("/api/v1/workbench/evaluate", {"plans": [{"kind": "hold"}]}),
+        (
+            "/api/v1/recommendations/generate",
+            {"horizon": 1, "stability": False, "scenarios": False, "chips": False},
+        ),
+    ):
+        r = client.post(
+            path,
+            params={"manager_key": a_key},
+            json={"manager_key": b_key, **body},
+            headers=_bearer(alice),
+        )
+        assert r.status_code == 403, (path, r.status_code, r.text)
+    two = client.get(
+        "/api/v1/squad",
+        params=[("manager_key", a_key), ("manager_key", b_key)],
+        headers=_bearer(alice),
+    )
+    assert two.status_code == 403
+    # a path key is checked as well as a query key, in either combination
+    for method, path, params in (
+        ("GET", f"/api/v1/managers/{b_key}/export", {"manager_key": a_key}),
+        ("DELETE", f"/api/v1/managers/{b_key}", {"manager_key": a_key}),
+        ("GET", f"/api/v1/managers/{a_key}/export", {"manager_key": b_key}),
+    ):
+        r = client.request(method, path, params=params, headers=_bearer(alice))
+        assert r.status_code == 403, (method, path, r.status_code)
+    own = client.get(
+        f"/api/v1/managers/{a_key}/export", params={"manager_key": a_key}, headers=_bearer(alice)
+    )
+    assert own.status_code == 200, own.text
+    bobs = client.get("/api/v1/squad", params={"manager_key": b_key}, headers=_bearer(bob))
+    assert bobs.json()["state"]["bank"] == 7  # untouched
+    same = client.post(
+        "/api/v1/squad",
+        params={"manager_key": a_key},
+        json={"manager_key": a_key, "picks": picks, "bank": 4, "free_transfers": 1},
+        headers=_bearer(alice),
+    )
+    assert same.status_code == 200, same.text
+
+
 def test_account_deletion_erases_every_owned_manager(client: TestClient, squad: list[int]) -> None:
     carol = _register(client, "carol@example.test")["session_token"]
     k1, k2 = _manager(client, carol, squad), _manager(client, carol, squad, bank=20)

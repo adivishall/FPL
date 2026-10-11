@@ -33,7 +33,7 @@ from fpl_api.accounts import (
     AuthError,
     Principal,
     UserStore,
-    manager_key_in_request,
+    manager_keys_in_request,
     require_operator,
     require_owner,
     require_user,
@@ -205,8 +205,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     async def authorize(request: Request) -> None:
         """Ownership of manager data is enforced here for every route that names a manager
         key (path, query or body); routes addressed by record id check inside."""
-        key = await manager_key_in_request(request)
-        if key is not None:
+        for key in await manager_keys_in_request(request):
             require_owner(principal_of(request), users, key)
 
     def owner_of_rec(request: Request, rec_id: str) -> dict[str, Any]:

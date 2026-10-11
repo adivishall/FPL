@@ -341,22 +341,27 @@ def bearer_token(request: Request) -> str | None:
     return None
 
 
-async def manager_key_in_request(request: Request) -> str | None:
-    """The manager key a request names: path (``/managers/{key}``), query (``?manager_key=``)
-    or JSON body field ``manager_key``. Reading the body here caches it for the endpoint."""
-    key = request.path_params.get("manager_key") or request.query_params.get("manager_key")
-    if key:
-        return str(key)
-    if request.method in ("POST", "PUT", "PATCH", "DELETE") and "json" in request.headers.get(
-        "content-type", ""
+async def manager_keys_in_request(request: Request) -> list[str]:
+    """Every manager key a request names — path (``/managers/{key}``), query
+    (``?manager_key=``, each occurrence) and JSON body field ``manager_key`` — so ownership is
+    checked for each one, not only the first found (a query key must not vouch for a body
+    key). Reading the body here caches it for the endpoint."""
+    keys: list[str] = []
+    path_key = request.path_params.get("manager_key")
+    if path_key:
+        keys.append(str(path_key))
+    keys += [str(k) for k in request.query_params.getlist("manager_key")]
+    if (
+        request.method in ("POST", "PUT", "PATCH", "DELETE")
+        and "json" in request.headers.get("content-type", "").lower()
     ):
         try:
             body = await request.json()
         except ValueError:
-            return None
-        if isinstance(body, dict) and isinstance(body.get("manager_key"), str):
-            return body["manager_key"]
-    return None
+            body = None
+        if isinstance(body, dict) and body.get("manager_key") is not None:
+            keys.append(str(body["manager_key"]))
+    return list(dict.fromkeys(keys))
 
 
 def require_owner(principal: Principal, users: UserStore | None, manager_key: str) -> None:
