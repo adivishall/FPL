@@ -271,6 +271,27 @@ test("result lifecycle: a saved squad makes the last workbench run and the recom
   expect(recAgain.lifecycle.state).toBe("current");
 });
 
+test("decision journal: a decision recorded on the Overview keeps its evidence, waits for results, and stays private", async ({ page }) => {
+  await asManager(page);
+  await page.goto("/");
+  await expect(page.getByTestId("decision-text")).toBeVisible();
+  await expect(page.getByTestId("rec-lifecycle")).toHaveAttribute("data-state", "current");
+  await page.getByTestId("record-rationale").fill("e2e: following the plan");
+  await page.getByTestId("record-recommended").click();
+  await expect(page.getByTestId("record-msg")).toContainText(/Recorded in your journal|Already in your journal/);
+  await page.getByTestId("record-link").click();
+  await expect(page.getByTestId("entry-action")).toContainText("followed Copilot");
+  await expect(page.getByTestId("outcome-status")).toHaveAttribute("data-state", /pending|partial|final|unavailable/);
+  const id = page.url().split("/").pop()!;
+  const listed = await (await web.get(`/backend/journal?manager_key=${MANAGER}`)).json();
+  expect((listed.entries as { entry_id: string }[]).map((e) => e.entry_id)).toContain(id);
+  // the decision is the signed-in user's: the proxy's key alone cannot read it
+  const anon = await api.get(`/api/v1/journal/${id}`, { headers: { "x-api-key": WEB_KEY } });
+  expect(anon.status()).toBe(401);
+  await page.goto("/journal");
+  await expect(page.getByTestId(`decision-${id}`)).toContainText("followed Copilot");
+});
+
 test("alerts are evaluated by the worker; re-evaluating unchanged data adds nothing", async ({ page }) => {
   await asManager(page);
   await page.goto("/alerts");

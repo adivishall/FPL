@@ -622,3 +622,134 @@ export interface WorkbenchRun {
   names: Record<string, string | null>;
   freshness: Freshness;
 }
+
+// ---------------------------------------------------------------- decision journal (M1.4)
+export type JournalAction = "HOLD" | "TRANSFER" | "HIT" | "CHIP" | "DEFER" | "UNKNOWN";
+export type EvaluationStatus = "pending" | "partial" | "final" | "unavailable";
+
+export interface JournalPlanEvidence {
+  label: string;
+  action: string;
+  sells: number[];
+  buys: number[];
+  hit_points: number;
+  chip: string | null;
+  starters: number[] | null;
+  bench: number[] | null;
+  captain: number | null;
+  vice_captain: number | null;
+  lineup_source: "stored" | "reconstructed" | "unavailable";
+  lineup_note?: string | null;
+  armband_as_stored?: boolean | null;
+  expected?: { mean: number; p10?: number | null; p50?: number | null; p90?: number | null } | null;
+  gain_vs_hold?: { mean: number; p10: number; p50: number; p90: number; probability_positive: number } | null;
+}
+
+export interface JournalEvidence {
+  source_kind: "recommendation" | "workbench";
+  source_id: string;
+  source_plan: string | null;
+  source_state: string;
+  source_reasons: string[];
+  recorded_at: string;
+  season: string;
+  gameweek: number;
+  deadline_at: string | null;
+  cutoff: string | null;
+  state_id: string | null;
+  data_snapshot_id: string | null;
+  prediction_run_id: string | null;
+  forecast_key: string | null;
+  ruleset_version: string | null;
+  model_versions: Record<string, string>;
+  data_as_of: string | null;
+  recommended: JournalPlanEvidence;
+  hold: JournalPlanEvidence;
+  chosen: JournalPlanEvidence | null;
+  captain_override: boolean;
+  system_rationale: { decision: string; why: string[]; downside: string[]; optimality?: string | null; stability?: string | null };
+  player_expectations: Record<string, { xp_next: number | null; start_prob: number | null }>;
+}
+
+export interface JournalScore {
+  label: string;
+  points: number;
+  gross: number;
+  hit_points: number;
+  auto_subs: number[][];
+  armband: number | null;
+  multiplier: number;
+}
+
+export interface JournalEvaluation {
+  id: number;
+  seq: number;
+  status: EvaluationStatus;
+  evaluator_version: string;
+  data_snapshot_id: string | null;
+  realized_points: number | null;
+  realized_hold_points: number | null;
+  realized_recommended_points: number | null;
+  detail: {
+    reason?: string;
+    statements?: string[];
+    caveat?: string;
+    provisional?: boolean;
+    chosen?: JournalScore | null;
+    hold?: JournalScore | null;
+    recommended?: JournalScore | null;
+    difference_vs_hold?: number;
+    difference_vs_recommended?: number;
+    fixtures?: { relevant: number; played: number; recorded: number; final: number; results_final?: number; moved_out: number[]; moved_in: number[]; gameweek_status: string };
+    players?: { player_code: number; role: string; minutes: number; points: number; counted: boolean; xp_next: number | null; start_prob: number | null }[];
+    players_so_far?: Record<string, { minutes: number; points: number }>;
+    revision?: { revises: number; previous_points: number | null; previous_evaluated_at: string | null; note: string };
+  };
+  revises_id: number | null;
+  evaluated_at: string;
+}
+
+export interface JournalEntry {
+  entry_id: string;
+  manager_key: string;
+  state: "active" | "superseded";
+  superseded_by: string | null;
+  season: string;
+  gameweek: number;
+  deadline_at: string | null;
+  prospective: boolean | null;
+  recorded_at: string;
+  source: { kind: "recommendation" | "workbench"; id: string; plan: string | null };
+  state_id: string | null;
+  data_snapshot_id: string | null;
+  prediction_run_id: string | null;
+  recommended_action: string | null;
+  action: JournalAction;
+  sells: number[];
+  buys: number[];
+  hit_points: number | null;
+  captain: number | null;
+  vice_captain: number | null;
+  chip: string | null;
+  adherence: "followed" | "modified" | "rejected" | "deferred" | null;
+  rationale: string | null;
+  confirmed_at: string | null;
+  verification: "matches" | "differs" | "observed" | "unavailable" | null;
+  verification_detail: { reason?: string; differences?: string[]; source?: string; actual?: { transfers_out: number[]; transfers_in: number[]; captain: number | null; vice_captain: number | null; chip: string | null } } | null;
+  verified_at: string | null;
+  evaluation_status: EvaluationStatus;
+  evaluated_at: string | null;
+  latest_evaluation?: JournalEvaluation | null;
+  evaluations?: JournalEvaluation[];
+  evidence?: JournalEvidence | null; // null: recorded before the journal kept decision-time evidence
+  self_reported_points?: number | null;
+  source_now: Lifecycle | null;
+  names: Record<string, string | null>;
+  links: { trace: string | null; workbench_run: string | null };
+}
+
+export interface JournalRecordResult {
+  entry: JournalEntry;
+  created: boolean;
+  warning: string | null;
+}

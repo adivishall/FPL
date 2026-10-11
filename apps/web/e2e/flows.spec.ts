@@ -159,6 +159,7 @@ test("copilot home shows the situation, squad health, captain profiles, the squa
 
 
 // ---------------------------------------------------------------- result lifecycle (M1.3)
+import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -241,4 +242,69 @@ test("promoting a newer data snapshot makes the recommendation historical, expla
   await expect(page.getByTestId("journal")).toContainText("historical");
   // the journal's badges are the same derived verdict: exactly one current recommendation
   await expect(page.locator('[data-testid^="journal-status-"][data-state="current"]')).toHaveCount(1);
+});
+
+// ---------------------------------------------------------------- decision journal (M1.4)
+test("a decision recorded on the Overview is kept in the journal and evaluated against the official results once they are final", async ({ page }) => {
+  const infoPath = join(__dirname, ".e2e-stack.json");
+  test.skip(!existsSync(infoPath), "the e2e API stack did not publish its snapshot layout");
+  const info = JSON.parse(readFileSync(infoPath, "utf8")) as { snapshots_root: string; artifact_dir: string; staged_results_snapshot: string; staged_results_snapshot_id: string };
+  await page.goto("/");
+  const generate = page.getByTestId("generate");
+  const decision = page.getByTestId("decision-text");
+  await expect(generate.or(decision).first()).toBeVisible();
+  if (!(await decision.isVisible())) await generate.click();
+  await expect(decision).toBeVisible({ timeout: 240_000 });
+  if ((await page.getByTestId("rec-lifecycle").getAttribute("data-state")) !== "current") await page.getByTestId("regenerate").click();
+  await expect(page.getByTestId("rec-lifecycle")).toHaveAttribute("data-state", "current", { timeout: 240_000 });
+  const snapshot = (await (await page.request.get("/backend/gameweeks/current")).json()).freshness.data_snapshot_id as string;
+  // record: following Copilot, with a reason
+  await page.getByTestId("record-rationale").fill("I trust the plan");
+  await page.getByTestId("record-recommended").click();
+  await expect(page.getByTestId("record-msg")).toContainText("Recorded in your journal");
+  await page.getByTestId("record-link").click();
+  await expect(page.getByTestId("entry-action")).toContainText("followed Copilot");
+  await expect(page.getByTestId("outcome-status")).toHaveAttribute("data-state", "pending");
+  await expect(page.getByTestId("evidence")).toContainText(snapshot);
+  const entryUrl = page.url();
+  // a decision migrated from pre-M1.4 feedback has no decision-time evidence: its page explains
+  // that instead of failing, and nothing offers to evaluate it
+  const entryId = entryUrl.split("/").pop()!;
+  const entry = await (await page.request.get(`/backend/journal/${entryId}`)).json();
+  const legacyId = execFileSync("uv", ["run", "python", "infra/scripts/e2e_api.py", "seed-legacy-decision", entry.manager_key, entry.source.id, entryId], {
+    cwd: join(__dirname, "..", "..", ".."),
+    encoding: "utf8",
+  }).trim().split("\n").pop()!;
+  await page.goto(`/journal/entry/${legacyId}`);
+  await expect(page.getByTestId("entry-legacy")).toContainText("before the journal kept decision-time evidence");
+  await expect(page.getByTestId("entry-superseded")).toContainText("Replaced by");
+  await expect(page.getByTestId("outcome-none")).toContainText("no decision-time evidence");
+  await expect(page.getByTestId("evaluate-now")).toHaveCount(0);
+  // it is in the journal, also after a reload
+  await page.goto("/journal");
+  const row = page.locator('[data-testid^="decision-jd_"]').first();
+  await expect(row).toContainText("followed Copilot");
+  await page.reload();
+  await expect(row).toContainText("followed Copilot");
+  await expect(row).toContainText("awaiting results");
+  // the official results arrive: their snapshot is promoted (copy + ready marker)
+  const target = join(info.snapshots_root, info.staged_results_snapshot_id);
+  if (!existsSync(target)) cpSync(info.staged_results_snapshot, target, { recursive: true });
+  mkdirSync(join(info.artifact_dir, "serving"), { recursive: true });
+  writeFileSync(join(info.artifact_dir, "serving", `${info.staged_results_snapshot_id}.ready`), JSON.stringify({ forecast_key: "fc_e2e_results" }));
+  await expect
+    .poll(async () => (await (await page.request.get("/backend/gameweeks/current")).json()).freshness.data_snapshot_id, { timeout: 30_000 })
+    .toBe(info.staged_results_snapshot_id);
+  await page.goto(entryUrl);
+  await page.getByTestId("evaluate-now").click();
+  await expect(page.getByTestId("outcome-status")).toHaveAttribute("data-state", "final", { timeout: 120_000 });
+  await expect(page.getByTestId("outcome-scores")).toContainText("Holding");
+  await expect(page.getByTestId("outcome-statements")).toContainText("Your recorded action scored");
+  await expect(page.getByTestId("outcome-caveat")).toContainText("does not grade the decision");
+  // the recommendation it was recorded against is historical now; the decision-time evidence is not rewritten
+  await expect(page.getByTestId("entry-source-now")).toHaveAttribute("data-state", /stale|superseded/);
+  await expect(page.getByTestId("evidence")).toContainText(snapshot);
+  await expect(page.getByTestId("evidence")).not.toContainText(info.staged_results_snapshot_id);
+  await page.goto("/journal");
+  await expect(page.locator('[data-testid^="decision-jd_"]').first()).toContainText("final");
 });

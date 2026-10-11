@@ -86,3 +86,7 @@ ol.steps li.done { background: var(--accent-soft, #eef); }
 .fdr-easy { background: #d9f2dd; }
 .fdr-mid { background: #f3efc9; }
 .fdr-hard { background: #f6d5d5; }
+
+/* decision journal (M1.4): the record panel under a recommendation or a workbench plan */
+.record { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; display: grid; gap: 8px; }
+.record input { min-width: 260px; }

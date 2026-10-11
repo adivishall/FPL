@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { RecordDecision } from "@/components/journal";
 import { LifecycleBadge, WhatChanged } from "@/components/lifecycle";
 import { PlayerPicker } from "@/components/player-picker";
 import { Badge, Card, PlayerName, Prob, State, confidenceTone, useApi } from "@/components/ui";
@@ -335,6 +336,20 @@ export default function TransferWorkbench() {
         {chosen && hold ? (
           <Card title={`Plan: ${chosen.label}`} testId="plan-details" wide>
             <PlanDetails plan={chosen} hold={hold} names={names} />
+            {run && run.status === "succeeded" && chosen.valid ? (
+              <RecordDecision
+                key={`${run.id}|${res?.plans.indexOf(chosen) ?? 0}:${chosen.label}`} // a fresh form per plan
+                managerKey={settings.managerKey}
+                source="workbench"
+                sourceId={run.id}
+                plan={`${res?.plans.indexOf(chosen) ?? 0}:${chosen.label}`}
+                starters={chosen.lineup.starters}
+                captain={chosen.lineup.captain}
+                viceCaptain={chosen.lineup.vice_captain}
+                names={names}
+                current={!!run.lifecycle?.current}
+              />
+            ) : null}
           </Card>
         ) : null}
       </div>

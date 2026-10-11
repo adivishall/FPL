@@ -5,6 +5,7 @@
 * Alembic migrations, then uvicorn on :8000 (blocking).
 
 Usage (repo root): uv run python infra/scripts/e2e_api.py
+Test helper: uv run python infra/scripts/e2e_api.py seed-legacy-decision KEY REC_ID LATER_ID
 """
 
 from __future__ import annotations
@@ -44,7 +45,58 @@ def _stage_snapshot_b(ds_a: Any, root: Path) -> Path:
     return export_snapshot(CanonicalDataset({**ds_a.frames, "player_snapshots": ps}, {}), root)
 
 
+def _stage_results(snapshot_b: Path, root: Path) -> Path:
+    """Snapshot B plus synthetic, final GW2 results (M1.4): promoting it lets a browser test
+    evaluate a journal decision on finished results."""
+    from fpl_storage.dataset import export_snapshot, load_snapshot  # noqa: PLC0415
+    from tests.fixtures_util import with_gameweek_results  # noqa: PLC0415
+
+    ds_b = load_snapshot(snapshot_b)
+    season = sorted(ds_b["gameweeks"]["season"].unique())[-1]
+    time.sleep(1.1)  # newer than B
+    return export_snapshot(with_gameweek_results(ds_b, season, 2, lambda c: c % 7 + 1), root)
+
+
+STACK_INFO = ROOT / "apps" / "web" / "e2e" / ".e2e-stack.json"
+
+
+def seed_legacy_decision(manager_key: str, recommendation_id: str, later_id: str) -> str:
+    """A decision as migration 0005 leaves pre-M1.4 feedback — no decision-time evidence,
+    evaluation and verification unavailable — replaced by ``later_id``, so a browser test can
+    open it (M1.4 review: such an entry crashed the entry page). Throw-away stack only."""
+    from sqlalchemy import create_engine, text  # noqa: PLC0415
+
+    url = json.loads(STACK_INFO.read_text())["database_url"]
+    engine = create_engine(url)
+    with engine.begin() as c:
+        c.execute(
+            text(
+                """
+                INSERT INTO decision_journal (entry_id, manager_key, recommendation_id, season,
+                  gameweek, state_id, data_snapshot_id, recommended_action, action, followed,
+                  state, superseded_by, evaluation_status, verification, verification_json,
+                  review_json)
+                SELECT 'jd_legacy_e2e', :k, r.id, r.payload_json->>'season', r.gw,
+                  r.manager_state_id, r.data_snapshot_id, r.action_type, 'UNKNOWN', 'rejected',
+                  'superseded', :later, 'unavailable', 'unavailable',
+                  jsonb_build_object('reason',
+                    'recorded before the journal kept decision-time evidence',
+                    'retryable', false),
+                  '{}'::jsonb
+                FROM recommendations r WHERE r.id = :rid
+                ON CONFLICT (entry_id) DO NOTHING
+                """
+            ),
+            {"k": manager_key, "rid": recommendation_id, "later": later_id},
+        )
+    engine.dispose()
+    return "jd_legacy_e2e"
+
+
 def main() -> None:
+    if sys.argv[1:2] == ["seed-legacy-decision"]:
+        print(seed_legacy_decision(*sys.argv[2:5]))  # the entry id, read by the browser test
+        return
     from fpl_api.security import hash_key  # noqa: PLC0415 (after sys.path setup)
     from fpl_api.services import mark_serving_ready  # noqa: PLC0415
     from fpl_api.settings import Settings  # noqa: PLC0415
@@ -60,19 +112,23 @@ def main() -> None:
     # to it so a browser test can promote it (copy + ready marker) and see what changed
     mark_serving_ready(Settings(artifact_dir=work / "artifacts"), snap.name, "fc_e2e_a")
     staged = _stage_snapshot_b(ds_a, work / "staged")
-    (ROOT / "apps" / "web" / "e2e" / ".e2e-stack.json").write_text(
-        json.dumps(
-            {
-                "snapshots_root": str(work / "snapshots"),
-                "artifact_dir": str(work / "artifacts"),
-                "served_snapshot": snap.name,
-                "staged_snapshot": str(staged),
-                "staged_snapshot_id": staged.name,
-            }
-        )
-    )
+    results = _stage_results(staged, work / "staged")
     with contextlib.ExitStack() as stack:
         url = os.environ.get("FPL_E2E_DATABASE_URL") or stack.enter_context(ephemeral_postgres())
+        STACK_INFO.write_text(
+            json.dumps(
+                {
+                    "snapshots_root": str(work / "snapshots"),
+                    "artifact_dir": str(work / "artifacts"),
+                    "served_snapshot": snap.name,
+                    "staged_snapshot": str(staged),
+                    "staged_snapshot_id": staged.name,
+                    "staged_results_snapshot": str(results),
+                    "staged_results_snapshot_id": results.name,
+                    "database_url": url,  # the throw-away test database (seed helpers)
+                }
+            )
+        )
         env = dict(os.environ, FPL_DATABASE_URL=url)
         subprocess.run(  # noqa: S603 - fixed, trusted command
             ["alembic", "-c", str(ROOT / "alembic.ini"), "upgrade", "head"],  # noqa: S607

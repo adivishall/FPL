@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { useUser } from "@/components/auth";
+import { RecordDecision } from "@/components/journal";
 import { LifecycleBadge, WhatChanged } from "@/components/lifecycle";
 import { Badge, Card, DistBar, FreshnessBanner, PlayerName, Prob, State, confidenceTone, useApi } from "@/components/ui";
 import { track, trackReturnVisit } from "@/lib/analytics";
@@ -254,6 +255,17 @@ export default function Home() {
                   {r.decision.optimality ?? "not recorded"}
                 </span>
               </div>
+              <RecordDecision
+                key={r.id} // a new recommendation starts a fresh form
+                managerKey={key}
+                source="recommendation"
+                sourceId={r.id}
+                starters={r.lineup.starters}
+                captain={r.lineup.captain}
+                viceCaptain={r.lineup.vice_captain}
+                names={{ ...(names ?? {}), ...(r.names ?? {}) }}
+                current={!!r.lifecycle?.current}
+              />
             </>
           ) : null}
         </Card>

@@ -17,6 +17,7 @@ export type EventName =
   | "transfer_comparison_completed"
   | "workbench_evaluated"
   | "workbench_plan_selected"
+  | "journal_recorded"
   | "recommendation_followed"
   | "recommendation_dismissed"
   | "return_visit";
