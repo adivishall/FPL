@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest a capability for FPL Copilot
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Decision or problem
+      description: Which FPL decision should this help with, and what is hard about it today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: How would we know it helps?
+      description: A measurable outcome, an evaluation, or the user flow that becomes possible.
+  - type: textarea
+    id: roadmap
+    attributes:
+      label: Related roadmap item
+      description: See docs/PRODUCT_GAP_ANALYSIS.md and docs/BACKLOG.md.
