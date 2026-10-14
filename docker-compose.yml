@@ -28,7 +28,7 @@ services:
     ports: ["127.0.0.1:6379:6379"]
 
   migrate:
-    build: {context: ., dockerfile: infra/docker/python.Dockerfile}
+    build: {context: ., dockerfile: infra/docker/python.Dockerfile, args: {FPL_BUILD_REVISION: "${FPL_BUILD_REVISION:-unrecorded}"}}
     image: fpl-engine:${FPL_IMAGE_TAG:-local}   # one image for api, worker, scheduler, migrate
     command: ["alembic", "upgrade", "head"]
     env_file: .env
@@ -36,7 +36,7 @@ services:
 
   api:
     restart: unless-stopped
-    build: {context: ., dockerfile: infra/docker/python.Dockerfile}
+    build: {context: ., dockerfile: infra/docker/python.Dockerfile, args: {FPL_BUILD_REVISION: "${FPL_BUILD_REVISION:-unrecorded}"}}
     image: fpl-engine:${FPL_IMAGE_TAG:-local}   # one image for api, worker, scheduler, migrate
     env_file: .env
     environment:   # serve precomputed forecasts only; promote a snapshot once its forecast exists
@@ -51,7 +51,7 @@ services:
 
   worker:
     restart: unless-stopped
-    build: {context: ., dockerfile: infra/docker/python.Dockerfile}
+    build: {context: ., dockerfile: infra/docker/python.Dockerfile, args: {FPL_BUILD_REVISION: "${FPL_BUILD_REVISION:-unrecorded}"}}
     image: fpl-engine:${FPL_IMAGE_TAG:-local}   # one image for api, worker, scheduler, migrate
     command: ["fpl-worker", "work"]
     env_file: .env
@@ -72,7 +72,7 @@ services:
 
   scheduler:
     restart: unless-stopped
-    build: {context: ., dockerfile: infra/docker/python.Dockerfile}
+    build: {context: ., dockerfile: infra/docker/python.Dockerfile, args: {FPL_BUILD_REVISION: "${FPL_BUILD_REVISION:-unrecorded}"}}
     image: fpl-engine:${FPL_IMAGE_TAG:-local}   # one image for api, worker, scheduler, migrate
     command: ["fpl-worker", "schedule"]
     env_file: .env

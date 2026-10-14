@@ -37,6 +37,7 @@ from sqlalchemy import func, select
 from fpl_api.container import AppServices
 from fpl_api.jobs import JobBackend, services
 from fpl_api.journal import JournalStore
+from fpl_api.ledger import due_gameweeks
 from fpl_api.lifecycle import invalidate_for_snapshot
 from fpl_api.services import ForecastUnavailable
 from fpl_domain.config import load_versioned_config
@@ -184,6 +185,23 @@ def task_live_refresh(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, A
     }
 
 
+def task_forecast_ledger(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
+    """Capture the forecast served at each passed decision cutoff (M1.5 forecast record): a
+    database-only due-check; a capture job only for a gameweek with no checkpoint yet. A failed
+    capture is submitted again on the next tick (the request is de-duplicated while one runs)."""
+    if svc.engine is None:
+        return {"status": "skipped", "reason": "no database"}
+    due = due_gameweeks(svc.engine)
+    ids = [
+        jobs.submit("forecast_capture", {"season": g.season, "gameweek": g.gameweek}) for g in due
+    ]
+    return {
+        "status": "submitted" if due else "skipped",
+        "gameweeks": [g.gameweek for g in due],
+        "jobs": ids,
+    }
+
+
 def task_retention(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
     # a job (not inline): its outcome is recorded, counted and alerted on like any other
     return {"status": "submitted", "job_id": jobs.submit("retention", {"at": b})}
@@ -262,6 +280,7 @@ TASKS: dict[str, Callable[[AppServices, JobBackend, str], dict[str, Any]]] = {
     "retention": task_retention,
     "live_results": task_live_results,
     "journal": task_journal,
+    "forecast_ledger": task_forecast_ledger,
 }
 
 

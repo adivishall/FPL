@@ -39,6 +39,7 @@ from fpl_api.alerts import evaluate_alerts
 from fpl_api.container import AppServices, build_recommendation
 from fpl_api.copilot import compute_squad_analysis
 from fpl_api.journal import run_evaluations
+from fpl_api.ledger import capture, record_promotion
 from fpl_api.lifecycle import INPUTS_MISMATCH, invalidate_for_snapshot, reason
 from fpl_api.retention import prune
 from fpl_api.services import mark_serving_ready
@@ -63,6 +64,10 @@ def _job_forecast(svc: AppServices, p: dict[str, Any]) -> str:
     key = str(fc.provenance.get("forecast_key", fc.run_id))
     serving = (season, gw) == (ctx.season, ctx.gameweek) and p.get("n_sims") is None
     if serving and fc.provenance.get("data_snapshot_id") == snapshot:
+        # the forecast record's commitment comes first (M1.5). Only exported snapshots are
+        # promoted by the API's ready-only selection; a pinned or injected dataset is not
+        if svc.engine is not None and svc.data.snapshot_path(snapshot) is not None:
+            record_promotion(svc.engine, svc.settings, svc.data, fc, snapshot)
         mark_serving_ready(svc.settings, snapshot, key)  # the API may now promote it
         if svc.engine is not None:  # the promotion event: older results become historical
             invalidate_for_snapshot(svc.engine, svc.serving_snapshot_id(), svc.settings)
@@ -220,6 +225,14 @@ def _job_journal(svc: AppServices, p: dict[str, Any]) -> str:
     return f"journal:{written}/{looked}"
 
 
+def _job_forecast_capture(svc: AppServices, p: dict[str, Any]) -> str:
+    """Freeze a gameweek's forecast checkpoint (M1.5 forecast record): idempotent — a captured
+    gameweek returns its existing checkpoint, a concurrent capture finds the first one."""
+    if svc.engine is None:
+        raise RuntimeError("database required")
+    return capture(svc.engine, svc.settings, svc.data, p["season"], int(p["gameweek"]))
+
+
 def _job_retention(svc: AppServices, p: dict[str, Any]) -> str:
     return prune(svc.settings, svc.engine).summary()
 
@@ -238,6 +251,7 @@ JOB_KINDS: dict[str, JobFn] = {
     "squad_analysis": _job_squad_analysis,
     "workbench": _job_workbench,
     "journal": _job_journal,
+    "forecast_capture": _job_forecast_capture,
 }
 # Upper bound on a healthy run of each kind: RQ's job timeout and the de-duplication lease.
 JOB_LEASE: dict[str, timedelta] = {
@@ -249,6 +263,7 @@ JOB_LEASE: dict[str, timedelta] = {
     "squad_analysis": timedelta(minutes=10),
     "workbench": timedelta(minutes=20),
     "journal": timedelta(minutes=15),
+    "forecast_capture": timedelta(minutes=15),
 }
 ABANDONED = "abandoned: no result within the job lease (worker lost or killed)"
 RQ_GRACE = timedelta(minutes=2)

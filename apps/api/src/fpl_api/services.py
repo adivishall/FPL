@@ -29,6 +29,7 @@ import yaml
 from sqlalchemy import Engine, select, text
 
 from fpl_api.observability import Metrics
+from fpl_api.provenance import build_revision, code_digest
 from fpl_api.settings import Settings
 from fpl_decision.engine import RecommendationPackage
 from fpl_domain.enums import FreshnessStatus
@@ -383,6 +384,9 @@ class ForecastService:
                 raise
             self.metrics.forecast_seconds.observe(time.perf_counter() - t0)
             fc.provenance["forecast_key"] = k
+            # which code computed these numbers: neither the key nor the run id includes it
+            fc.provenance["code_digest"] = code_digest()
+            fc.provenance["build_revision"] = build_revision()
             _publish(path, lambda t: joblib.dump(fc, t, compress=3))
             self._mem[k] = fc
             self._lineage(fc, horizon, path)

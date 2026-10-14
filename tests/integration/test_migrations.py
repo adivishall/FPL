@@ -180,3 +180,57 @@ def test_0005_keeps_pre_journal_feedback_and_its_downgrade_restores_it(pg_url: s
     finally:
         with admin.connect() as c:
             c.execute(text(f'DROP DATABASE "{name}" WITH (FORCE)'))
+
+
+def test_0006_refuses_rows_it_cannot_place_and_its_downgrade_removes_the_record(
+    pg_url: str,
+) -> None:
+    """0006 keys ``predictions`` by checkpoint. Nothing wrote the table before M1.5, so the
+    upgrade adds the non-null column to an empty table — and refuses to guess a checkpoint for
+    rows that should not be there. A checkpoint's rows cannot be deleted from under it (RESTRICT);
+    downgrading removes the forecast record (0005 cannot hold rows without a run)."""
+    import uuid
+
+    from sqlalchemy import text
+    from sqlalchemy.engine import make_url
+    from sqlalchemy.exc import IntegrityError
+
+    name = f"mig_{uuid.uuid4().hex[:8]}"
+    admin = create_engine(pg_url, isolation_level="AUTOCOMMIT")
+    with admin.connect() as c:
+        c.execute(text(f'CREATE DATABASE "{name}"'))
+    url = make_url(pg_url).set(database=name).render_as_string(hide_password=False)
+    try:
+        assert run_alembic(url, "upgrade", "0005").returncode == 0
+        eng = create_engine(url)
+        with eng.begin() as conn:
+            conn.execute(text("SET LOCAL session_replication_role = replica"))  # no FK checks
+            _insert(conn, "predictions", {"run_id": "pred_orphan", "components_json": {}})
+        r = run_alembic(url, "upgrade", "0006")
+        assert r.returncode != 0 and "belong to no checkpoint" in r.stderr
+        with eng.begin() as conn:
+            conn.execute(text("DELETE FROM predictions"))
+        assert run_alembic(url, "upgrade", "0006").returncode == 0
+        with eng.begin() as conn:
+            _insert(
+                conn,
+                "forecast_checkpoints",
+                {"id": "ckp_x", "season": "2026-27", "kind": "live", "state": "prospective"},
+            )
+            _insert(
+                conn,
+                "predictions",
+                {"checkpoint_id": "ckp_x", "run_id": None, "components_json": {}},
+            )
+        with pytest.raises(IntegrityError), eng.begin() as conn:
+            conn.execute(text("DELETE FROM forecast_checkpoints"))
+        assert run_alembic(url, "downgrade", "0005").returncode == 0
+        insp = inspect(eng)
+        assert "forecast_checkpoints" not in insp.get_table_names()
+        with eng.connect() as conn:
+            assert conn.execute(text("SELECT count(*) FROM predictions")).scalar() == 0
+        assert run_alembic(url, "upgrade", "head").returncode == 0
+        eng.dispose()
+    finally:
+        with admin.connect() as c:
+            c.execute(text(f'DROP DATABASE "{name}" WITH (FORCE)'))

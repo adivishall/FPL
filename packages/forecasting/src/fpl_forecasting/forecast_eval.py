@@ -64,22 +64,37 @@ class ForecastEvalResult:
 
 
 @dataclass
-class _Trained:
+class Benchmarks:
+    """The benchmark forecasters fitted at one cutoff on training rows whose labels were visible
+    at it: the four point baselines, the direct LightGBM regressor (optional: the live forecast
+    record does not use it), the minutes rate baseline and the climatology distribution."""
+
     at: Cutoff
-    models: ForecastModels
-    direct: DirectPointsModel
+    direct: DirectPointsModel | None
     baselines: list[Any]
     minutes_baseline: RateBaselineMinutes
     climatology: ClimatologyDistribution
 
 
-def _train(
-    cache: FeatureCache, c: Cutoff, history: Sequence[Cutoff], cfg: ForecastEvalConfig
-) -> _Trained:
-    models = train_forecast_models(cache, c, history, minutes_config=cfg.minutes)
-    multi = training_table(cache, c, history, TRAIN_HORIZONS)
-    direct = DirectPointsModel(cfg.direct)
-    direct.fit(multi)
+@dataclass
+class _Trained:
+    at: Cutoff
+    models: ForecastModels
+    bench: Benchmarks
+
+
+def train_benchmarks(
+    cache: FeatureCache,
+    c: Cutoff,
+    history: Sequence[Cutoff],
+    cfg: ForecastEvalConfig,
+    direct_model: bool = True,
+) -> Benchmarks:
+    multi = training_table(cache, c, history, TRAIN_HORIZONS if direct_model else (0,))
+    direct = None
+    if direct_model:
+        direct = DirectPointsModel(cfg.direct)
+        direct.fit(multi)
     h0 = multi[multi["horizon"] == 0]
     baselines = all_baselines()
     for b in baselines:
@@ -87,7 +102,14 @@ def _train(
     mb = RateBaselineMinutes().fit(h0)
     clim = ClimatologyDistribution()
     clim.fit(h0)
-    return _Trained(c, models, direct, baselines, mb, clim)
+    return Benchmarks(c, direct, baselines, mb, clim)
+
+
+def _train(
+    cache: FeatureCache, c: Cutoff, history: Sequence[Cutoff], cfg: ForecastEvalConfig
+) -> _Trained:
+    models = train_forecast_models(cache, c, history, minutes_config=cfg.minutes)
+    return _Trained(c, models, train_benchmarks(cache, c, history, cfg))
 
 
 def _needs_retrain(prev: _Trained | None, c: Cutoff, every: int) -> bool:
@@ -97,6 +119,88 @@ def _needs_retrain(prev: _Trained | None, c: Cutoff, every: int) -> bool:
 def _gw_sum(keys: pd.DataFrame, values: np.ndarray) -> pd.Series:
     df = keys.assign(v=values)
     return df.groupby(["player_code", "target_gw"])["v"].sum()
+
+
+@dataclass
+class PredictionRows:
+    """Every forecaster's prediction per player × target gameweek at one cutoff, before any
+    outcome is known: ``rows`` (benchmarks, the Monte Carlo summary, position, start rate and
+    the number of fixtures per player and gameweek as scheduled at the cutoff) and the
+    per-row empirical distributions of the Monte Carlo and climatology forecasts."""
+
+    rows: pd.DataFrame
+    mc_samples: np.ndarray  # [rows, S] points
+    clim_samples: np.ndarray  # [rows, n] points
+
+
+def prediction_rows(
+    cache: FeatureCache, c: Cutoff, fc: Any, bench: Benchmarks, cfg: ForecastEvalConfig
+) -> PredictionRows:
+    """The prediction stage of the walk-forward evaluation for one cutoff and one forecast."""
+    frame = cache.get(c).frame
+    keys = frame[["player_code", "target_gw"]]
+
+    # ---- benchmark predictions per player × target GW (fixture rows summed)
+    preds: dict[str, pd.Series] = {}
+    for b in bench.baselines:
+        preds[f"pred_{b.name}"] = _gw_sum(keys, b.predict(frame).to_numpy(float))
+    if bench.direct is not None:
+        preds["pred_direct_lgbm"] = _gw_sum(keys, bench.direct.predict(frame).to_numpy(float))
+    mb = bench.minutes_baseline.predict(frame)
+    preds["base_p_start"] = 1.0 - np.exp(_gw_sum(keys, np.log1p(-np.clip(mb.p_start, 0, 0.999999))))
+    preds["base_exp_minutes"] = _gw_sum(keys, mb.expected_minutes())
+    clim = bench.climatology.samples(frame, cfg.climatology_samples)  # [n, rows]
+    clim_gw = (
+        pd.DataFrame(clim.T)
+        .assign(player_code=keys["player_code"].to_numpy(), target_gw=keys["target_gw"].to_numpy())
+        .groupby(["player_code", "target_gw"])
+        .sum()
+    )
+    meta = frame.groupby(["player_code", "target_gw"]).agg(
+        position=("position", "first"),
+        start_rate_long=("start_rate_long", "first"),
+        n_fixtures=("fixture_id", "count"),
+    )
+    out = meta.join(pd.DataFrame(preds)).reset_index()
+
+    # ---- Monte Carlo distribution
+    s = fc.summary.rename(columns={"gw": "target_gw"})
+    out = out.merge(s, on=["player_code", "target_gw"], how="left")
+    sim = fc.simulation
+    pi = np.searchsorted(sim.player_codes, out["player_code"].to_numpy())
+    gi = np.searchsorted(sim.gameweeks, out["target_gw"].to_numpy())
+    mc_samples = sim.points[:, pi, gi].T.astype(float)  # [rows, S]
+    clim_samples = clim_gw.loc[
+        list(zip(out["player_code"], out["target_gw"], strict=True))
+    ].to_numpy(float)  # [rows, n]
+    return PredictionRows(out, mc_samples, clim_samples)
+
+
+def score_rows(
+    pred: PredictionRows, outcomes: pd.DataFrame, pit_rng: np.random.Generator
+) -> pd.DataFrame:
+    """Evaluation-only: join realised per player × gameweek outcomes (``gw, player_code,
+    points, minutes, starts``) to predictions that already exist; a player without an outcome
+    row scored 0. The caller decides which gameweeks' outcomes may be scored."""
+    out = pred.rows.merge(
+        outcomes[["gw", "player_code", "points", "minutes", "starts"]].rename(
+            columns={"gw": "target_gw", "minutes": "act_minutes", "starts": "act_starts"}
+        ),
+        on=["player_code", "target_gw"],
+        how="left",
+    )
+    out[["points", "act_minutes", "act_starts"]] = out[
+        ["points", "act_minutes", "act_starts"]
+    ].fillna(0)
+    y = out["points"].to_numpy(float)
+    out["crps_mc"] = fm.crps_rows(pred.mc_samples, y)
+    out["crps_climatology"] = fm.crps_rows(pred.clim_samples, y)
+    out["pit_mc"] = fm.pit_values(pred.mc_samples, y, pit_rng)
+    out["pit_climatology"] = fm.pit_values(pred.clim_samples, y, pit_rng)
+    for k in POINT_THRESHOLDS:
+        out[f"clim_prob_{k}_plus"] = (pred.clim_samples >= k).mean(axis=1)
+    out["clim_mean"] = pred.clim_samples.mean(axis=1)
+    return out
 
 
 def evaluate_forecasts(
@@ -129,66 +233,10 @@ def evaluate_forecasts(
             )
         assert trained is not None
         fc = forecast(cache, c, trained.models, cfg.sim)
-        frame = cache.get(c).frame
-        keys = frame[["player_code", "target_gw"]]
-
-        # ---- benchmark predictions per player × target GW (fixture rows summed)
-        bench: dict[str, pd.Series] = {}
-        for b in trained.baselines:
-            bench[f"pred_{b.name}"] = _gw_sum(keys, b.predict(frame).to_numpy(float))
-        bench["pred_direct_lgbm"] = _gw_sum(keys, trained.direct.predict(frame).to_numpy(float))
-        mb = trained.minutes_baseline.predict(frame)
-        bench["base_p_start"] = 1.0 - np.exp(
-            _gw_sum(keys, np.log1p(-np.clip(mb.p_start, 0, 0.999999)))
-        )
-        bench["base_exp_minutes"] = _gw_sum(keys, mb.expected_minutes())
-        clim = trained.climatology.samples(frame, cfg.climatology_samples)  # [n, rows]
-        clim_gw = (
-            pd.DataFrame(clim.T)
-            .assign(
-                player_code=keys["player_code"].to_numpy(), target_gw=keys["target_gw"].to_numpy()
-            )
-            .groupby(["player_code", "target_gw"])
-            .sum()
-        )
-        meta = frame.groupby(["player_code", "target_gw"]).agg(
-            position=("position", "first"),
-            start_rate_long=("start_rate_long", "first"),
-            n_fixtures=("fixture_id", "count"),
-        )
-        out = meta.join(pd.DataFrame(bench)).reset_index()
-
-        # ---- Monte Carlo distribution
-        s = fc.summary.rename(columns={"gw": "target_gw"})
-        out = out.merge(s, on=["player_code", "target_gw"], how="left")
-        sim = fc.simulation
-        pi = np.searchsorted(sim.player_codes, out["player_code"].to_numpy())
-        gi = np.searchsorted(sim.gameweeks, out["target_gw"].to_numpy())
-        mc_samples = sim.points[:, pi, gi].T.astype(float)  # [rows, S]
-        clim_samples = clim_gw.loc[
-            list(zip(out["player_code"], out["target_gw"], strict=True))
-        ].to_numpy(float)  # [rows, n]
-
+        pred = prediction_rows(cache, c, fc, trained.bench, cfg)
         # ---- evaluation-only: realised outcomes joined after all predictions exist
-        act = realized_player_gw(ds, c.season, sorted(out["target_gw"].unique()))
-        out = out.merge(
-            act[["gw", "player_code", "points", "minutes", "starts"]].rename(
-                columns={"gw": "target_gw", "minutes": "act_minutes", "starts": "act_starts"}
-            ),
-            on=["player_code", "target_gw"],
-            how="left",
-        )
-        out[["points", "act_minutes", "act_starts"]] = out[
-            ["points", "act_minutes", "act_starts"]
-        ].fillna(0)
-        y = out["points"].to_numpy(float)
-        out["crps_mc"] = fm.crps_rows(mc_samples, y)
-        out["crps_climatology"] = fm.crps_rows(clim_samples, y)
-        out["pit_mc"] = fm.pit_values(mc_samples, y, pit_rng)
-        out["pit_climatology"] = fm.pit_values(clim_samples, y, pit_rng)
-        for k in POINT_THRESHOLDS:
-            out[f"clim_prob_{k}_plus"] = (clim_samples >= k).mean(axis=1)
-        out["clim_mean"] = clim_samples.mean(axis=1)
+        act = realized_player_gw(ds, c.season, sorted(pred.rows["target_gw"].unique()))
+        out = score_rows(pred, act, pit_rng)
         out["season"] = c.season
         out["decision_gw"] = c.gw
         out["trained_at_gw"] = trained.at.gw

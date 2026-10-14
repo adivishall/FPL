@@ -5,8 +5,11 @@ for it, a feature cache (~30 MB) and a forecast (~7 MB) follow. Unpruned, that i
 ``prune`` applies this policy to the snapshots under ``snapshots_root``:
 
 * **Kept with caches:** the ``snapshot_retention_keep`` newest snapshots (manifest
-  ``created_at``), the snapshot the API serves (newest with a precomputed serving forecast) and
-  the evaluation snapshots pinned in ``config/backtest/*.yaml``.
+  ``created_at``), the snapshot the API serves (newest with a precomputed serving forecast),
+  the evaluation snapshots pinned in ``config/backtest/*.yaml`` and, until its checkpoint is
+  written, the snapshot whose forecast was served at each passed decision cutoff (the forecast
+  record's candidates, ``fpl_api.ledger.pending_candidates``: their forecast files are kept
+  whatever their age).
 * **Kept, caches dropped:** any other snapshot that a stored recommendation, backtest run or
   registered model references. Its data stays so the decision can be traced and re-derived;
   feature and forecast caches are recomputable from it.
@@ -31,6 +34,7 @@ import structlog
 from sqlalchemy import Engine, select
 
 from fpl_api.analytics import prune as prune_events
+from fpl_api.ledger import pending_candidates
 from fpl_api.services import REPO_ROOT, is_serving_ready
 from fpl_api.settings import Settings
 from fpl_domain.config import load_versioned_config
@@ -130,7 +134,8 @@ def prune(settings: Settings, engine: Engine | None, now: float | None = None) -
         raise RetentionError(f"unreadable snapshot manifest under {root}: {exc}") from exc
     ids = [p.name for p in complete]
     ready = [s for s in ids if is_serving_ready(settings, s)]
-    with_caches = set(ids[-keep_n:]) | set(ready[-1:]) | pinned_snapshots()
+    candidates = pending_candidates(engine)  # forecast record: not yet captured
+    with_caches = set(ids[-keep_n:]) | set(ready[-1:]) | pinned_snapshots() | set(candidates)
     referenced = referenced_snapshots(engine)
     for p in complete:
         if p.name in with_caches:
@@ -151,7 +156,7 @@ def prune(settings: Settings, engine: Engine | None, now: float | None = None) -
             if d.name not in with_caches:
                 remove(d)
                 rep.deleted_files += 1
-    serving_keys = set()
+    serving_keys = set(candidates.values())
     for marker in (art / "serving").glob("*.ready"):
         if marker.stem in with_caches:
             serving_keys.add(json.loads(marker.read_text()).get("forecast_key"))

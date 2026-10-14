@@ -52,6 +52,10 @@ COPY --chown=app:app ml/reports ml/reports
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 FPL_CONFIG_DIR=/app/config \
     FPL_REPORTS_DIR=/app/ml/reports FPL_DATA_DIR=/data FPL_SNAPSHOTS_ROOT=/data/snapshots \
     FPL_ARTIFACT_DIR=/data/artifacts FPL_FEATURE_STORE_DIR=/data/feature-store
+# the revision this image was built from, as the build declares it (git SHA, "-dirty" for a
+# tree with uncommitted changes); recorded with every forecast, never inferred
+ARG FPL_BUILD_REVISION=unrecorded
+ENV FPL_BUILD_REVISION=${FPL_BUILD_REVISION}
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

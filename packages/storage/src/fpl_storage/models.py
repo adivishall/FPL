@@ -583,13 +583,112 @@ class PredictionRunRow(Base):
     degraded_reasons: Mapped[list[Any]] = mapped_column(JSONB, default=list)
 
 
+class ForecastPromotionRow(Base):
+    """A serving forecast's promotion (M1.5 forecast record). The forecast job writes it before
+    the ready marker, so a forecast the API can serve always has its commitment — the content
+    hash of the forecast file — in the database first. Insert-if-absent per snapshot:
+    ``promoted_at`` (database clock) is the first promotion."""
+
+    __tablename__ = "forecast_promotions"
+    __table_args__ = (Index("ix_forecast_promotions_season_gameweek", "season", "gameweek"),)
+    snapshot_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    season: Mapped[str] = mapped_column(String(9))
+    gameweek: Mapped[int] = mapped_column(SmallInteger)
+    forecast_key: Mapped[str] = mapped_column(String(80))
+    prediction_run_id: Mapped[str] = mapped_column(String(80))
+    snapshot_created_at: Mapped[datetime] = _ts()  # the export time the API orders by
+    artifact_sha256: Mapped[str] = mapped_column(String(64))
+    code_digest: Mapped[str | None] = mapped_column(String(32))  # stamped at compute time
+    promoted_at: Mapped[datetime] = _created()
+
+
+class ForecastCheckpointRow(Base):
+    """The forecast served at a gameweek's decision cutoff, frozen (M1.5 forecast record;
+    ``docs/architecture/season-evaluation.md`` §2). Insert-only; one per season, gameweek and
+    kind. ``state``: ``prospective`` (every check of §2.3 holds — the live record),
+    ``live_unverified`` (captured, a check failed; never scored with the live record) or
+    ``missed`` (nothing to capture; never recomputed). The per-player rows are ``predictions``;
+    context, baselines and distributions are content-addressed ``artifact_blobs``."""
+
+    __tablename__ = "forecast_checkpoints"
+    __table_args__ = (
+        UniqueConstraint("season", "gameweek", "kind"),
+        CheckConstraint("state in ('prospective','live_unverified','missed')", name="state"),
+        CheckConstraint("kind in ('live')", name="kind"),
+    )
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)  # ckp_<hash>
+    season: Mapped[str] = mapped_column(String(9))
+    gameweek: Mapped[int] = mapped_column(SmallInteger)
+    kind: Mapped[str] = mapped_column(String(16))
+    state: Mapped[str] = mapped_column(String(24))
+    reasons: Mapped[list[Any]] = mapped_column(JSONB, default=list)
+    checks: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    prediction_run_id: Mapped[str | None] = mapped_column(String(80))
+    forecast_key: Mapped[str | None] = mapped_column(String(80))
+    data_snapshot_id: Mapped[str | None] = mapped_column(String(80))
+    feature_snapshot_id: Mapped[str | None] = mapped_column(String(80))
+    cutoff_at: Mapped[datetime] = _ts()
+    deadline_at: Mapped[datetime] = _ts()
+    first_kickoff_at: Mapped[datetime | None] = _ts(nullable=True)
+    snapshot_created_at: Mapped[datetime | None] = _ts(nullable=True)
+    promoted_at: Mapped[datetime | None] = _ts(nullable=True)
+    generated_at: Mapped[datetime | None] = _ts(nullable=True)
+    captured_at: Mapped[datetime] = _created()
+    artifact_sha256: Mapped[str | None] = mapped_column(String(64))
+    code_digest: Mapped[str | None] = mapped_column(String(32))  # the computing process
+    capture_code_digest: Mapped[str] = mapped_column(String(32))
+    build_revision: Mapped[str] = mapped_column(String(64))
+    provenance_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    populations_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    n_rows: Mapped[int] = mapped_column(Integer, default=0)
+    rows_sha256: Mapped[str | None] = mapped_column(String(64))
+    context_blob: Mapped[str | None] = mapped_column(ForeignKey("artifact_blobs.sha256"))
+    distributions_blob: Mapped[str | None] = mapped_column(ForeignKey("artifact_blobs.sha256"))
+
+
+class SeasonEvaluationRow(Base):
+    """One evaluation of the live record (M1.5; ``season-evaluation.md`` §3.2, §8). Insert-only:
+    written only when the input digest changes, naming the evaluation it follows and why;
+    ``seq`` numbers a season's evaluations so two writers that saw the same latest one cannot
+    both append after it."""
+
+    __tablename__ = "season_evaluations"
+    __table_args__ = (UniqueConstraint("season", "scope", "seq"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    season: Mapped[str] = mapped_column(String(9))
+    scope: Mapped[str] = mapped_column(String(16))  # live
+    seq: Mapped[int] = mapped_column(Integer)
+    previous_id: Mapped[int | None] = mapped_column(
+        ForeignKey("season_evaluations.id"), nullable=True
+    )
+    trigger: Mapped[str] = mapped_column(String(32))
+    input_digest: Mapped[str] = mapped_column(String(64))
+    evaluator_version: Mapped[str] = mapped_column(String(32))
+    metric_config_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    data_snapshot_id: Mapped[str] = mapped_column(String(80))
+    snapshot_created_at: Mapped[datetime | None] = _ts(nullable=True)
+    code_digest: Mapped[str] = mapped_column(String(32))
+    checkpoint_ids: Mapped[list[Any]] = mapped_column(JSONB, default=list)
+    windows_json: Mapped[list[Any]] = mapped_column(JSONB, default=list)
+    exclusions_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    metrics_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    changes_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = _created()
+
+
 class PredictionRow(Base):
-    """Per player × gameweek forecast distribution (§54 predictions, §59.2)."""
+    """Per player × gameweek forecast distribution (§54 predictions, §59.2). Written only by
+    the forecast record (M1.5): the rows of one checkpoint, never updated or cascaded away. A
+    prediction run id can be recomputed by other code under the same id (it hashes provenance,
+    not code or numbers), so rows are keyed by checkpoint, not by run."""
 
     __tablename__ = "predictions"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    run_id: Mapped[str] = mapped_column(
-        ForeignKey("prediction_runs.id", ondelete="CASCADE"), index=True
+    checkpoint_id: Mapped[str] = mapped_column(
+        ForeignKey("forecast_checkpoints.id", ondelete="RESTRICT"), index=True
+    )
+    run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("prediction_runs.id", ondelete="RESTRICT"), index=True, nullable=True
     )
     player_code: Mapped[int] = mapped_column(Integer, index=True)
     gw: Mapped[int] = mapped_column(SmallInteger)
@@ -614,7 +713,7 @@ class PredictionRow(Base):
     minutes_p90: Mapped[float] = mapped_column(Float)
     components_json: Mapped[dict[str, Any]] = mapped_column(JSONB)
     calibration_bucket: Mapped[str | None] = mapped_column(String(32))
-    __table_args__ = (UniqueConstraint("run_id", "player_code", "gw"),)
+    __table_args__ = (UniqueConstraint("checkpoint_id", "player_code", "gw"),)
 
 
 # =============================================================== optimisation & decisions
