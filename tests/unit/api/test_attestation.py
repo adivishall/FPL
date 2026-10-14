@@ -103,6 +103,16 @@ def test_an_unreachable_fpl_gives_no_time_and_never_the_hosts_clock() -> None:
     assert read(_clock(httpx.MockTransport(no_date)), "test") is None
 
 
+def test_a_repeated_age_takes_the_largest_and_a_zone_offset_is_honoured() -> None:
+    t = from_response(
+        URL, {"date": "Wed, 14 Oct 2026 07:46:47 +0100", "age": "0, 276"}, LOCAL, LOCAL
+    )
+    assert t.date == datetime(2026, 10, 14, 6, 46, 47, tzinfo=UTC)
+    assert t.age_seconds == 276 and t.not_after == t.date + timedelta(seconds=277)
+    ev = t.evidence()
+    assert ev["date_raw"] == "Wed, 14 Oct 2026 07:46:47 +0100" and ev["age_raw"] == "0, 276"
+
+
 def test_server_time_is_a_value() -> None:
     t = ServerTime(URL, LOCAL, 0, LOCAL, LOCAL)
     assert t.not_before <= t.not_after and t.served_by is None

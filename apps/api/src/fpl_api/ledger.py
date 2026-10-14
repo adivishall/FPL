@@ -44,7 +44,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import structlog
-from sqlalchemy import Engine, func, insert, select
+from sqlalchemy import DateTime, Engine, cast, func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
@@ -140,6 +140,7 @@ def record_promotion(
                 snapshot_created_at=_utc(created),
                 artifact_sha256=sha256_file(forecast_path(settings, key)),
                 code_digest=p.get("code_digest"),
+                cutoff_at=_utc(p["cutoff"]) if p.get("cutoff") is not None else None,
             )
             .on_conflict_do_nothing(index_elements=["snapshot_id", "forecast_key"])
         )
@@ -161,8 +162,11 @@ def attest(
     """Hash the stored forecast file, *then* ask FPL the time: the file with that hash existed
     by ``not_after``. With ``before`` (a time read before this job computed the file) the row is
     a ``generation`` attestation bounding the computation on both sides; otherwise
-    ``existence``. Returns ``attested`` or why not (``no_clock``, ``no_file``,
-    ``unavailable``); never raises — the caller decides whether a missing proof is a failure."""
+    ``existence``. A reading that contradicts FPL's time already on record — ``before`` later
+    than this one's upper bound, or an upper bound earlier than a ``Date`` FPL gave before (a
+    stale cached response) — is stored nowhere (``inconsistent``). Returns ``attested`` or why
+    not (``no_clock``, ``no_file``, ``unavailable``, ``inconsistent``); never raises — the
+    caller decides whether a missing proof is a failure."""
     if clock is None:
         return "no_clock"
     try:
@@ -173,10 +177,18 @@ def attest(
         after = read_server_time(clock, "forecast_attestation")
         if after is None:
             return "unavailable"
-        if before is not None and before.not_before > after.not_after:  # FPL edges disagree
-            log.warning("server_time_inconsistent", before=str(before.date), after=str(after.date))
-            before = None
         with session_scope(engine) as s:
+            seen = latest_server_date(s)
+            if (before is not None and before.not_before > after.not_after) or (
+                seen is not None and after.not_after < seen
+            ):
+                log.warning(
+                    "server_time_inconsistent",
+                    before=str(before.date) if before is not None else None,
+                    after=str(after.date),
+                    latest_on_record=str(seen),
+                )
+                return "inconsistent"
             s.add(
                 m.ForecastAttestationRow(
                     snapshot_id=snapshot_id,
@@ -210,6 +222,35 @@ class ServerTimes:
 
     existed_by: datetime | None  # earliest not_after: the file existed by then
     computed_after: datetime | None  # latest not_before of a generation attestation
+
+    @property
+    def consistent(self) -> bool:
+        """A computation cannot start after its file existed: contradictory readings (one of
+        them stale) prove nothing."""
+        return (
+            self.existed_by is None
+            or self.computed_after is None
+            or self.computed_after <= self.existed_by
+        )
+
+
+def latest_server_date(s: Any) -> datetime | None:
+    """The latest ``Date`` FPL has given the record: a lower bound on a moment already past, so
+    no honest later reading can claim an upper bound before it."""
+    t = s.scalar(
+        select(
+            func.max(
+                func.greatest(
+                    m.ForecastAttestationRow.not_before,
+                    cast(
+                        m.ForecastAttestationRow.evidence["after"]["date"].astext,
+                        DateTime(timezone=True),
+                    ),
+                )
+            )
+        )
+    )
+    return _utc(t) if t is not None else None
 
 
 def server_times(s: Any, season: str) -> dict[tuple[str, str], ServerTimes]:
@@ -411,15 +452,19 @@ def checkpoint_candidate(s: Any, season: str, gameweek: int, cutoff: datetime) -
     ``DataService._newest(ready_only=True)`` served by its own clock: the newest snapshot (by
     export time) promoted at or before ``cutoff`` — unless FPL's server time shows that forecast
     was computed after the cutoff (a clock that lagged after sleep). When FPL's server time
-    shows a forecast *of this gameweek* existed by the cutoff, the newest such one is frozen
-    instead and a newer unproven one is reported (``later``), never used; otherwise the host's
-    choice is frozen and can be ``prospective_unverified`` at best."""
+    shows a forecast *of this gameweek* existed by the cutoff — the earlier of the gameweek's
+    and the forecast's own, if FPL moved the deadline — with no contradicting reading, the
+    newest such one is frozen instead and a newer unproven one is reported (``later``), never
+    used; otherwise the host's choice is frozen and can be ``prospective_unverified`` at best."""
     fp = m.ForecastPromotionRow
     promos = list(s.scalars(select(fp).where(fp.season == season)))
     times = server_times(s, season)
 
     def t(p: m.ForecastPromotionRow) -> ServerTimes:
         return times.get((p.snapshot_id, p.forecast_key), ServerTimes(None, None))
+
+    def own_cutoff(p: m.ForecastPromotionRow) -> datetime:
+        return min(cutoff, _utc(p.cutoff_at)) if p.cutoff_at is not None else cutoff
 
     local = [
         p
@@ -430,7 +475,10 @@ def checkpoint_candidate(s: Any, season: str, gameweek: int, cutoff: datetime) -
     attested = [
         p
         for p in promos
-        if p.gameweek == gameweek and (b := t(p).existed_by) is not None and b <= cutoff
+        if p.gameweek == gameweek
+        and t(p).consistent
+        and (b := t(p).existed_by) is not None
+        and b <= own_cutoff(p)
     ]
     host = max(local, key=_order, default=None)
     if attested:
@@ -439,14 +487,14 @@ def checkpoint_candidate(s: Any, season: str, gameweek: int, cutoff: datetime) -
         return Candidate(best, t(best).existed_by, t(best).existed_by, later)
     if host is None:
         return Candidate(None, None)
-    return Candidate(host, None, t(host).existed_by)
+    return Candidate(host, None, t(host).existed_by if t(host).consistent else None)
 
 
 def pending_candidates(engine: Engine | None, now: datetime | None = None) -> set[tuple[str, str]]:
     """(snapshot id, forecast key) pairs retention keeps (snapshot, caches, marker and file):
     every due gameweek's candidates until its checkpoint is written — the attested one and the
-    local clock's — and the newest promotion, the candidate for the next cutoff, whatever the
-    ready marker says."""
+    local clock's — and, for the next cutoff, the newest promotion and the newest forecast of
+    that gameweek FPL's server time proves, whatever the ready marker says."""
     if engine is None:
         return set()
     now = now or datetime.now(UTC)
@@ -462,6 +510,13 @@ def pending_candidates(engine: Engine | None, now: datetime | None = None) -> se
             newest = served_at(s, gws[0].season, now)
             if newest is not None:
                 out.add((newest.snapshot_id, newest.forecast_key))
+            # the next gameweek's checkpoint if newer promotions stay unproven: its newest
+            # forecast FPL's server time already proves
+            nxt = next((g for g in gws if g.cutoff > now), None)
+            if nxt is not None:
+                proven = checkpoint_candidate(s, nxt.season, nxt.gameweek, now)
+                if proven.promotion is not None and proven.attested_at is not None:
+                    out.add((proven.promotion.snapshot_id, proven.promotion.forecast_key))
     return out
 
 

@@ -602,6 +602,8 @@ class ForecastPromotionRow(Base):
     snapshot_created_at: Mapped[datetime] = _ts()  # the export time the API orders by
     artifact_sha256: Mapped[str] = mapped_column(String(64))
     code_digest: Mapped[str | None] = mapped_column(String(32))  # stamped at compute time
+    # the forecast's own decision cutoff (its provenance; NULL for promotions before 0008)
+    cutoff_at: Mapped[datetime | None] = _ts(nullable=True)
     promoted_at: Mapped[datetime] = _created()
 
 

@@ -262,7 +262,7 @@ def _job_forecast_attest(svc: AppServices, p: dict[str, Any]) -> str:
     out = attest_existence(
         svc.engine, svc.settings, svc.server_clock, p["snapshot_id"], p["forecast_key"]
     )
-    if out in ("unavailable", "no_clock"):
+    if out in ("unavailable", "no_clock", "inconsistent"):
         raise RuntimeError(f"FPL server time not recorded for {p['snapshot_id']}: {out}")
     return out
 
@@ -308,7 +308,8 @@ JOB_LEASE: dict[str, timedelta] = {
     "workbench": timedelta(minutes=20),
     "journal": timedelta(minutes=15),
     "forecast_capture": timedelta(minutes=15),
-    "forecast_attest": timedelta(minutes=5),
+    # one worker runs jobs in turn: the lease covers waiting behind a forecast job
+    "forecast_attest": timedelta(minutes=45),
     "season_eval": timedelta(minutes=15),
 }
 ABANDONED = "abandoned: no result within the job lease (worker lost or killed)"

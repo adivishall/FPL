@@ -336,17 +336,23 @@ def test_without_fpl_server_time_the_same_forecast_is_only_prospective_unverifie
             c.execute(text(f'DROP DATABASE "{name}" WITH (FORCE)'))
 
 
+# a season of its own, between the record's start (before the GW2 cutoff) and the real time, so
+# neither when the record began nor the latest FPL time on record moves
+SEL_SEASON, SEL_T = "2099-00", datetime(2026, 9, 15, 10, 0, tzinfo=UTC)
+
+
 def test_fpl_server_time_selects_the_checkpoint_and_the_hosts_clock_never_does(
     world: dict[str, Any],
 ) -> None:
-    """Promotions of a season of their own: an attested forecast is preferred to a newer one
-    only the host's clock places before the cutoff; one FPL's time shows was computed after the
-    cutoff (a clock that lagged after sleep) is never a candidate; an attestation of another
-    hash or from another host proves nothing."""
-    season, t = "2031-32", datetime(2031, 10, 1, 10, 0, tzinfo=UTC)
+    """Promotions of a season of their own (cutoff ``t``): an attested forecast is preferred to
+    newer ones only the host's clock places before the cutoff; one FPL's time shows was computed
+    after the cutoff (a clock that lagged after sleep) is never a candidate; contradictory
+    readings, an attestation of another hash or from another host, and one later than the
+    forecast's own (earlier) cutoff prove nothing."""
+    season, t = SEL_SEASON, SEL_T
     official = "https://fantasy.premierleague.com/api/event-status/"
 
-    def promo(n: int, exported: timedelta, promoted: timedelta) -> m.ForecastPromotionRow:
+    def promo(n: int, exported: timedelta, promoted: timedelta, **kw: Any) -> Any:
         return m.ForecastPromotionRow(
             snapshot_id=f"snap_s{n}",
             forecast_key=f"fc_s{n}",
@@ -356,6 +362,7 @@ def test_fpl_server_time_selects_the_checkpoint_and_the_hosts_clock_never_does(
             snapshot_created_at=t + exported,
             artifact_sha256=str(n) * 64,
             promoted_at=t + promoted,
+            cutoff_at=kw.get("cutoff"),
         )
 
     def att(n: int, sha: str, after: timedelta, url: str = official, **kw: Any) -> Any:
@@ -370,49 +377,74 @@ def test_fpl_server_time_selects_the_checkpoint_and_the_hosts_clock_never_does(
             evidence={},
         )
 
+    h = timedelta(hours=1)
+    mins = timedelta(minutes=1)
     with session_scope(world["engine"]) as s:
         s.add_all(
             [
-                promo(1, -timedelta(hours=5), -timedelta(hours=5)),
-                promo(2, -timedelta(hours=1), -timedelta(hours=1)),
-                promo(3, -timedelta(minutes=20), -timedelta(minutes=10)),
-                promo(4, -timedelta(hours=3), -timedelta(hours=3)),
+                promo(1, -5 * h, -5 * h),
+                promo(2, -h, -h),
+                promo(3, -20 * mins, -10 * mins),
+                promo(4, -3 * h, -3 * h),
+                promo(5, -30 * mins, -30 * mins),
+                # FPL moved the deadline later: this forecast's own cutoff is an hour earlier
+                promo(6, -15 * mins, -15 * mins, cutoff=t - h),
             ]
         )
         s.flush()
         s.add_all(
             [
-                att(
-                    1,
-                    "1" * 64,
-                    -timedelta(hours=5),
-                    kind="generation",
-                    before=t - timedelta(hours=5, seconds=40),
-                ),
-                att(
-                    3,
-                    "3" * 64,
-                    timedelta(hours=2),
-                    kind="generation",
-                    before=t + timedelta(hours=2),
-                ),
-                att(4, "x" * 64, -timedelta(hours=3)),  # another file's hash
-                att(4, "4" * 64, -timedelta(hours=3), url="https://example.test/api/"),
+                att(1, "1" * 64, -5 * h, kind="generation", before=t - 5 * h - 40 * mins / 60),
+                att(3, "3" * 64, 2 * h, kind="generation", before=t + 2 * h),
+                att(4, "x" * 64, -3 * h),  # another file's hash
+                att(4, "4" * 64, -3 * h, url="https://example.test/api/"),
+                # contradictory: computed after the moment it is said to have existed by
+                att(5, "5" * 64, -19 * mins, kind="generation", before=t - 20 * mins),
+                att(5, "5" * 64, -40 * mins),
+                att(6, "6" * 64, -30 * mins),  # before t, but after the forecast's own cutoff
             ]
         )
     with session_scope(world["engine"]) as s:
         c = checkpoint_candidate(s, season, 7, t)
         assert c.promotion is not None and c.promotion.snapshot_id == "snap_s1"
-        assert c.attested_at == c.existed_by == t - timedelta(hours=5)
-        assert c.later is not None and c.later.snapshot_id == "snap_s2"  # reported, not used
+        assert c.attested_at == c.existed_by == t - 5 * h
+        # the host's choice (newest by export among those it places before the cutoff, snap_s3
+        # excluded) is reported, never used
+        assert c.later is not None and c.later.snapshot_id == "snap_s6"
         # no attested forecast of GW8: the host's choice, which can be unverified at best
-        # (snap_s3 is newer by the host's clock but FPL's time says it was computed later)
         c8 = checkpoint_candidate(s, season, 8, t)
-        assert c8.promotion is not None and c8.promotion.snapshot_id == "snap_s2"
-        assert c8.attested_at is None and c8.existed_by is None and c8.later is None
+        assert c8.promotion is not None and c8.promotion.snapshot_id == "snap_s6"
+        assert c8.attested_at is None and c8.later is None
         times = ledger.server_times(s, season)
         assert ("snap_s4", "fc_s4") not in times
-        assert times[("snap_s3", "fc_s3")].computed_after == t + timedelta(hours=2)
+        assert times[("snap_s3", "fc_s3")].computed_after == t + 2 * h
+        assert not times[("snap_s5", "fc_s5")].consistent
+
+
+def test_contradictory_or_stale_fpl_readings_are_stored_nowhere(world: dict[str, Any]) -> None:
+    """A stale cached response could understate the time: a reading whose upper bound precedes
+    a ``Date`` FPL already gave, or one earlier than the reading taken before the computation,
+    is not evidence. And an existence proof vouches only for the promoted file."""
+    eng, st, snap, key = world["engine"], world["settings"], world["snap"], world["key"]
+    rows = _count(eng, m.ForecastAttestationRow)
+    with session_scope(eng) as s:
+        seen = ledger.latest_server_date(s)
+    assert seen is not None
+    stale = FakeFplClock(seen - timedelta(minutes=30))
+    assert ledger.attest(eng, st, stale, snap, key) == "inconsistent"
+    ahead = FakeFplClock(seen + timedelta(minutes=10)).now()  # the "before" reading
+    assert ledger.attest(eng, st, FakeFplClock(seen + timedelta(minutes=5)), snap, key, ahead) == (
+        "inconsistent"
+    )
+    assert _count(eng, m.ForecastAttestationRow) == rows
+    assert ledger.attest(eng, st, None, snap, key) == "no_clock"
+    clock = FakeFplClock(seen + timedelta(minutes=1))
+    assert ledger.attest_existence(eng, st, clock, "snap_none", "fc_none") == "no_promotion"
+    assert ledger.attest_existence(eng, st, clock, "snap_s2", "fc_s2") == "no_file"
+    forecast_path(st, "fc_s1").write_bytes(b"not the promoted forecast")
+    assert ledger.attest_existence(eng, st, clock, "snap_s1", "fc_s1") == "file_changed"
+    forecast_path(st, "fc_s1").unlink()
+    assert _count(eng, m.ForecastAttestationRow) == rows
 
 
 def test_a_concurrent_capture_finds_the_first_one(
@@ -589,3 +621,45 @@ def test_a_forecast_fpl_could_not_timestamp_is_attested_by_the_schedulers_job(
         assert a.artifact_sha256 == sha256_file(forecast_path(st, key))
     assert unattested_newest(eng) is None
     assert task_forecast_ledger(svc, backend, "t3")["attest"] is None
+
+
+def test_retention_keeps_the_next_gameweeks_proven_forecast_while_newer_ones_are_unproven(
+    world: dict[str, Any],
+) -> None:
+    """If FPL stays unreachable for many exports, the newest promotions have no server time;
+    the newest forecast of the next gameweek that FPL's time already proves is the checkpoint
+    that gameweek will freeze, so retention keeps it whatever its age."""
+    eng = world["engine"]
+    last = max(CUT)
+    now = CUT[last] - timedelta(hours=1)
+    url = "https://fantasy.premierleague.com/api/event-status/"
+    with session_scope(eng) as s:
+        for n, age in ((1, timedelta(hours=30)), (2, timedelta(hours=2))):
+            s.add(
+                m.ForecastPromotionRow(
+                    snapshot_id=f"snap_next{n}",
+                    forecast_key=f"fc_next{n}",
+                    season=SEASON,
+                    gameweek=last,
+                    prediction_run_id=f"pred_next{n}",
+                    snapshot_created_at=now - age,
+                    artifact_sha256=str(n) * 64,
+                    promoted_at=now - age,
+                    cutoff_at=CUT[last],
+                )
+            )
+        s.flush()
+        s.add(
+            m.ForecastAttestationRow(
+                snapshot_id="snap_next1",
+                forecast_key="fc_next1",
+                artifact_sha256="1" * 64,
+                kind="existence",
+                not_after=now - timedelta(hours=29),
+                source_url=url,
+                evidence={},
+            )
+        )
+    kept = pending_candidates(eng, now)
+    assert ("snap_next2", "fc_next2") in kept  # the newest promotion, as before
+    assert ("snap_next1", "fc_next1") in kept  # and the next gameweek's proven forecast

@@ -54,6 +54,8 @@ class ServerTime:
     local_sent: datetime  # this host's clock: skew measurement only
     local_received: datetime
     served_by: str | None = None
+    date_raw: str = ""  # the headers exactly as received, for audit
+    age_raw: str | None = None
 
     @property
     def not_before(self) -> datetime:
@@ -73,6 +75,8 @@ class ServerTime:
             "date": self.date.isoformat(),
             "age_seconds": self.age_seconds,
             "served_by": self.served_by,
+            "date_raw": self.date_raw,
+            "age_raw": self.age_raw,
             "local_sent": self.local_sent.isoformat(),
             "local_received": self.local_received.isoformat(),
             # host clock minus FPL's at receipt (positive: the host runs ahead)
@@ -93,16 +97,20 @@ def from_response(
     date = parsedate_to_datetime(raw)
     if date.tzinfo is None:
         raise ValueError(f"{url}: Date {raw!r} has no zone")
-    age_raw = str(headers.get("age", "0")).split(",")[0].strip()
-    if not age_raw.isdigit():
+    age_raw = headers.get("age")
+    # a repeated header arrives comma-joined: the largest age keeps the bound an upper bound
+    ages = [a.strip() for a in str(age_raw if age_raw is not None else "0").split(",")]
+    if not all(a.isdigit() for a in ages):
         raise ValueError(f"{url}: Age {age_raw!r} is not a number of seconds")
     return ServerTime(
         url=url,
         date=date.astimezone(UTC),
-        age_seconds=int(age_raw),
+        age_seconds=max(int(a) for a in ages),
         local_sent=local_sent,
         local_received=local_received,
         served_by=headers.get("x-served-by"),
+        date_raw=str(raw),
+        age_raw=None if age_raw is None else str(age_raw),
     )
 
 

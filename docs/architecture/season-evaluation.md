@@ -150,9 +150,16 @@ received before it was generated. So:
   still the promoted one, reads FPL's time. The job **fails** (recorded, counted, retried next
   tick) when FPL cannot be reached, so a missing proof is visible before the cutoff.
 
-Each row stores the file hash read at attestation, the source URL, the raw `Date` and `Age`, the
-CDN edge, this host's clock at send and receipt (a skew measurement, never evidence), and the
-build revision and code digest of the process. Only `https://fantasy.premierleague.com` counts:
+Each row stores the file hash read at attestation, the source URL, the `Date` and `Age` headers
+as received and as parsed (a repeated `Age` counts at its largest), the CDN edge, this host's
+clock at send and receipt (a skew measurement, never evidence), and the build revision and code
+digest of the process.
+
+A reading that contradicts FPL's time already on record proves nothing and is stored nowhere: a
+"before" reading later than the "after" reading's upper bound, or an upper bound earlier than a
+`Date` FPL has already given the record (a stale cached response). When stored rows still
+contradict each other — a computation said to start after the moment its file is said to have
+existed by — the promotion counts as unproven. Only `https://fantasy.premierleague.com` counts:
 the request goes through the ingestion client's host allowlist with redirects disabled, and the
 URL is checked again when a checkpoint is judged. An attestation proves something only about
 the hash the promotion recorded. A failure to reach FPL never blocks serving; it leaves the
@@ -172,8 +179,10 @@ For each (season, gameweek), the live checkpoint is the forecast served at the d
    `DataService._newest(ready_only=True)`, which serves the newest export that has a ready
    marker. A promotion FPL's time shows was *computed after* the cutoff (`not_before` > cutoff:
    a clock that lagged after sleep) is never a candidate.
-2. **FPL's time decides when it can.** If FPL's server time shows that a forecast *of this
-   gameweek* existed by the cutoff, the newest such forecast is frozen. A newer forecast that
+2. **FPL's time decides when it can.** If FPL's server time shows, without contradiction, that
+   a forecast *of this gameweek* existed by the cutoff — the earlier of the gameweek's and the
+   forecast's own (`cutoff_at` on the promotion), should FPL move the deadline — the newest such
+   forecast is frozen. A newer forecast that
    only the host's clock places before the cutoff is reported in `checks.info`
    (`later_promotion_without_server_time`) and never used.
 3. Otherwise the host's choice is frozen, and it can be `prospective_unverified` at best.
@@ -313,7 +322,9 @@ distribution blob. A season is about 127k rows and about 10 MB of blobs.
 
 Until a checkpoint row exists, retention keeps three things for every candidate (§2.2: FPL's
 choice, the host's choice and a newer unproven one) of every gameweek whose cutoff has passed
-since the record began, and for the newest promotion:
+since the record began; for the newest promotion; and for the newest forecast of the next
+gameweek that FPL's server time already proves (its checkpoint, should newer promotions stay
+unproven):
 
 * the candidate snapshot, with its caches;
 * its forecast file;
@@ -902,6 +913,11 @@ Data Health labels its gates "passed on past seasons 2023–26", and links here.
   started. A capture or attestation that keeps failing is a failed job every 15 minutes (counted
   in the job-failure metric), with no dedicated alert. If no forecast is promoted before a cutoff,
   that gameweek is `missed`.
+* **A failed "after" reading loses the "before" one.** If FPL answers before the computation but
+  not after it, the start bound is not stored; the forecast is still never `prospective`, but a
+  lagging host clock can then make it the host's (unverified) choice over an older one.
+* **No fallback at capture.** If the chosen forecast's file is deleted outside retention, the
+  gameweek is `missed` even when another candidate's file remains.
 * **Server time is not a third-party timestamp.** It defeats a wrong clock, not a dishonest
   operator who fabricates rows; an RFC 3161 timestamp of each promoted hash would. `Date` has
   one-second resolution and `Age` makes the upper bound conservative by the CDN's cache age
@@ -1006,3 +1022,18 @@ only `prospective` checkpoints are scored, as before.
 | A promotion made while FPL was unreachable, or before this change, would stay unproven | The scheduler's `forecast_attest` job attests the newest promotion's stored file (hash checked first) and fails visibly while FPL is unreachable (§8.1) |
 | A clock that lagged after sleep could place a post-cutoff forecast before the cutoff | A promotion whose `not_before` is after the cutoff is never a candidate; an attested forecast of the gameweek is preferred to a newer unproven one, which is reported (§2.2) |
 | An attestation could vouch for a different file or come from another host | Counted only for the promoted hash and only from `https://fantasy.premierleague.com`, checked when stored and when judged |
+
+An adversarial reviewer then checked the change against the code (no critical finding without a
+precondition; no path from a post-cutoff forecast to `prospective` while FPL's `Date` behaves as
+observed):
+
+| Finding | Resolution |
+|---|---|
+| A stale cached response (an early `Date`, `Age` understated) contradicting the "before" reading was stored as an existence proof, and selection ignored a computation shown to start after the cutoff | **Accepted.** Contradictory or stale readings are stored nowhere (`inconsistent`, retried by the scheduler); contradictory stored rows make a promotion unproven (§2.1a) |
+| The preferred forecast could lose its file to retention if newer promotions stayed unproven for many exports | **Accepted** for retention: the next gameweek's newest proven forecast is kept (§2.6). A fallback to the next candidate when a file is missing at capture is **deferred**: it needs the file deleted outside retention |
+| After FPL moves a deadline later, selection and the time check used different cutoffs | **Accepted.** The promotion keeps the forecast's own cutoff; selection uses the earlier one (§2.2) |
+| When only the "after" reading fails, the "before" reading is lost | **Deferred** (§14): the forecast is then never `prospective`; it can only displace an older unproven host choice |
+| A repeated `Age` header was read at its first value | **Accepted.** The largest counts |
+| The contract said raw headers are stored; the code stored parsed values | **Accepted.** Both are stored |
+| A 5-minute lease could reap an attestation job queued behind a forecast job on the single worker | **Accepted.** 45 minutes |
+| Missing tests for these branches | **Accepted.** Contradictory and stale readings, every `attest_existence` outcome, contradictory rows, the forecast's own cutoff, a repeated `Age`, a zone offset, the next gameweek's retention |

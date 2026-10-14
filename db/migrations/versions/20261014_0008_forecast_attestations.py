@@ -11,8 +11,10 @@ records FPL's own server time (the HTTP ``Date`` of a request to the official AP
 forecast's computation and, later, after re-hashing the stored file. A checkpoint is
 ``prospective`` only when such a time precedes the cutoff; otherwise, with every other check
 holding, it is the new state ``prospective_unverified``. ``attested_at`` keeps that server time
-on the checkpoint. Downgrading drops the attestations and records ``prospective_unverified``
-checkpoints as ``live_unverified`` (a check did not hold), the only state the older schema has.
+on the checkpoint; a promotion keeps its forecast's own cutoff (``cutoff_at``, NULL before
+0008) so a moved deadline is judged on the earlier cutoff when choosing the checkpoint.
+Downgrading drops the attestations and records ``prospective_unverified`` checkpoints as
+``live_unverified`` (a check did not hold), the only state the older schema has.
 """
 
 from collections.abc import Sequence
@@ -49,6 +51,7 @@ def upgrade() -> None:
     )
     op.create_index('ix_forecast_attestations_promotion', 'forecast_attestations', ['snapshot_id', 'forecast_key'], unique=False)
     op.add_column('forecast_checkpoints', sa.Column('attested_at', sa.DateTime(timezone=True), nullable=True))
+    op.add_column('forecast_promotions', sa.Column('cutoff_at', sa.DateTime(timezone=True), nullable=True))
     op.drop_constraint(op.f('ck_forecast_checkpoints_state'), 'forecast_checkpoints', type_='check')
     op.create_check_constraint(op.f('ck_forecast_checkpoints_state'), 'forecast_checkpoints', f"state in ({STATES})")
 
@@ -60,6 +63,7 @@ def downgrade() -> None:
         "WHERE state = 'prospective_unverified'"
     )
     op.create_check_constraint(op.f('ck_forecast_checkpoints_state'), 'forecast_checkpoints', f"state in ({OLD_STATES})")
+    op.drop_column('forecast_promotions', 'cutoff_at')
     op.drop_column('forecast_checkpoints', 'attested_at')
     op.drop_index('ix_forecast_attestations_promotion', table_name='forecast_attestations')
     op.drop_table('forecast_attestations')

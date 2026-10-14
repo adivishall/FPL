@@ -238,6 +238,7 @@ erDiagram
     datetime snapshot_created_at
     string artifact_sha256
     string code_digest
+    datetime cutoff_at
     datetime promoted_at
   }
   gameweeks {
