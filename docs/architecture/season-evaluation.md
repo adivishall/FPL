@@ -99,6 +99,10 @@ outlived its gameweek.
 
 ### 2.1 Promotion record
 
+A promotion is keyed by (snapshot, forecast key). A configuration change can re-key the serving
+forecast of the same snapshot; each key is its own promotion, and the later one is the one served
+(migration 0007, from the implementation review).
+
 When the forecast job marks a snapshot's serving forecast ready (the API may now serve it), it
 first writes a `forecast_promotions` row with:
 
@@ -129,7 +133,7 @@ Recorded decisions are scored against their own stored decision-time values (§9
 
 ### 2.3 Prospective test
 
-A checkpoint has state `prospective` only when all four checks hold:
+A checkpoint has state `prospective` only when all six checks hold:
 
 1. `promoted_at` ≤ cutoff.
 2. The snapshot's export time ≤ cutoff. This bounds every channel by which information from after
@@ -142,6 +146,16 @@ A checkpoint has state `prospective` only when all four checks hold:
 4. The cutoff in the forecast's provenance equals the cutoff computed from the gameweek's
    deadline at capture. If FPL moved the deadline, the checkpoint is flagged `deadline_moved`, and
    checks 1–2 apply against the earlier of the two cutoffs.
+5. **No FPL news after the cutoff.** No player's news in the forecast's own snapshot carries an
+   FPL `news_added` stamp after the cutoff.
+6. **No result of the gameweek.** No fixture of the gameweek has a result (provisional or final)
+   in that snapshot, and none of its result rows was loaded.
+
+Checks 1–2 rely on this host's clocks (Docker VM and database). Checks 5–6 are clock-independent
+evidence from the data itself, using FPL's own timestamps; they guard against a laptop's VM clock
+lagging after sleep. A match in progress leaves no canonical trace, so check 6 bounds post-match
+data only. The checks are stored apart from informational ones (baselines available, prediction
+run registered), which never decide the state.
 
 Capture time is recorded but is not a check. The forecast file is never rewritten:
 
@@ -411,15 +425,30 @@ These get intervals or values only, never verdict words:
 * **Test.** The exact sign-flip randomisation test on d_g: all 2^G sign patterns, or 20,000
   seeded draws when G > 15. The smallest attainable two-sided p is 2/2^G: 0.0625 at G = 5, 0.031
   at G = 6, 0.0078 at G = 8.
+* **Monte Carlo p-values.** Beyond G = 15 the p-value is (1 + hits) / (1 + draws), so it is never
+  0.
 * **When intervals appear.** With G < 3, values only. From G = 3, intervals are shown, labelled
-  "wide: G gameweeks".
+  "wide: G gameweeks", subject to the minimum sizes of §6.4.
+* **Assumptions.** The sign-flip null is symmetry of d_g about 0. Both the test and the t-interval
+  treat gameweeks as independent. In fact d_g are serially correlated: models refit on all earlier
+  results, and form and injuries carry over between weeks. So the intervals may be somewhat narrow.
+  Gameweeks hold unequal numbers of rows (past seasons: 582–865), so the CR2 equivalence is
+  approximate. The pooled levels (row-weighted RMSE) and the equally weighted differences are
+  different estimands; their signs agreed in all 93 past 8-gameweek windows.
 * **No percentile bootstrap.** It is not used for live intervals. With few clusters it is too
   narrow, and it excludes 0 whenever all gameweeks share a sign.
 
 ### 6.2 Comparison verdicts
 
-**Formal looks.** Verdicts are issued only at G = 8, G = 16 and the season's last evaluation.
-Between looks the page shows "monitoring", with the interval.
+**Formal looks.** Verdicts are issued only at G = 8, G = 16 and the season's last evaluation, and
+only for the primary window: all players, horizon 0. Segments, regulars and horizons 1–4 never
+carry verdicts. Between looks the page shows "monitoring", with the interval.
+
+**Settled looks.** Look L uses the first L scored gameweeks in target-gameweek order. It is issued
+only once no earlier gameweek of the live record is still awaiting final results, so a late
+gameweek can never silently re-form it. A later official correction inside a look's gameweeks
+recomputes it on the same gameweeks; a changed verdict is recorded in the evaluation's changes
+block (`looks_revised`) and shown as a revision of that look.
 
 **At a look**, the page says "lower error than ⟨baseline⟩" or "higher error than ⟨baseline⟩" only
 when both hold:
@@ -436,8 +465,9 @@ error in 4 of 5 gameweeks").
 of at least one false verdict when there is no difference is at most about 15 %. Every verdict is
 shown with its look. A reversal at a later look is shown as such.
 
-**Early-window caveat.** The early live window overstates a full-season margin: in past seasons,
-the margin over GW7–14 was 1.5–1.8× the margin over GW15–38. The page says so.
+**Early-window caveat.** For expected points (C1) the early live window overstates a full-season
+margin: in past seasons, the C1 margin over GW7–14 was 1.5–1.8× that over GW15–38. The other three
+comparisons show no consistent pattern (0.8–1.3×). The page says so for C1 only.
 
 ### 6.3 Calibration verdicts
 
@@ -592,9 +622,12 @@ transfer are not counted". Each row shows:
 
 * They are shown as counts with the binomial typical range for n decisions ("with 5 decisions,
   3–5 inside the 80 % range is unsurprising"), never as a percentage score.
-* The past-season split for the same check is shown beside them: in the 2023-26 backtests
-  (engine plans, 114 gameweeks), 5.3 % of outcomes fell below the plan's 80 % range, 81.6 %
-  inside and 13.2 % above.
+* The published past-season split for the same check is shown beside them (`ml/reports/backtest.md`,
+  engine plans, 96 non-chip weeks of 2023-26): 5.2 % of outcomes fell below the plan's 80 % range,
+  83.3 % inside and 11.5 % above.
+* **Armband changes.** A decision-time expectation belongs to the plan with its own captain. Where
+  the manager changed the armband (or HOLD's stored armband was not kept), the row is shown but
+  left out of the range counts and the paired sums, as the journal's own evaluation does.
 
 **Totals**:
 
@@ -677,7 +710,9 @@ They are not a second trigger.
 
 ## 12. The Season Review page
 
-The page is public. It shows no manager data, except the signed-in user's own private section.
+The endpoint is public and carries no manager data. The page sits behind the beta sign-in, like
+every page of the invite-only web app; its private section shows only the signed-in user's own
+records, for the season under review.
 
 ### 12.1 Sections, in order
 
@@ -759,6 +794,24 @@ Data Health labels its gates "passed on past seasons 2023–26", and links here.
   only in the availability-flagged segment.
 * **No external forecast benchmark.** FPL's own expected points are not ingested. `fpl_style` is a
   simple rule, not FPL's forecast.
+* **All-player calibration checks are diluted.** About half the rows are players who rarely play.
+  A point mass at 0 with an outcome of 0 scores exactly 0.8 PIT-80 coverage, and near-zero
+  probabilities with zero outcomes add almost nothing to calibration-in-the-large. K1–K3 on "all"
+  therefore have little power for regular starters, whose values are shown descriptively.
+* **The ECE null band is a lower bound.** It assumes independent Bernoulli outcomes, ignoring
+  shared fixtures and lineups within a gameweek.
+* **Exclusions are not ignorable.** Postponements correlate with cup and European runs, and
+  `outcome_missing` drops players who left the league, who would have scored about 0. Both can bias
+  results optimistically; the "as served" sensitivity (horizon 0, postponement blanks scored as 0)
+  bounds one of them.
+* **Calibration looks.** `review_suggested` is checked at three looks without a multiplicity
+  correction across them.
+* **Past-season comparability.** Past seasons filled missing outcomes with 0 where the live record
+  excludes them, and their PIT-80 variance includes randomisation noise. Margins set from it are
+  therefore conservative.
+* **Host clock and availability.** The stack runs on one laptop. Checks 5–6 of §2.3 bound a lagging
+  VM clock from the data side only. A capture that keeps failing is retried every 15 minutes, with
+  no dedicated alert. If no forecast is promoted before a cutoff, that gameweek is `missed`.
 
 ## 15. Review findings and their resolution
 
@@ -818,3 +871,29 @@ A separate verifier then checked each finding against the code and the live stac
 | SR-14: UI numbers without an evaluation status | **Accepted** (§5.5). |
 | SR-15: `ep_next` as a baseline | **Rejected for M1.5.** It is not ingested through a documented point-in-time path. Its comparability is not established: FPL's expected points include FPL's own availability rules and are published per player, not per fixture. It needs its own ingestion milestone. `fpl_style` is relabelled. |
 | SR-17: the page must not trigger work | **Accepted** (§8.3). |
+
+### Implementation review (2026-10-14, before the GW7 cutoff and before any live outcome)
+
+Three further reviewers checked the implementation: the forecast record, the evaluation
+statistics, and product honesty and privacy. Each confirmed finding was fixed with a regression
+test, and the evaluator version became `season-eval-1.1.0`. No live gameweek had been scored with
+the earlier version.
+
+| Finding | Resolution |
+|---|---|
+| A snapshot re-keyed by a configuration change kept its first promotion, so the record could name a forecast the API no longer served | Promotions keyed by (snapshot, forecast key), migration 0007; retention keeps the newest promotion as well as passed cutoffs' candidates (§2.1, §2.6) |
+| A failed promotion record or ready marker was never retried for a cached forecast | The scheduler re-promotes a cached serving forecast whose record or marker is missing |
+| Host clock trust after sleep | Clock-independent prospective checks 5–6 (§2.3) |
+| Informational checks stored beside the prospective ones | Stored apart (`checks.info`) |
+| A formal look could be re-formed by a gameweek finalised late, or silently revised | Settled looks, and look revisions in the changes block (§6.2) |
+| "As served" pooled horizons and dropped postponement blanks | Horizon 0 only, with blanks scored as 0 |
+| Exclusions pooled across horizons; `ruleset_changed` counted non-final rows | Counted per horizon (horizon 0 shown) and on final target gameweeks only |
+| Segments carried verdicts; the §6.4 minimum sizes were unused; no excess ECE | Verdicts on all players at horizon 0 only; minimum sizes enforced for intervals; excess ECE stored |
+| The Monte Carlo sign-flip p could be 0 | (1 + hits) / (1 + draws) |
+| The stale-data guard failed open when the export time was unknown | Refuses to write |
+| The digest covered every result row and missed the ruleset | Covers the forecast players' rows, the ruleset version, the finalisation lag and every constant; "no longer scored" gameweeks reported |
+| The journal summary compared outcomes with a plan whose armband the manager had changed | Those rows are excluded from the range counts and the sums |
+| The past-season range split was not a published number | The published `squad_calibration` is used (§9.2) |
+| Page: stale verdicts between looks, "12 of 8", a chart whose marks always touched its edges, missing window states, no expected finality, local times, a hard-coded calibration date, an unknown season returning 500 | All fixed: the status is shown between looks with the checks so far; the chart uses a common scale (% of the baseline's error) and draws only intervals; window states, expected finality (last kickoff + lag) and UTC times are shown; the calibration text is derived from the timeline; an unknown season returns 404 |
+| The page needs a sign-in, but the contract said it was public | Contract amended (§12): the endpoint is public, the page sits behind the beta sign-in |
+

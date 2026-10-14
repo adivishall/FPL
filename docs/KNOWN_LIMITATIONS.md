@@ -191,6 +191,50 @@ Design and methodology: `docs/architecture/decision-journal.md`.
   byte-reproducible on one machine only, and a plan after an inherited club excess may be the
   best valid plan explored rather than a proven optimum (§5).
 
+## 4b. Season Review and the live record (M1.5)
+
+Contract: `docs/architecture/season-evaluation.md`.
+
+* **Live evidence starts at GW7 of 2026-27.** The forecast record began on 2026-10-14. GW1–6
+  had no record (their serving forecasts were deleted by retention, and the `predictions` table
+  had never been written); they are shown as "before the record" and are never reconstructed
+  from later data. A replay of them with current code would be retrospective evidence and is
+  deferred.
+* **No live verdict before 8 final live gameweeks** (GW7–14, about 10 December 2026). Until
+  then every live number is "monitoring"; intervals from three gameweeks on are wide. Three
+  formal looks (8, 16, season end) each control a 5 % family-wise error; across the looks the
+  chance of at least one false verdict is at most about 15 %.
+* **The early window overstates a full-season margin** (past seasons: GW7–14 margins 1.5–1.8×
+  those of GW15–38).
+* **Calibration is measured, not adjusted.** No recalibration is fitted; a change needs 8 final
+  live gameweeks and then a shadow test on at least 6 later ones.
+* **The capture depends on the stack running.** A checkpoint is prospective by its recorded
+  times, not by when it is captured, and retention keeps the candidate until then — but if no
+  forecast is promoted before a cutoff (the stack down for the hours before it), that gameweek
+  is recorded as missed.
+* **Code identity.** The code digest identifies the installed sources; the build revision is
+  whatever the image build declared (`unrecorded` without `FPL_BUILD_REVISION`). Recomputing a
+  frozen forecast elsewhere is not bit-identical (defect 52), which is why its numbers are stored.
+* **Not evaluated this season:** component expected points (needs a realised-component
+  breakdown), P(play), the availability layer on its own (only an availability-flagged segment),
+  an external forecast (FPL's own expected points are not ingested; `fpl_style` is a simple rule),
+  and the engine's live decisions (no live shadow benchmark; strategy comparisons are past seasons
+  only).
+* **Finality.** A gameweek waits for result rows reloaded after the finalisation lag; if FPL drops a
+  player whose row is still provisional, that gameweek stays `results_not_final` (shown with the
+  count), because the shared finality rule is unchanged.
+* **Recorded decisions** in the Season Review are one manager's own, few, correlated and
+  self-selected; nothing there estimates the effect of following Copilot.
+* **One host's clocks.** Promotion and export times come from the laptop's Docker VM and database
+  clocks. Two checks on the data itself (no FPL news stamped after the cutoff, no result of the
+  gameweek) bound a clock that lags after sleep, but a match in progress leaves no trace in the
+  data. A capture that keeps failing is retried every 15 minutes, with no dedicated alert (the
+  page shows "capture pending").
+* **Statistical assumptions** (contract §6.1, §14): gameweeks are treated as independent although
+  form and injuries carry over, so intervals may be somewhat narrow; all-player calibration checks
+  are diluted by players who rarely play; exclusions (postponements, departed players) are not
+  random.
+
 ## 5. Optimisation and computation
 
 * MILP solves are exact within a 60 s limit (`mip_rel_gap` 0); a time-limited solve returns a

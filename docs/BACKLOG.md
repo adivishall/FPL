@@ -10,9 +10,9 @@ is `docs/PRODUCT_GAP_ANALYSIS.md`.
 **Done since the gap analysis:** M1.1a (Copilot Home and beta foundation — identity, onboarding,
 player search, precomputed Home, analytics; `docs/BUILD_STATUS.md` §2c), M1.2 (whole-squad
 Transfer Workbench, §2d), M1.3 (result lifecycle and "What changed?", §2e) and M1.4 (decision
-journal with prospective outcome evaluation, §2f). **Next:** the items below that build on the
-journal (season review, live calibration), then the assistant, mini-league intelligence and the
-extension (`docs/PRODUCT_GAP_ANALYSIS.md` §6).
+journal with prospective outcome evaluation, §2f) and M1.5 (forecast record and Season Review,
+§2g). **Next:** the first formal live look (8 final live gameweeks) and the items below, then the
+assistant, mini-league intelligence and the extension (`docs/PRODUCT_GAP_ANALYSIS.md` §6).
 
 ## V1.1
 
@@ -30,12 +30,16 @@ extension (`docs/PRODUCT_GAP_ANALYSIS.md` §6).
 | Replacement picker latency (`POST /replacements`) | 13–49 s on the deployed API, solved serially in the request; the workbench runs the same shortlist as a job instead | `docs/KNOWN_LIMITATIONS.md` §5 |
 | Better chip planning | chip-open solves always reach the 60 s limit and return validated incumbents | `ml/reports/optimizer_benchmark.md` (48 of 48) |
 | Longer planning horizon (8 GW) | serving is capped at the validated 5-GW horizon; extending needs training horizons 0–7 and a re-run of the forecast evaluation for h5–h7 before anything longer is served | `docs/MODEL_CARD.md` → *Served horizon*; `docs/BUILD_STATUS.md` defect 40 |
-| Prospective 2026-27 evaluation | the first unseen season; frozen configuration evaluated gameweek by gameweek, drift monitors on live outcomes | selection-bias warning in `ml/reports/backtest.md` |
+| Calibration shadow test (after the first live look) | M1.5 measures calibration only; once 8 live gameweeks are final, a candidate (e.g. the rolling 8-cutoff conformal interval for the displayed range) can be run in shadow mode and adopted only after ≥ 6 later live gameweeks pass the §6 test | `docs/architecture/season-evaluation.md` §11 |
+| Replay of 2026-27 GW1–6 (retrospective) | the weeks before the forecast record; a fixed window run once, labelled not prospective, with a per-gameweek data-regime table (GW1 had no live player data at its cutoff; GW2–5 used a stale capture) | `docs/architecture/season-evaluation.md` §15 (L9, S10, SR-04) |
+| Live shadow benchmark of the strategies | freeze the seven default strategies' decisions for one reference squad at every checkpoint and score them like the forecasts | §10 of the contract (SR-11) |
+| Realised-component breakdown | evaluate the expected-point components (goals, assists, clean sheets, bonus …) against official results | contract §5.5 |
+| Availability layer on / off on flagged players | the one forecast layer with no past-season evidence; needs a second simulation per checkpoint | contract §15 (S7) |
+| Ingest FPL's own expected points point-in-time | a recognised external baseline needs its own documented, point-in-time ingestion and a comparability study | contract §15 (SR-15) |
+| Finality for players FPL drops mid-season | a provisional row of a removed player keeps its gameweek `results_not_final`; a rule change would touch the journal too | contract §15 (L12) |
 | Calibrate injury / news availability | the status layer is configuration, not a fitted model | no historical news; capture live status changes first |
 | Observe availability alerts on real status changes | alert logic is unit-tested only | `docs/KNOWN_LIMITATIONS.md` §1 |
 | League awareness and template exposure in the API/UI | library functions exist, not exposed | `fpl_decision/league.py` |
-| Season review from the journal | the journal evaluates each decision on its own; a season view (cumulative realised vs expected difference to HOLD, adherence, how often results fell inside the decision-time range) needs enough gameweeks to mean anything and must keep the one-draw caveat | `docs/architecture/decision-journal.md` |
-| Live-season calibration of the served models | the journal compares one manager's outcomes with their forecasts; calibration of P(start), minutes and points over all players on 2026-27 results (the offline metrics on live gameweeks) is separate | `docs/KNOWN_LIMITATIONS.md` §4 |
 | Journal: store per-plan outcome samples | evaluations place a result against the stored p10 / p90; keeping each plan's simulated totals would give an exact percentile | `docs/KNOWN_LIMITATIONS.md` §4a |
 | Journal: store HOLD's XI in the recommendation package | HOLD's lineup is rebuilt from decision-time expectations for recommendation sources (labelled); the engine already computes it | `docs/KNOWN_LIMITATIONS.md` §4a |
 | Journal: record a decision the workbench never evaluated | "something else" is recorded but not scored; evaluating it means submitting it to the workbench first (or a free-form plan builder with the same rules replay) | `docs/KNOWN_LIMITATIONS.md` §4a |

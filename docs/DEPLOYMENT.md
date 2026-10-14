@@ -237,7 +237,14 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
   and the new columns, maps adherence back to the old vocabulary (`deferred` becomes empty) and
   **deletes the decisions recorded against Transfer Workbench runs** (the `0004` schema needs a
   recommendation) — export the affected managers first if they matter. Roll the images and the
-  schema back together (an M1.4 image needs `0005`). To roll back the
+  schema back together (an M1.4 image needs `0005`). M1.5 adds `0006` (forecast record and
+  season evaluations): new tables `forecast_promotions`, `forecast_checkpoints` and
+  `season_evaluations`, and `predictions` re-keyed by checkpoint (it refuses to run if
+  `predictions` holds rows, which nothing wrote before M1.5). Rolling `0006` back **deletes the
+  forecast record and every season evaluation** — the frozen live forecasts cannot be recreated
+  (`pg_dump` first; restore it to keep them). Roll the images and the schema back together (an
+  M1.5 image needs `0006`). `0007` re-keys `forecast_promotions` by (snapshot, forecast key); its
+  downgrade keeps each snapshot's first promotion. To roll back the
   schema: `docker compose run --rm migrate alembic downgrade -1` with the previous image.
 * **Images**: pin the previous tag in `docker-compose.override.yml` and `up -d`.
 * **Forecast horizon or model configuration changes** invalidate the serving forecast's key:
@@ -251,6 +258,22 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
   never promotes: results on any other snapshot (including the newer one being rolled back)
   are shown as historical, and the scheduler's sweep records them so (M1.3).
 
+## Forecast record and Season Review (M1.5)
+
+* The forecast job writes a `forecast_promotions` row (forecast file hash, export time,
+  database clock) **before** the ready marker; if it cannot, the job fails and nothing is
+  promoted. The scheduler's `forecast_ledger` task (every 15 minutes) checks, in the database
+  only, for gameweeks whose decision cutoff has passed since the record began without a
+  checkpoint, and submits `forecast_capture` (lease 15 min). `season_eval` (hourly) submits an
+  evaluation only when the input digest changed. Both are idempotent; a failed capture is
+  submitted again on the next tick, and retention keeps its candidate meanwhile.
+* Build with `FPL_BUILD_REVISION=$(git rev-parse HEAD)` (append `-dirty` when the tree has
+  uncommitted changes); it is recorded with every forecast and checkpoint and is `unrecorded`
+  otherwise. The code digest recorded beside it is computed from the installed sources.
+* Operator: `POST /api/v1/season-review/evaluate` evaluates now; `fpl-worker run-once
+  forecast_ledger` / `run-once season_eval` run the tasks once. Checkpoints and evaluations are
+  never deleted by the application (only by a `0006` downgrade).
+
 ## Retention
 
 Every live refresh exports a ~3 MB snapshot and, once a forecast is computed for it, a ~30 MB
@@ -258,7 +281,9 @@ feature cache and a ~7 MB forecast — about 1 GB a day unpruned (measured on th
 The scheduler submits a `retention` job hourly (`fpl_api/retention.py`):
 
 * kept with caches: the `FPL_SNAPSHOT_RETENTION_KEEP` newest snapshots (default 24), the one the
-  API serves, and every evaluation snapshot pinned in `config/backtest/*.yaml`;
+  API serves, every evaluation snapshot pinned in `config/backtest/*.yaml`, and — until the
+  forecast record has frozen it — the snapshot whose forecast was served at each passed decision
+  cutoff (with its forecast file, whatever its age);
 * kept without caches: any other snapshot a stored recommendation, workbench run, journal
   decision, backtest run or registered model references (its decisions stay traceable and re-derivable; caches are recomputable);
 * deleted: all other snapshots with their feature caches and serving markers, forecast/price

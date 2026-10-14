@@ -66,6 +66,10 @@ handler (ADR-0001 #3).
 | `GET /journal/{id}` | One decision: evidence, recorded action, verification, the source's verdict now, evaluation history | owner only |
 | `POST /journal/{id}/confirm` | The manager confirms they made the recorded action in FPL | owner only; not for DEFER / UNKNOWN |
 | `POST /journal/{id}/evaluate` | Evaluate (and, after the deadline, verify) the decision now as a job | `202`; owner only; `409` for a replaced decision (only the one that stands is evaluated) |
+| `GET /journal/summary?manager_key=` | The manager's own recorded decisions summarised (M1.5): counts, per-decision outcomes from official results (final decisions recorded before the deadline only), range counts beside a binomial typical range, paired sums; optional `season` | owner only; registered before `/journal/{id}` |
+| `GET /season-review` | The live record (M1.5): checkpoint timeline, the newest evaluation (windows, exclusions, metrics, what changed), the past-season reference over the same gameweeks, calibration state, method; optional `season` | public, no manager data; reads stored rows only (never computes a forecast or submits a job) |
+| `GET /season-review/evaluations` | Every stored evaluation of the live record, newest first, with its trigger and changes; `limit` | public |
+| `POST /season-review/evaluate` | Evaluate the live record now (job); writes nothing when its inputs are unchanged | operator only; `202` |
 | `POST /backtests` | Start a walk-forward backtest (job) | |
 | `GET /backtests`, `GET /backtests/{id}` | Published report summary + stored runs; run detail | |
 | `GET /reports`, `GET /reports/{name}`, `GET /reports/figures/{file}` | Published experiment reports (allow-listed) | |
@@ -166,6 +170,23 @@ decision ends here once the reference totals for holding and the recommendation 
 `verification`: `matches`, `differs`, `observed`, `unavailable` (FPL-ID squads only, after the
 deadline). The evaluator never grades a decision from one outcome; the methodology and its
 limits are in `docs/architecture/decision-journal.md`.
+
+## Season Review (M1.5)
+
+Contract: `docs/architecture/season-evaluation.md`. `GET /season-review` returns `season`;
+`timeline` (`record_started`, per gameweek `state` = `before_record` / `upcoming` / `due` /
+`prospective` / `live_unverified` / `missed` with cutoff, expected finality, reasons and row
+count; `next_checkpoint`); `evaluation` (`seq`, `previous_id`, `trigger`, `evaluator_version`,
+`data_snapshot_id`, `windows` with each target gameweek's finality state and counts,
+`exclusions` (`by_reason` on final target gameweeks, `by_reason_h0`, `clubs_gained_fixture_h0`,
+`status_u_rows_h0`), `metrics.results[population][h0…h4]` from
+`fpl_forecasting.season_eval.summarize` (`status` too_few_gameweeks / monitoring / look for all
+players at horizon 0, `descriptive` elsewhere; `looks`, `looks_waiting`), `metrics.ece_null`
+(with `observed` and `excess`), `metrics.sensitivity` (horizon 0, "as served"), `changes`
+(newly scored, no longer scored, revised, looks issued and revised)) or `null`; `reference` (the past seasons
+over the same gameweeks, per season); `drift_signals` (descriptive); `calibration` (`deferred` /
+`not_needed` / `review_suggested`); `method` (the metric configuration: looks, margins,
+populations). No verdict is present before a formal look (G = 8, 16, season end).
 
 ## Transfer Workbench contract (M1.2)
 

@@ -2,6 +2,39 @@
 
 User-visible behaviour changes (§78). Milestones follow `docs/BUILD_STATUS.md`.
 
+## M1.5 — Season Review: the forecast record and live-season evaluation (2026-10-14)
+
+### Added
+- **Forecast record.** Before a forecast can be served, the forecast job records a commitment
+  to it (the file's hash, its prediction run, the data export time, the database clock). After
+  each gameweek's decision cutoff the forecast the API served then is frozen — every player and
+  target gameweek, the decision-time baselines and the exact simulated distributions — with
+  checks against the database record made before the cutoff and against the data itself (no FPL
+  news stamped after the cutoff, no result of the gameweek). It outlives the forecast cache, the snapshot and
+  restarts; nothing is ever recomputed for a gameweek that was not recorded. The record started
+  on 2026-10-14; 2026-27 GW1–6 are shown as "before the record".
+- **Season Review** page (`/season-review`): the live record (forecast frozen before kickoff)
+  with its checkpoint timeline; once results are final, per-gameweek tables, the difference from
+  each predeclared baseline with intervals over gameweeks, and calibration checks against
+  tolerances fixed in advance — "too few gameweeks to say" until 8 live gameweeks are final; the
+  past seasons 2023–26 over the same weeks by the same method; your own recorded decisions
+  (private); the calibration state (no adjustment has been made); and how every number shown
+  in Copilot is or is not evaluated.
+- Hourly evaluation of the live record, written only when its inputs change (insert-only, with
+  what changed and why); rows whose fixtures moved, whose player changed club or whose result
+  is missing are excluded and counted, never scored as zero.
+- API: `GET /season-review`, `GET /season-review/evaluations`, `POST /season-review/evaluate`
+  (operator), `GET /journal/summary` (owner only). Migrations 0006 (`forecast_promotions`,
+  `forecast_checkpoints`, `season_evaluations`; `predictions` keyed by checkpoint) and 0007
+  (a promotion per snapshot and forecast key). Scheduler tasks `forecast_ledger` (15 min) and
+  `season_eval` (hourly).
+
+### Changed
+- Data Health labels the promotion gates "passed on past seasons 2023–26" and points to the
+  Season Review for live evidence.
+- Forecasts record the digest of the code that computed them and the image's declared build
+  revision (`FPL_BUILD_REVISION`; "unrecorded" when the build declares none).
+
 ## M1.4 — Decision journal and prospective outcome evaluation (2026-10-12)
 
 ### Added

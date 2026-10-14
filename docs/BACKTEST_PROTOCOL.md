@@ -128,3 +128,13 @@ information constraints.
   as proof of skill on single decisions; the season totals with confidence intervals are the
   evidence. Per-gameweek bootstrap CIs treat gameweeks as exchangeable and ignore autocorrelation.
 * Overall rank is not reported: the archive has no distribution of other managers' scores.
+
+## 6. Live-season evaluation (M1.5)
+
+The live season is evaluated under its own contract, `docs/architecture/season-evaluation.md`,
+never as a backtest: the forecast served at each decision cutoff is frozen by the forecast
+record and scored only on final results. Past-season (this protocol's) numbers are shown beside
+the live record over the same gameweeks as context, never pooled with it and never called live
+evidence. A replay of 2026-27 GW1–6 with the current code (retrospective, not prospective) and a
+live shadow benchmark of the strategies are deferred (`docs/BACKLOG.md`); this season's strategy
+comparisons are this protocol's three past seasons only.

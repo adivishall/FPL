@@ -42,6 +42,7 @@ manager's data); the app's header still carries its working title, "FPL Decision
 | **Rules you can trust** | an independent validator replays every plan through the FPL rules; illegal plans are never recommended |
 | **"Is this still current?"** | every recommendation and workbench run says whether it is current or historical — a newer data snapshot was promoted, or the squad was saved again — and **What changed?** shows the actual differences (players, availability, news, prices, fixtures, forecast versions) from stored data |
 | **Decision journal**: what Copilot recommended, what you decided, what happened, and how that compares with what was expected | record a decision from Home or the Workbench (follow, hold, another plan, a different captain, decide later); the decision-time evidence is frozen with it; after the gameweek your action, HOLD and the recommended plan are scored on official results — final only when FPL finalises the gameweek, never graded from one outcome |
+| **Season Review**: how the live forecasts are doing this season, judged only on final official results | the forecast served at each gameweek's decision cutoff is frozen — its file hash, data export time and promotion recorded in the database before the cutoff, and its data checked for later FPL news or results — scored against simple baselines with per-gameweek intervals — verdicts only after 8 final live gameweeks — beside the past seasons over the same weeks and, privately, your own recorded decisions; nothing is recalibrated automatically |
 | **Traceability** | any recommendation walks back to the optimisation run, prediction run, feature snapshot, data snapshot and pinned source revision |
 | **Background processing** | recommendations and plan comparisons run as worker jobs (tens of seconds); the page never blocks on a solve |
 
@@ -59,9 +60,9 @@ manager's data); the app's header still carries its working title, "FPL Decision
 Also: alerts with materiality thresholds (deadline, availability, price risk, plan invalidation),
 a Backtest Lab and a data-health page.
 
-**Not built yet** (roadmap, `docs/PRODUCT_GAP_ANALYSIS.md`): a season review and live-season
-calibration on top of the journal, mini-league strategy, a conversational assistant and a
-browser extension.
+**Not built yet** (roadmap, `docs/PRODUCT_GAP_ANALYSIS.md`): any recalibration of the live
+models (measurement only until 8 live gameweeks are final), mini-league strategy, a
+conversational assistant and a browser extension.
 
 ## How it works
 
@@ -115,6 +116,11 @@ Deeper: [optimiser](docs/architecture/optimizer.md) · [result lifecycle](docs/a
   made on (plans, lineups, expectations, identifiers), pre-deadline decisions cannot be replaced
   after the deadline, evaluations are insert-only and idempotent, and official corrections add
   a revision instead of overwriting ([design](docs/architecture/decision-journal.md)).
+* **A live record, evaluated by a contract fixed in advance.** The forecast served at each
+  decision cutoff is committed to (file hash, export time, database clock) before it can be
+  served and frozen afterwards; it is scored only on final results, with the gameweek as the
+  unit of evidence, intervals, an exact sign-flip test and verdicts only at predeclared looks
+  ([evaluation contract](docs/architecture/season-evaluation.md)).
 * **Result lifecycle.** Recommendations and workbench runs are judged against the promoted data
   snapshot; promotion invalidates older results idempotently, late or out-of-order jobs never
   replace newer answers, and "What changed?" is built from stored inputs only, never invented
@@ -245,11 +251,12 @@ step), key or session errors, live-source failures, backups and restore: see
   and validator; decision engine with risk, chips and scenarios; API, worker, scheduler and web
   app; invite-only accounts and FPL-ID onboarding (M1.1a); Transfer Workbench (M1.2); result
   lifecycle and "What changed?" (M1.3); decision journal with prospective outcome evaluation
-  (M1.4).
-* **Next:** the season review and live-season calibration on the journal's records.
+  (M1.4); forecast record and Season Review with the live-season evaluation contract (M1.5).
+* **Next:** the first formal live look after 8 final live gameweeks (GW7–14 of 2026-27), then any
+  calibration change only through a shadow test on later live gameweeks.
 * **Not done:** a public deployment (it needs a host, a domain and secrets); mini-league
-  strategy, an assistant and a browser extension; evaluation of the models on the 2026-27 season
-  as it is played.
+  strategy, an assistant and a browser extension; live evidence on 2026-27 starts at GW7 and is
+  not yet final.
 * **Known limitations:** [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) — e.g. heavy
   requests take tens of seconds, timings come from one machine, the availability model is
   uncalibrated, and the design was iterated on the evaluated seasons.

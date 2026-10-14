@@ -115,6 +115,12 @@ ECE 0.0012 (rise), 0.0047 (fall).
   q = 0 at every horizon because the MC intervals already over-cover integer outcomes.
   **Not adopted** for display; the PIT-based coverage monitor (§6) is the calibration control.
 
+**Live-season evaluation (M1.5).** The same metrics, re-summarised per target gameweek
+(`fpl_forecasting.season_eval`), are the reference for the live record over the same weeks
+(`ml/reports/season_reference.md`): per-gameweek mean and SD across 2023-26 of calibration-in-the-large
+P(≥6) +0.0014 (SD 0.0095), P(start) +0.0040 (SD 0.0176) and PIT-80 0.803 (SD 0.0175), the
+variability the live equivalence margins (±0.015, ±0.03, [0.77, 0.83]) were set against.
+
 Reliability diagrams: `ml/reports/figures/forecast_reliability_6plus.svg`,
 `forecast_reliability_start.svg`, `forecast_pit.svg`, `price_reliability.svg`.
 
@@ -157,8 +163,16 @@ more training rows carry it (0.005 → 0.024); the combined share of the colline
 * **Promoted teams**: priors only until matches accrue.
 * **Correlated outcomes beyond a fixture** (e.g. weather, referee) are not modelled; within-fixture
   correlation (goals → assists → clean sheets → bonus) is.
-* **2026-27**: only one live snapshot is available in this environment (FPL API host blocked);
-  live-mode quality cannot be measured here.
+* **2026-27 (live)**: the served forecasts are evaluated prospectively under a contract
+  committed before the first live checkpoint (`docs/architecture/season-evaluation.md`): the
+  forecast served at each decision cutoff is frozen from GW7 onwards (the record began on
+  2026-10-14; GW1–6 have no live record and are never reconstructed), scored only on final
+  results with the gameweek as the unit of evidence, and judged against the predeclared
+  baselines and calibration margins only at the looks after 8 and 16 final live gameweeks and at
+  season end. Until GW7–14 are final (about 10 December 2026) there is no live verdict. The
+  availability layer has no past-season evidence; it is visible only in the availability-flagged
+  segment. No recalibration is fitted in M1.5 (the rolling 8-cutoff conformal interval is a
+  candidate for a shadow test, §4).
 
 ## 8. Reproduction
 

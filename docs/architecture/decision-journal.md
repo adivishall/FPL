@@ -167,5 +167,19 @@ decisions reference; journal rows themselves are never pruned.
   chip, not bench order.
 * "Final" waits for result rows loaded after the ruleset's finalisation lag (an assumption of
   72 hours for 2026-27), not for an FPL signal on the rows themselves.
-* One manager's journal is not a calibration study: season-level calibration of the live models
-  is separate backlog work.
+* One manager's journal is not a calibration study: the live models are evaluated over every
+  player by the forecast record (`docs/architecture/season-evaluation.md`), not from journals.
+
+## Summary (M1.5)
+
+`GET /api/v1/journal/summary?manager_key=` (owner only; registered before `/journal/{id}`)
+summarises a manager's own decisions on read — no table of its own, so export and erasure are
+unchanged: counts of everything recorded (including decisions recorded after the deadline, which
+are counted but never scored, and replaced ones); per-decision outcomes only for active decisions
+recorded before the deadline whose evaluation is final, with the evaluator's points from
+official results (never self-reported ones); how many results fell below / inside / above the
+decision-time 80 % range beside the binomial typical range and the published past-season backtest
+split (`ml/reports/backtest.md`: 96 non-chip weeks, 5.2 / 83.3 / 11.5 %); paired sums with their
+n; an interval only from six scored decisions other than HOLD. Rows where the manager changed the
+plan's armband are shown but not compared with the plan's expectation. No grades and no effect
+estimates; the Season Review shows it in a private section.

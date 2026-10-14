@@ -25,9 +25,10 @@ and the whole-squad Transfer Workbench (M1.2: HOLD baseline, exact transfers, en
 replacements, the optimiser's plans with hit accounting, independent legality, job execution
 bound to the squad state) is implemented (§2d), and M1.3 (result lifecycle: snapshot-aware
 invalidation, finalisation races, "what changed"; §2e) is implemented, and M1.4 (the decision
-journal with prospective outcome evaluation, C10's core; §2f) is implemented. The season review
-and live-season calibration parts of C10, the assistant, mini-league intelligence and the
-extension are not started.
+journal with prospective outcome evaluation, C10's core; §2f) is implemented, and M1.5 (the
+forecast record and Season Review with the live-season evaluation contract; §2g) is
+implemented, with live verdicts waiting for 8 final live gameweeks and no recalibration yet.
+The assistant, mini-league intelligence and the extension are not started.
 
 One naming risk first: **"FPL Copilot" is an existing product** (fplcopilot.com, "AI-Powered
 Fantasy Premier League Optimizer", with a solver, chip strategies and mini-league pages). The
@@ -49,7 +50,7 @@ only.
 | Live intelligence and recommendation invalidation | **Partial** | freshness block on every response, degraded banner on 5 of 13 pages; `invalidation` alert exists (`apps/api/src/fpl_api/alerts.py:230-306`) but the `invalidated` status is never set, `/recommendations/current` never compares snapshot ids, and nothing re-plans automatically |
 | Mini-league / rival strategy | **Library only** | `league.py` (`head_to_head`, `template_gaps`, `plan_choice_vs_rival`) is imported only by a unit test; `league_rivals` and `differential_tolerance` settings exist in the schema and are never read; the classic-league standings client has no caller |
 | Decision journal with prospective evaluation | **Partial** | `/decisions` with followed/ignored/partial, note and user-typed `realized_points`; `realized_hold_points`, `forecast_error` and `review_json` columns are never written; the post-gameweek alert computes realised vs expected but does not persist it; no prospective evaluation of the live season |
-| ↳ *Status after M1.4* | **Exists** (core) | recorded decisions with immutable decision-time evidence, adherence, confirmation and first-party verification; automatic evaluation (pending / partial / final / unavailable) of the recorded action, HOLD and the recommended plan on official results, with insert-only revisions (`docs/architecture/decision-journal.md`); season review and live-season calibration still missing |
+| ↳ *Status after M1.4* | **Exists** (core) | recorded decisions with immutable decision-time evidence, adherence, confirmation and first-party verification; automatic evaluation (pending / partial / final / unavailable) of the recorded action, HOLD and the recommended plan on official results, with insert-only revisions (`docs/architecture/decision-journal.md`); M1.5 adds the forecast record, the Season Review and the live-season evaluation contract (`docs/architecture/season-evaluation.md`) — live verdicts wait for 8 final live gameweeks, and no recalibration is fitted |
 | Chrome extension | **Missing** | nothing in the repository; the backend has every read endpoint an overlay would need, but no per-user credential an extension could hold |
 | Accounts, beta access, product analytics | **Missing** | one operator API key, free-form `manager_key` (web default `"demo"`), anyone behind the site login can read or erase any manager; no usage analytics of any kind (Prometheus only) |
 
@@ -196,8 +197,10 @@ implemented (`docs/BUILD_STATUS.md` §2f): a decision is recorded with its decis
 first-party picks verify FPL-ID squads after the deadline, and an hourly job scores the
 recorded action, HOLD and the recommended plan with the domain scoring rules once results are
 recorded — final only when FPL finalises the gameweek, revisions kept, no grading from a single
-outcome. Still missing from the rows below: the season review page and live-season calibration
-of the models. The "regret" metric is reported as a difference to HOLD and to the recommended
+outcome. M1.5 (2026-10-14) adds the Season Review: the forecast record freezes the forecast served
+at each decision cutoff, the live record is scored on final results under a contract fixed in
+advance, and calibration is measured (state `deferred` until 8 live gameweeks are final); no
+recalibration of the models has been fitted. The "regret" metric is reported as a difference to HOLD and to the recommended
 plan, with the decision-time expectation beside it, not as a verdict.
 
 | | |

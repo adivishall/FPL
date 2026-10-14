@@ -7,6 +7,8 @@ Gates: minutes@1.0.0 and points@1.0.0 were fixed before this evaluation; points@
 
 Populations: *all* = every registered player with a fixture; *regulars* = recent start rate ≥ 0.5. Primary point metric: RMSE (mean-optimal); MAE favours median-like forecasts and is reported for completeness.
 
+Live-season evaluation of the served forecasts (2026-27 onwards) follows `docs/architecture/season-evaluation.md`; the same-weeks reference is `ml/reports/season_reference.md`.
+
 ## Point accuracy (horizon 0)
 
 **all**
