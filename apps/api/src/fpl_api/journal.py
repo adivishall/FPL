@@ -45,6 +45,7 @@ from fpl_optimizer.lineup import best_lineup
 from fpl_optimizer.problem import load_optimizer_config
 from fpl_storage import models as m
 from fpl_storage.db import session_scope
+from fpl_storage.finality import gameweek_finality
 
 log = structlog.get_logger("fpl_api.journal")
 JournalRow = m.DecisionJournalRow
@@ -1074,9 +1075,6 @@ def evaluate_decision(
         return _result("pending", "waiting for your decision", snapshot_id)
     season, gw = ev.season, ev.gameweek
     rs = load_ruleset(season)
-    g = _season_frame(ds, "gameweeks", season)
-    g = g[g["gw"] == gw]
-    gw_status = str(g["status"].iloc[0]) if not g.empty else "unknown"
     # the players the evaluation scores: the lineups of the chosen plan, HOLD and the
     # recommended plan (other plans of a workbench run are context, not outcomes)
     scored = {
@@ -1086,41 +1084,18 @@ def evaluate_decision(
         for c in [*(plan.starters or []), *(plan.bench or [])]
     } or {int(c) for c in ev.positions}
     teams = {int(ev.teams[str(c)]) for c in scored if str(c) in ev.teams}
-    fx = _season_frame(ds, "fixtures", season)
-    fx = fx[
-        (fx["gw"] == gw) & (fx["home_team_code"].isin(teams) | fx["away_team_code"].isin(teams))
-    ]
-    current = {int(i) for i in fx["fixture_id"]}
+    fin = gameweek_finality(ds, season, gw, teams)  # the shared finality rule
+    gw_status = fin.gameweek_status
+    current = set(fin.fixtures)
     decided = {int(i) for t, ids in ev.fixtures.items() if int(t) in teams for i in ids}
     pm = _season_frame(ds, "player_match", season)
     pm = pm[pm["gw"] == gw]
-    recorded_ids = {int(i) for i in pm["fixture_id"]}
-    played = fx[fx["status"].isin(["final", "provisional"])]
-    final_fx = fx[(fx["status"] == "final") & fx["finalized"].fillna(False).astype(bool)]
-    # result rows captured after the ruleset's finalisation lag (bonus confirmed); rows loaded
-    # while a fixture was provisional stay provisional until the results are loaded again
-    rel = pm[pm["fixture_id"].isin(list(current))]
-    rel_final = rel["finalized"].fillna(False).astype(bool).groupby(rel["fixture_id"]).all()
-    rows_final = {int(i) for i, ok in rel_final.items() if ok}
     fixtures: dict[str, Any] = {
-        "relevant": len(current),
-        "played": len(played),
-        "recorded": len(current & recorded_ids),
-        "final": len(final_fx),
-        "results_final": len(current & rows_final),
+        **fin.counts(),
         "moved_out": sorted(decided - current),  # postponed or moved since the decision
         "moved_in": sorted(current - decided),  # (re)scheduled into this gameweek since then
-        "gameweek_status": gw_status,
     }
-    fx_state = sorted(
-        (
-            int(r.fixture_id),
-            str(r.status),
-            bool(r.finalized) if pd.notna(r.finalized) else False,
-            int(r.fixture_id) in rows_final,
-        )
-        for r in fx.itertuples(index=False)
-    )
+    fx_state = fin.digest_state()
     rows = pm[pm["player_code"].isin(list(scored))]
     row_state = sorted(
         (
@@ -1138,7 +1113,7 @@ def evaluate_decision(
         "what you actually did was not recorded, so it cannot be evaluated; holding and the "
         "recommended plan are scored for reference once the results are final"
     )
-    if len(played) == 0 and (current or gw_status in ("upcoming", "live", "unknown")):
+    if fin.state() == "not_started":
         return _result(
             "pending",
             not_recorded if unknown else "no relevant match of this gameweek has been played yet",
@@ -1150,20 +1125,19 @@ def evaluate_decision(
         str(c): {"minutes": int(v["minutes"]), "points": int(v["points"])}
         for c, v in rows.groupby("player_code")[["minutes", "points"]].sum().iterrows()
     }
-    if len(played) < len(current) or not current <= recorded_ids:
+    if not fin.complete:
         return _result(
             "partial",
             not_recorded
             if unknown
-            else f"{len(current & recorded_ids)} of {len(current)} relevant fixtures recorded "
+            else f"{fixtures['recorded']} of {len(current)} relevant fixtures recorded "
             "so far: totals wait until every one is in (a player whose match is still to come "
             "would otherwise count as not playing)",
             snapshot_id,
             {"fixtures": fixtures, "players_so_far": so_far},
             dig,
         )
-    official = gw_status == "finalized" and len(final_fx) == len(current)
-    final = official and current <= rows_final
+    official, final = fin.officially_final, fin.final
     status = "final" if final else "partial"
     agg = rows.groupby("player_code")[["minutes", "points"]].sum()
     pts = {int(c): int(v) for c, v in agg["points"].items()}
