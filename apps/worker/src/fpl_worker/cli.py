@@ -39,6 +39,8 @@ from fpl_api.jobs import JobBackend, services
 from fpl_api.journal import JournalStore
 from fpl_api.ledger import due_gameweeks
 from fpl_api.lifecycle import invalidate_for_snapshot
+from fpl_api.season import latest_evaluation
+from fpl_api.season import plan as season_plan
 from fpl_api.services import ForecastUnavailable
 from fpl_domain.config import load_versioned_config
 from fpl_ingestion import cli as ingest_cli
@@ -202,6 +204,22 @@ def task_forecast_ledger(svc: AppServices, jobs: JobBackend, b: str) -> dict[str
     }
 
 
+def task_season_eval(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
+    """Evaluate the live record when its inputs changed (M1.5): the digest is computed here from
+    stored checkpoints and the snapshot's results; a job only when it differs from the newest
+    stored evaluation's."""
+    if svc.engine is None:
+        return {"status": "skipped", "reason": "no database"}
+    p = season_plan(svc.engine, svc.data.ds)
+    if not p.headers:
+        return {"status": "skipped", "reason": "no checkpoint yet"}
+    last = latest_evaluation(svc.engine, p.season)
+    if last is not None and last.input_digest == p.digest:
+        return {"status": "skipped", "reason": "unchanged", "evaluation": last.id}
+    job = jobs.submit("season_eval", {"season": p.season, "digest": p.digest})
+    return {"status": "submitted", "job_id": job}
+
+
 def task_retention(svc: AppServices, jobs: JobBackend, b: str) -> dict[str, Any]:
     # a job (not inline): its outcome is recorded, counted and alerted on like any other
     return {"status": "submitted", "job_id": jobs.submit("retention", {"at": b})}
@@ -281,6 +299,7 @@ TASKS: dict[str, Callable[[AppServices, JobBackend, str], dict[str, Any]]] = {
     "live_results": task_live_results,
     "journal": task_journal,
     "forecast_ledger": task_forecast_ledger,
+    "season_eval": task_season_eval,
 }
 
 

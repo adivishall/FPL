@@ -16,6 +16,9 @@ tasks:
   forecast_ledger:       # freeze the forecast served at each passed decision cutoff (fpl_api.ledger)
     every_minutes: 15
     enabled: true
+  season_eval:           # score the forecast record on final results when its inputs change (fpl_api.season)
+    every_minutes: 60
+    enabled: true
   retention:             # prune old live snapshots and caches (fpl_api.retention)
     every_minutes: 60
     enabled: true

@@ -582,6 +582,58 @@ def test_confirmation_is_the_managers_own_statement(
     assert again["confirmed_at"] == r.json()["entry"]["confirmed_at"]  # set once
 
 
+def test_the_summary_is_the_managers_own_and_scores_only_final_decisions_made_in_time(
+    world: dict[str, Any], squad: list[int]
+) -> None:
+    """GET /journal/summary (M1.5): registered before /journal/{entry_id}; counts everything
+    recorded; outcome rows only for active decisions recorded before the deadline whose
+    evaluation is final, with the evaluator's realised points (never self-reported ones); range
+    counts beside a binomial typical range; no grades."""
+    client, svc = world["client"], world["svc"]
+    e = world["entry"]
+    r = client.get("/api/v1/journal/summary", params={"manager_key": KEY, "season": SEASON})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["counts"]["recorded"] >= out["counts"]["active"] >= 1
+    assert out["counts"]["replaced"] >= 1  # the change of mind before the deadline
+    rows = out["outcomes"]["rows"]
+    assert [x["entry_id"] for x in rows] == [e["entry_id"]]
+    final = _evaluations(svc, e["entry_id"])[-1]
+    assert rows[0]["realised_points"] == final.realized_points
+    assert rows[0]["evaluation"]["seq"] == final.seq
+    assert rows[0]["expected_points"] is not None and rows[0]["range"] in (
+        "below",
+        "within",
+        "above",
+    )
+    rc = out["outcomes"]["range_counts"]
+    assert rc["n"] == 1 and rc["typical_inside"] == [0, 1]
+    assert rc["past_seasons"] == {"below": 0.053, "inside": 0.816, "above": 0.132}
+    assert "interval_95_mean" not in out["outcomes"]["vs_hold"]  # under six decisions
+    assert out["limits"]  # and nothing else: no rating, grade or "good decision" share
+    assert set(out) == {
+        "manager_key",
+        "season",
+        "counts",
+        "actions",
+        "adherence",
+        "outcomes",
+        "limits",
+        "caveat",
+    }
+    # the decision that replaced a pre-journal one carries self-reported points (64): once it
+    # is evaluated, the summary shows the evaluator's points from official results, never 64
+    lk = "jr-legacy"
+    standing = next(x for x in JournalStore(svc.engine).entries(lk) if x["state"] == "active")
+    assert standing["self_reported_points"] == 64
+    run_evaluations(svc, lk, standing["entry_id"], AFTER)
+    legacy = client.get("/api/v1/journal/summary", params={"manager_key": lk}).json()
+    assert legacy["counts"]["replaced"] == 1 and legacy["counts"]["active"] == 1
+    official = _evaluations(svc, standing["entry_id"])[-1]
+    assert official.status == "final" and official.realized_points != 64
+    assert [x["realised_points"] for x in legacy["outcomes"]["rows"]] == [official.realized_points]
+
+
 def test_journal_routes_stay_with_their_owner(world: dict[str, Any], squad: list[int]) -> None:
     client = world["client"]
     world["clock"]["now"] = BEFORE
@@ -596,6 +648,7 @@ def test_journal_routes_stay_with_their_owner(world: dict[str, Any], squad: list
     entry = r.json()["entry"]["entry_id"]
     for method, path, kw in (
         ("GET", "/api/v1/journal", {"params": {"manager_key": a_key}}),
+        ("GET", "/api/v1/journal/summary", {"params": {"manager_key": a_key}}),
         ("GET", f"/api/v1/journal/{entry}", {}),
         ("POST", f"/api/v1/journal/{entry}/confirm", {}),
         ("POST", f"/api/v1/journal/{entry}/evaluate", {}),

@@ -55,9 +55,19 @@ from fpl_api.journal import (
     evidence_from_recommendation,
     evidence_from_workbench,
 )
+from fpl_api.journal_summary import summary as journal_summary
+from fpl_api.ledger import season_gameweeks
 from fpl_api.lifecycle import explain_changes, follow_promotion, lifecycle_block
 from fpl_api.lineage import trace
 from fpl_api.privacy import audit, delete_manager, export_manager
+from fpl_api.season import (
+    DEFAULT_REFERENCE_WINDOW,
+    drift_signals,
+    latest_evaluation,
+    load_reference,
+    reference_window,
+)
+from fpl_api.season import timeline as season_timeline
 from fpl_api.security import Guard, hash_key, loggable_path
 from fpl_api.services import ForecastUnavailable, sources_config
 from fpl_api.settings import Settings
@@ -72,6 +82,8 @@ from fpl_domain.squad import SquadPick, squad_violations
 from fpl_domain.state import ChipStatus, ManagerState, initial_chips
 from fpl_forecasting.model_config import price_spec
 from fpl_forecasting.price_change import official_signal
+from fpl_forecasting.season_eval import calibration_state as se_calibration_state
+from fpl_forecasting.season_eval import metric_config as se_metric_config
 from fpl_ingestion.http import HttpStatusError, SourceUnavailableError
 from fpl_ingestion.manager_sync import reconstruct_state
 from fpl_ingestion.sources.fpl_api import FplApiClient
@@ -1477,6 +1489,19 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             status_code=201 if created else 200,
         )
 
+    # registered before /journal/{entry_id}, which would otherwise capture "summary"
+    @r.get("/journal/summary")
+    def journal_summary_view(
+        manager_key: str = Query(..., max_length=64, pattern=KEY_PATTERN),
+        season: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    ) -> dict[str, Any]:
+        """The manager's own recorded decisions summarised (M1.5; private: the router checks
+        that the signed-in user owns ``manager_key``). Counts, per-decision outcomes and paired
+        sums — no grades, no effect estimates."""
+        need_db()
+        assert svc.engine is not None
+        return _jsonable(journal_summary(svc.engine, manager_key, season))
+
     @r.get("/journal/{entry_id}")
     def journal_entry(
         request: Request, entry_id: str = PathParam(..., max_length=80)
@@ -1518,6 +1543,107 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
             _jsonable({"job_id": job, "job": info, "entry": entry_view(fresh_entry, True)}),
             status_code=202,
         )
+
+    # ------------------------------------------------------------------ season review (M1.5)
+    @r.get("/season-review")
+    def season_review_view(
+        season: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    ) -> dict[str, Any]:
+        """The live record, its newest evaluation and the past-season reference for the same
+        weeks. Public; no manager data. Reads stored rows only: never computes a forecast or
+        submits a job (``docs/architecture/season-evaluation.md`` §8.3, §12)."""
+        need_db()
+        assert svc.engine is not None
+        gws = season_gameweeks(svc.engine, season)
+        if not gws:
+            raise HTTPException(404, "no season with gameweeks")
+        season = gws[0].season
+        latest = latest_evaluation(svc.engine, season)
+        ev: dict[str, Any] | None = None
+        if latest is not None:
+            ev = {
+                "id": latest.id,
+                "seq": latest.seq,
+                "previous_id": latest.previous_id,
+                "trigger": latest.trigger,
+                "created_at": latest.created_at,
+                "evaluator_version": latest.evaluator_version,
+                "data_snapshot_id": latest.data_snapshot_id,
+                "code_digest": latest.code_digest,
+                "windows": latest.windows_json,
+                "exclusions": latest.exclusions_json,
+                "metrics": latest.metrics_json,
+                "changes": latest.changes_json,
+            }
+        stored: dict[str, Any] = (ev or {}).get("metrics") or {}
+        live: dict[str, Any] = stored.get("results", {}).get("all", {}).get("h0", {})
+        window = [int(g) for g in live.get("gameweeks") or []] or list(DEFAULT_REFERENCE_WINDOW)
+        ref = load_reference(settings.reports_path / "season_reference.json")
+        reference = (
+            {
+                "all": reference_window(ref, window, "all"),
+                "regulars": reference_window(ref, window, "regulars"),
+                "source": ref.get("source"),
+                "generated": ref.get("generated"),
+            }
+            if ref is not None
+            else None
+        )
+        return _jsonable(
+            {
+                "season": season,
+                "timeline": season_timeline(svc.engine, season),
+                "evaluation": ev,
+                "reference": reference,
+                "reference_window_is_default": not live.get("gameweeks"),
+                "drift_signals": drift_signals(live, reference["all"] if reference else None),
+                "calibration": stored.get("calibration_state") or se_calibration_state({"G": 0}),
+                "method": se_metric_config(),
+            }
+        )
+
+    @r.get("/season-review/evaluations")
+    def season_review_history(
+        season: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+        limit: int = Query(20, ge=1, le=200),
+    ) -> dict[str, Any]:
+        """Every stored evaluation of the live record, newest first: what changed and why."""
+        need_db()
+        assert svc.engine is not None
+        gws = season_gameweeks(svc.engine, season)
+        if not gws:
+            raise HTTPException(404, "no season with gameweeks")
+        with session_scope(svc.engine) as ses:
+            rows = ses.scalars(
+                select(m.SeasonEvaluationRow)
+                .where(m.SeasonEvaluationRow.season == gws[0].season)
+                .order_by(m.SeasonEvaluationRow.seq.desc())
+                .limit(limit)
+            ).all()
+            items = [
+                {
+                    "id": e.id,
+                    "seq": e.seq,
+                    "previous_id": e.previous_id,
+                    "trigger": e.trigger,
+                    "created_at": e.created_at,
+                    "evaluator_version": e.evaluator_version,
+                    "data_snapshot_id": e.data_snapshot_id,
+                    "input_digest": e.input_digest,
+                    "changes": e.changes_json,
+                }
+                for e in rows
+            ]
+        return _jsonable({"season": gws[0].season, "evaluations": items})
+
+    @r.post("/season-review/evaluate")
+    def season_review_evaluate(request: Request) -> JSONResponse:
+        """Evaluate the live record now (operator only); writes nothing when its inputs are
+        unchanged."""
+        require_operator(principal_of(request))
+        bucket = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M")[:-1]
+        job = jobs.submit("season_eval", {"at": bucket, "requested": "operator"})
+        return JSONResponse(_jsonable({"job_id": job, "job": jobs.get(job)}), status_code=202)
 
     # ------------------------------------------------------------------ backtests & jobs
     @r.post("/backtests")

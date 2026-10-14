@@ -42,6 +42,7 @@ from fpl_api.journal import run_evaluations
 from fpl_api.ledger import capture, record_promotion
 from fpl_api.lifecycle import INPUTS_MISMATCH, invalidate_for_snapshot, reason
 from fpl_api.retention import prune
+from fpl_api.season import run as season_run
 from fpl_api.services import mark_serving_ready
 from fpl_api.settings import Settings
 from fpl_api.workbench import compute_workbench
@@ -233,6 +234,14 @@ def _job_forecast_capture(svc: AppServices, p: dict[str, Any]) -> str:
     return capture(svc.engine, svc.settings, svc.data, p["season"], int(p["gameweek"]))
 
 
+def _job_season_eval(svc: AppServices, p: dict[str, Any]) -> str:
+    """Evaluate the live record (M1.5): writes a revision only when its input digest changed;
+    a retry or a concurrent run on the same inputs writes nothing."""
+    if svc.engine is None:
+        raise RuntimeError("database required")
+    return season_run(svc.engine, svc.data)
+
+
 def _job_retention(svc: AppServices, p: dict[str, Any]) -> str:
     return prune(svc.settings, svc.engine).summary()
 
@@ -252,6 +261,7 @@ JOB_KINDS: dict[str, JobFn] = {
     "workbench": _job_workbench,
     "journal": _job_journal,
     "forecast_capture": _job_forecast_capture,
+    "season_eval": _job_season_eval,
 }
 # Upper bound on a healthy run of each kind: RQ's job timeout and the de-duplication lease.
 JOB_LEASE: dict[str, timedelta] = {
@@ -264,6 +274,7 @@ JOB_LEASE: dict[str, timedelta] = {
     "workbench": timedelta(minutes=20),
     "journal": timedelta(minutes=15),
     "forecast_capture": timedelta(minutes=15),
+    "season_eval": timedelta(minutes=15),
 }
 ABANDONED = "abandoned: no result within the job lease (worker lost or killed)"
 RQ_GRACE = timedelta(minutes=2)
