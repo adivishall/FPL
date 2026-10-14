@@ -292,6 +292,40 @@ test("decision journal: a decision recorded on the Overview keeps its evidence, 
   await expect(page.getByTestId(`decision-${id}`)).toContainText("followed Copilot");
 });
 
+test("season review: the live record, past seasons and your own decisions, from stored rows only, with nothing claimed early", async ({ page }) => {
+  // the public endpoint: no key needed, no manager data, never computes or queues anything
+  const pub = await api.get("/api/v1/season-review");
+  expect(pub.status()).toBe(200);
+  const body = await pub.json();
+  expect(JSON.stringify(body)).not.toContain(MANAGER);
+  expect(body.method.looks).toEqual([8, 16]);
+  expect(["deferred", "not_needed", "review_suggested"]).toContain(body.calibration.state);
+  const states = (body.timeline.gameweeks as { state: string }[]).map((g) => g.state);
+  expect(states).toContain("before_record"); // 2026-27 GW1–6 predate the record
+  // evaluating on demand is the operator's: the proxy key and a user session are refused
+  expect((await api.post("/api/v1/season-review/evaluate", { headers: { "x-api-key": WEB_KEY } })).status()).toBe(403);
+  expect((await web.post("/backend/season-review/evaluate")).status()).toBe(403);
+  // the private summary needs the signed-in owner
+  expect((await api.get(`/api/v1/journal/summary?manager_key=${MANAGER}`, { headers: { "x-api-key": WEB_KEY } })).status()).toBe(401);
+  await asManager(page);
+  await page.goto("/season-review");
+  await expect(page.getByTestId("season-status")).toContainText("Live record:");
+  await expect(page.getByTestId("timeline")).toContainText("before the record");
+  await expect(page.getByTestId("reference")).toContainText("2025-26");
+  await expect(page.getByTestId("your-decisions")).toContainText("decisions recorded this season");
+  await expect(page.getByTestId("calibration-state")).toHaveAttribute("data-state", body.calibration.state);
+  const text = await page.locator("main").innerText();
+  expect(text).not.toMatch(/prospective|% good|decision score/i);
+  const g = body.evaluation?.metrics?.results?.all?.h0?.G ?? 0;
+  if (g > 0 && g < 8) {
+    // no verdict before the first formal check, whatever the direction of the early weeks
+    await expect(page.getByTestId("comparisons")).toContainText("too few gameweeks to say");
+    await expect(page.getByTestId("comparisons")).not.toContainText("lower error than the baseline");
+  } else if (g === 0) {
+    await expect(page.getByTestId("live-empty")).toBeVisible();
+  }
+});
+
 test("alerts are evaluated by the worker; re-evaluating unchanged data adds nothing", async ({ page }) => {
   await asManager(page);
   await page.goto("/alerts");
