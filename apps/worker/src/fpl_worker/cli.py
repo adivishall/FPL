@@ -37,7 +37,7 @@ from sqlalchemy import func, select
 from fpl_api.container import AppServices
 from fpl_api.jobs import JobBackend, services
 from fpl_api.journal import JournalStore
-from fpl_api.ledger import due_gameweeks, promotion_recorded
+from fpl_api.ledger import due_gameweeks, promotion_recorded, unattested_newest
 from fpl_api.lifecycle import invalidate_for_snapshot
 from fpl_api.season import latest_evaluation
 from fpl_api.season import plan as season_plan
@@ -210,9 +210,16 @@ def task_forecast_ledger(svc: AppServices, jobs: JobBackend, b: str) -> dict[str
     ids = [
         jobs.submit("forecast_capture", {"season": g.season, "gameweek": g.gameweek}) for g in due
     ]
+    # the candidate for the next cutoff needs FPL's server time before that cutoff: when the
+    # forecast job could not record it (FPL unreachable, or the promotion predates it), ask again
+    pending = unattested_newest(svc.engine) if svc.server_clock is not None else None
+    if pending is not None:
+        snap, key = pending
+        ids.append(jobs.submit("forecast_attest", {"snapshot_id": snap, "forecast_key": key}))
     return {
-        "status": "submitted" if due else "skipped",
+        "status": "submitted" if ids else "skipped",
         "gameweeks": [g.gameweek for g in due],
+        "attest": pending[0] if pending is not None else None,
         "jobs": ids,
     }
 

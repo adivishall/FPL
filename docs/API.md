@@ -175,8 +175,10 @@ limits are in `docs/architecture/decision-journal.md`.
 
 Contract: `docs/architecture/season-evaluation.md`. `GET /season-review` returns `season`;
 `timeline` (`record_started`, per gameweek `state` = `before_record` / `upcoming` / `due` /
-`prospective` / `live_unverified` / `missed` with cutoff, expected finality, reasons and row
-count; `next_checkpoint`); `evaluation` (`seq`, `previous_id`, `trigger`, `evaluator_version`,
+`prospective` / `prospective_unverified` / `live_unverified` / `missed` with cutoff, expected
+finality, reasons, row count and `attested_at` — the FPL server time by which the frozen
+forecast existed; `next_checkpoint`; `current_forecast` — the served forecast's promotion time
+and the FPL server time on record for it, or `null` while there is none); `evaluation` (`seq`, `previous_id`, `trigger`, `evaluator_version`,
 `data_snapshot_id`, `windows` with each target gameweek's finality state and counts,
 `exclusions` (`by_reason` on final target gameweeks, `by_reason_h0`, `clubs_gained_fixture_h0`,
 `status_u_rows_h0`), `metrics.results[population][h0…h4]` from

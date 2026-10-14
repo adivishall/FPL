@@ -8,15 +8,20 @@ decision cutoff — and proves when it existed:
 * **Promotion.** The forecast job writes a ``forecast_promotions`` row (the forecast file's
   SHA-256, its prediction run, the snapshot's export time; ``promoted_at`` from the database
   clock) *before* the ready marker that lets the API serve it (``record_promotion``).
+* **Server time.** The host's clocks can lag after sleep, so the proof of *when* comes from FPL:
+  ``forecast_attestations`` holds FPL's HTTP ``Date`` around the computation and, if that
+  failed, from a later request after re-hashing the stored file (``fpl_api.attestation``).
 * **Checkpoint.** After the cutoff, ``capture`` freezes the forecast of the newest snapshot (by
-  export time) whose promotion was recorded at or before the cutoff — the one
-  ``DataService._newest(ready_only=True)`` served — into ``forecast_checkpoints`` (header),
-  ``predictions`` (the forecast's numbers per player × target gameweek) and two content-addressed
-  ``artifact_blobs``: the decision-time context and baselines, and the exact points
-  distributions. It is ``prospective`` only when the promotion and the snapshot's export precede
-  the cutoff, the file is byte-identical to the promoted one, and its cutoff is the gameweek's.
-  Capture time is recorded, never a criterion: the file is never rewritten and retention keeps it
-  until captured (``pending_candidates``), so a host asleep at the cutoff loses nothing.
+  export time) whose file FPL's server time shows existed by the cutoff — or, failing any such
+  proof, the one the local clock places there (``DataService._newest(ready_only=True)``'s
+  choice) — into ``forecast_checkpoints`` (header), ``predictions`` (the forecast's numbers per
+  player × target gameweek) and two content-addressed ``artifact_blobs``: the decision-time
+  context and baselines, and the exact points distributions. It is ``prospective`` only when
+  FPL's server time precedes the cutoff, the file is byte-identical to the promoted one, its
+  cutoff is the gameweek's and the data shows no leakage; without the server time it is at best
+  ``prospective_unverified``. Capture time is recorded, never a criterion: the file is never
+  rewritten and retention keeps it until captured (``pending_candidates``), so a host asleep at
+  the cutoff loses nothing.
 * **Nothing is recomputed.** A gameweek without a promoted forecast, or whose file is gone, is
   recorded ``missed`` with the reason. Gameweeks whose cutoff precedes the first promotion ever
   recorded predate the record and get no row.
@@ -43,6 +48,8 @@ from sqlalchemy import Engine, func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
+from fpl_api.attestation import ServerClock, ServerTime, official
+from fpl_api.attestation import read as read_server_time
 from fpl_api.provenance import build_revision, code_digest
 from fpl_api.services import DataService, history_cutoffs
 from fpl_api.settings import Settings
@@ -141,6 +148,131 @@ def record_promotion(
 def promotion_recorded(engine: Engine, snapshot_id: str, forecast_key: str) -> bool:
     with session_scope(engine) as s:
         return s.get(m.ForecastPromotionRow, (snapshot_id, forecast_key)) is not None
+
+
+def attest(
+    engine: Engine,
+    settings: Settings,
+    clock: ServerClock | None,
+    snapshot_id: str,
+    forecast_key: str,
+    before: ServerTime | None = None,
+) -> str:
+    """Hash the stored forecast file, *then* ask FPL the time: the file with that hash existed
+    by ``not_after``. With ``before`` (a time read before this job computed the file) the row is
+    a ``generation`` attestation bounding the computation on both sides; otherwise
+    ``existence``. Returns ``attested`` or why not (``no_clock``, ``no_file``,
+    ``unavailable``); never raises — the caller decides whether a missing proof is a failure."""
+    if clock is None:
+        return "no_clock"
+    try:
+        path = forecast_path(settings, forecast_key)
+        if not path.exists():
+            return "no_file"
+        sha = sha256_file(path)
+        after = read_server_time(clock, "forecast_attestation")
+        if after is None:
+            return "unavailable"
+        if before is not None and before.not_before > after.not_after:  # FPL edges disagree
+            log.warning("server_time_inconsistent", before=str(before.date), after=str(after.date))
+            before = None
+        with session_scope(engine) as s:
+            s.add(
+                m.ForecastAttestationRow(
+                    snapshot_id=snapshot_id,
+                    forecast_key=forecast_key,
+                    artifact_sha256=sha,
+                    kind="generation" if before is not None else "existence",
+                    not_before=before.not_before if before is not None else None,
+                    not_after=after.not_after,
+                    source_url=after.url,
+                    evidence={
+                        "before": before.evidence() if before is not None else None,
+                        "after": after.evidence(),
+                        "build_revision": build_revision(),
+                        "code_digest": code_digest(),
+                    },
+                )
+            )
+    except Exception as exc:  # evidence, never a reason to stop serving
+        log.warning("forecast_attestation_failed", snapshot=snapshot_id, error=str(exc)[:300])
+        return "unavailable"
+    log.info(
+        "forecast_attested", snapshot=snapshot_id, key=forecast_key, not_after=str(after.not_after)
+    )
+    return "attested"
+
+
+@dataclass(frozen=True)
+class ServerTimes:
+    """What FPL's server time shows about one promotion's file (its promoted hash, official
+    source only)."""
+
+    existed_by: datetime | None  # earliest not_after: the file existed by then
+    computed_after: datetime | None  # latest not_before of a generation attestation
+
+
+def server_times(s: Any, season: str) -> dict[tuple[str, str], ServerTimes]:
+    """Per (snapshot, forecast key) of ``season``. An attestation counts only for the hash the
+    promotion recorded and only from FPL's official API."""
+    fa, fp = m.ForecastAttestationRow, m.ForecastPromotionRow
+    rows = s.execute(
+        select(fa.snapshot_id, fa.forecast_key, fa.not_before, fa.not_after, fa.source_url)
+        .join(
+            fp,
+            (fp.snapshot_id == fa.snapshot_id)
+            & (fp.forecast_key == fa.forecast_key)
+            & (fp.artifact_sha256 == fa.artifact_sha256),
+        )
+        .where(fp.season == season)
+    ).all()
+    out: dict[tuple[str, str], ServerTimes] = {}
+    for snap, key, nb, na, url in rows:
+        if not official(url):
+            continue
+        cur = out.get((snap, key), ServerTimes(None, None))
+        by = _utc(na) if cur.existed_by is None else min(cur.existed_by, _utc(na))
+        after = cur.computed_after
+        if nb is not None:
+            after = _utc(nb) if after is None else max(after, _utc(nb))
+        out[(snap, key)] = ServerTimes(by, after)
+    return out
+
+
+def unattested_newest(engine: Engine, now: datetime | None = None) -> tuple[str, str] | None:
+    """The newest promotion — the candidate for the next cutoff — when FPL's server time does
+    not yet show its file existed (the generation attestation failed or predates M1.5's
+    attestation). Database reads only (the scheduler's check)."""
+    now = now or datetime.now(UTC)
+    gws = season_gameweeks(engine)
+    if not gws:
+        return None
+    with session_scope(engine) as s:
+        row = served_at(s, gws[0].season, now)
+        if row is None:
+            return None
+        if server_times(s, gws[0].season).get((row.snapshot_id, row.forecast_key)):
+            return None
+        return row.snapshot_id, row.forecast_key
+
+
+def attest_existence(
+    engine: Engine, settings: Settings, clock: ServerClock | None, snapshot_id: str, key: str
+) -> str:
+    """An ``existence`` attestation for a stored promotion whose file still has its promoted
+    hash (``file_changed`` otherwise: the capture flags it, nothing here vouches for it)."""
+    with session_scope(engine) as s:
+        promo = s.get(m.ForecastPromotionRow, (snapshot_id, key))
+        promoted_sha = promo.artifact_sha256 if promo is not None else None
+    if promoted_sha is None:
+        return "no_promotion"
+    path = forecast_path(settings, key)
+    if not path.exists():
+        return "no_file"
+    if sha256_file(path) != promoted_sha:
+        log.warning("forecast_file_changed", snapshot=snapshot_id, key=key)
+        return "file_changed"
+    return attest(engine, settings, clock, snapshot_id, key)
 
 
 # ----------------------------------------------------------------------------- what is due
@@ -262,10 +394,59 @@ def served_at(s: Any, season: str, cutoff: datetime) -> m.ForecastPromotionRow |
     return row
 
 
+def _order(p: m.ForecastPromotionRow) -> tuple[datetime, datetime]:
+    return _utc(p.snapshot_created_at), _utc(p.promoted_at)
+
+
+@dataclass(frozen=True)
+class Candidate:
+    promotion: m.ForecastPromotionRow | None
+    attested_at: datetime | None  # FPL server time by which its file existed, if ≤ the cutoff
+    existed_by: datetime | None = None  # the earliest FPL server time for it, whenever it is
+    later: m.ForecastPromotionRow | None = None  # newer, placed before the cutoff by local clock
+
+
+def checkpoint_candidate(s: Any, season: str, gameweek: int, cutoff: datetime) -> Candidate:
+    """The forecast a gameweek's checkpoint freezes (contract §2.2). The host's choice is what
+    ``DataService._newest(ready_only=True)`` served by its own clock: the newest snapshot (by
+    export time) promoted at or before ``cutoff`` — unless FPL's server time shows that forecast
+    was computed after the cutoff (a clock that lagged after sleep). When FPL's server time
+    shows a forecast *of this gameweek* existed by the cutoff, the newest such one is frozen
+    instead and a newer unproven one is reported (``later``), never used; otherwise the host's
+    choice is frozen and can be ``prospective_unverified`` at best."""
+    fp = m.ForecastPromotionRow
+    promos = list(s.scalars(select(fp).where(fp.season == season)))
+    times = server_times(s, season)
+
+    def t(p: m.ForecastPromotionRow) -> ServerTimes:
+        return times.get((p.snapshot_id, p.forecast_key), ServerTimes(None, None))
+
+    local = [
+        p
+        for p in promos
+        if _utc(p.promoted_at) <= cutoff
+        and not ((a := t(p).computed_after) is not None and a > cutoff)
+    ]
+    attested = [
+        p
+        for p in promos
+        if p.gameweek == gameweek and (b := t(p).existed_by) is not None and b <= cutoff
+    ]
+    host = max(local, key=_order, default=None)
+    if attested:
+        best = max(attested, key=_order)
+        later = host if host is not None and _order(host) > _order(best) else None
+        return Candidate(best, t(best).existed_by, t(best).existed_by, later)
+    if host is None:
+        return Candidate(None, None)
+    return Candidate(host, None, t(host).existed_by)
+
+
 def pending_candidates(engine: Engine | None, now: datetime | None = None) -> set[tuple[str, str]]:
     """(snapshot id, forecast key) pairs retention keeps (snapshot, caches, marker and file):
-    every due gameweek's candidate until its checkpoint is written, and the newest promotion —
-    the candidate for the next cutoff — whatever the ready marker says."""
+    every due gameweek's candidates until its checkpoint is written — the attested one and the
+    local clock's — and the newest promotion, the candidate for the next cutoff, whatever the
+    ready marker says."""
     if engine is None:
         return set()
     now = now or datetime.now(UTC)
@@ -273,9 +454,10 @@ def pending_candidates(engine: Engine | None, now: datetime | None = None) -> se
     gws = season_gameweeks(engine)
     with session_scope(engine) as s:
         for g in due_gameweeks(engine, now):
-            row = served_at(s, g.season, g.cutoff)
-            if row is not None:
-                out.add((row.snapshot_id, row.forecast_key))
+            c = checkpoint_candidate(s, g.season, g.gameweek, g.cutoff)
+            for row in (c.promotion, c.later, served_at(s, g.season, g.cutoff)):
+                if row is not None:
+                    out.add((row.snapshot_id, row.forecast_key))
         if gws:
             newest = served_at(s, gws[0].season, now)
             if newest is not None:
@@ -350,11 +532,12 @@ class _Built:
 
 
 def data_checks(ds: Any, season: str, gw: int, cutoff: datetime) -> dict[str, dict[str, Any]]:
-    """Clock-independent evidence that the forecast's data predates the cutoff, from the data
-    itself rather than this host's clock (a laptop's VM clock can lag after sleep): no FPL news
-    item in the snapshot was stamped after the cutoff by FPL's own server, and no fixture of
-    the gameweek had a result (provisional or final) and no result row of it was loaded. (A
-    match in progress has no canonical trace, so this bounds post-match data only.)"""
+    """Leakage detection on the forecast's own data: no FPL news item in the snapshot carries a
+    ``news_added`` stamp after the cutoff, and no fixture of the gameweek had a result
+    (provisional or final) and no result row of it was loaded. A failure proves post-cutoff
+    data reached the forecast; a pass proves nothing about time — news is not stamped on a
+    schedule and a match in progress has no canonical trace — so the time evidence is FPL's
+    server time (``fpl_server_time_before_cutoff``), never these."""
     snaps = ds["player_snapshots"]
     snaps = snaps[snaps["season"] == season]
     added = pd.to_datetime(snaps.get("news_added"), utc=True, errors="coerce").dropna()
@@ -446,6 +629,7 @@ def _missed(s: Any, g: Gameweek, reason: str, promo: dict[str, Any] | None) -> s
             "promoted_at": promo["promoted_at"],
             "snapshot_created_at": promo["snapshot_created_at"],
             "artifact_sha256": promo["artifact_sha256"],
+            "attested_at": promo.get("attested_at"),
         }
         if promo
         else {}
@@ -485,6 +669,9 @@ def _existing(engine: Engine, season: str, gw: int) -> str | None:
     return cid
 
 
+TIME_CHECK = "fpl_server_time_before_cutoff"
+
+
 def prospective_checks(
     promo: dict[str, Any],
     sha: str,
@@ -492,23 +679,27 @@ def prospective_checks(
     season: str,
     gw: int,
     cutoff: datetime,
+    existed_by: datetime | None,
 ) -> dict[str, dict[str, Any]]:
-    """The checks a checkpoint must pass to be ``prospective`` (contract §2.3): promoted and
-    exported at or before the cutoff, the file byte-identical to the promoted one, the same
-    forecast identity, and the forecast's cutoff the gameweek's. A moved deadline is flagged,
-    and the time checks are then applied against the earlier of the two cutoffs."""
+    """The checks a checkpoint must pass to be ``prospective`` (contract §2.3): FPL's server
+    time shows the file existed at or before the cutoff (``existed_by``: the earliest such time
+    on record for the promoted hash), the file is byte-identical to the promoted one, the
+    forecast identity is the promotion's, and the forecast's cutoff is the gameweek's. A moved
+    deadline is flagged and the server time is then judged against the earlier of the two
+    cutoffs. The host's clock never decides (``local_clock``)."""
     p = provenance
     prov_cutoff = _utc(p["cutoff"])
     earliest = min(prov_cutoff, cutoff)
+    if existed_by is None:
+        detail = f"no FPL server time shows when the file existed; cutoff {earliest}"
+    else:
+        gap = (earliest - existed_by).total_seconds() / 60
+        detail = (
+            f"FPL server time shows the file existed by {existed_by}; cutoff {earliest} "
+            f"({abs(gap):.0f} min {'before' if gap >= 0 else 'after'} it)"
+        )
     checks: dict[str, dict[str, Any]] = {
-        "promoted_before_cutoff": {
-            "ok": _utc(promo["promoted_at"]) <= earliest,
-            "detail": f"promoted {promo['promoted_at']}, cutoff {earliest}",
-        },
-        "snapshot_exported_before_cutoff": {
-            "ok": _utc(promo["snapshot_created_at"]) <= earliest,
-            "detail": f"exported {promo['snapshot_created_at']}, cutoff {earliest}",
-        },
+        TIME_CHECK: {"ok": existed_by is not None and existed_by <= earliest, "detail": detail},
         "file_unchanged_since_promotion": {
             "ok": sha == promo["artifact_sha256"],
             "detail": f"{sha} vs {promo['artifact_sha256']}",
@@ -531,6 +722,25 @@ def prospective_checks(
     return checks
 
 
+def local_clock(promo: dict[str, Any], cutoff: datetime) -> dict[str, Any]:
+    """Promotion and export times by this host's clocks against the cutoff: how the fallback
+    candidate was chosen, and a skew signal next to FPL's time. Informational only."""
+    promoted, exported = _utc(promo["promoted_at"]), _utc(promo["snapshot_created_at"])
+    return {
+        "ok": promoted <= cutoff and exported <= cutoff,
+        "detail": f"promoted {promoted}, exported {exported}, cutoff {cutoff} (host clocks)",
+    }
+
+
+def state_of(checks: dict[str, Any]) -> tuple[str, list[str]]:
+    """``prospective`` when every deciding check holds; ``prospective_unverified`` when only FPL's
+    server time is missing or late; ``live_unverified`` when anything else failed."""
+    failed = [k for k, v in checks.items() if k != "info" and not v["ok"]]
+    if [k for k in failed if k != TIME_CHECK]:
+        return "live_unverified", failed
+    return ("prospective_unverified" if failed else "prospective"), failed
+
+
 def capture(
     engine: Engine,
     settings: Settings,
@@ -538,9 +748,11 @@ def capture(
     season: str,
     gw: int,
     now: datetime | None = None,
+    clock: ServerClock | None = None,
 ) -> str:
     """Freeze ``gw``'s checkpoint; returns its id (an existing one if already captured), or
-    ``not_due`` / ``before_record``. Everything is written in one transaction at the end."""
+    ``not_due`` / ``before_record``. Everything is written in one transaction at the end.
+    ``clock`` adds FPL's time at capture to the record (informational)."""
     now = now or datetime.now(UTC)
     g = next((x for x in season_gameweeks(engine, season) if x.gameweek == gw), None)
     if g is None:
@@ -553,25 +765,25 @@ def capture(
     started = record_started(engine)
     if started is None or g.cutoff < started:
         return "before_record"
+    cols = (
+        "snapshot_id",
+        "gameweek",
+        "forecast_key",
+        "prediction_run_id",
+        "snapshot_created_at",
+        "artifact_sha256",
+        "code_digest",
+        "promoted_at",
+    )
     with session_scope(engine) as s:
-        promo = served_at(s, season, g.cutoff)
+        cand = checkpoint_candidate(s, season, gw, g.cutoff)
+        promo = cand.promotion
         promo_vals = (
-            {
-                c: getattr(promo, c)
-                for c in (
-                    "snapshot_id",
-                    "gameweek",
-                    "forecast_key",
-                    "prediction_run_id",
-                    "snapshot_created_at",
-                    "artifact_sha256",
-                    "code_digest",
-                    "promoted_at",
-                )
-            }
+            {**{c: getattr(promo, c) for c in cols}, "attested_at": cand.existed_by}
             if promo is not None
             else None
         )
+        later = {c: str(getattr(cand.later, c)) for c in cols} if cand.later is not None else None
     if promo_vals is None or promo_vals["gameweek"] != gw:
         reason = (
             "no forecast was promoted before the cutoff"
@@ -593,17 +805,35 @@ def capture(
     ds = load_snapshot(snap_path) if snap_path is not None else None
     if ds is not None and ds.snapshot_id != snap_id:
         raise RuntimeError(f"snapshot {snap_path} loaded as {ds.snapshot_id}, expected {snap_id}")
-    checks: dict[str, Any] = prospective_checks(promo_vals, sha, p, season, gw, g.cutoff)
+    earliest = min(_utc(p["cutoff"]), g.cutoff)
+    checks: dict[str, Any] = prospective_checks(
+        promo_vals, sha, p, season, gw, g.cutoff, cand.existed_by
+    )
     if ds is not None:
-        checks.update(data_checks(ds, season, gw, min(_utc(p["cutoff"]), g.cutoff)))
+        checks.update(data_checks(ds, season, gw, earliest))
     else:  # retention keeps it until capture; without it the data cannot be checked
         checks["snapshot_available"] = {"ok": False, "detail": f"{snap_id} no longer stored"}
-    failed = [k for k, v in checks.items() if not v["ok"]]
-    state = "prospective" if not failed else "live_unverified"
+    state, failed = state_of(checks)
 
     # ---- informational: never part of the prospective test
     built = _build_rows(settings, fc, season, gw, ds)
     info: dict[str, Any] = dict(built.checks)
+    info["local_clock"] = local_clock(promo_vals, earliest)
+    info["later_promotion_without_server_time"] = {
+        "ok": later is None,
+        "detail": (
+            "none"
+            if later is None
+            else f"{later['snapshot_id']} {later['forecast_key']}: the host's clock places its "
+            f"promotion ({later['promoted_at']}) before the cutoff, but no FPL server time shows "
+            "its file existed by then; the checkpoint keeps the attested forecast"
+        ),
+    }
+    at_capture = read_server_time(clock, "capture")
+    info["captured_server_time"] = {
+        "ok": at_capture is not None,
+        "detail": at_capture.evidence() if at_capture is not None else "FPL not reached",
+    }
     summary = fc.summary.rename(columns={"gw": "target_gw"})
     with session_scope(engine) as s:
         run = s.get(m.PredictionRunRow, str(p["prediction_run_id"]))
@@ -664,6 +894,7 @@ def capture(
                     snapshot_created_at=promo_vals["snapshot_created_at"],
                     promoted_at=promo_vals["promoted_at"],
                     generated_at=generated,
+                    attested_at=cand.existed_by,
                     artifact_sha256=sha,
                     code_digest=p.get("code_digest"),
                     capture_code_digest=code_digest(),

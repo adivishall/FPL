@@ -5,8 +5,9 @@ distributions — only once, whatever repeats; it outlives the forecast cache, t
 process; and nothing is ever recomputed in place of a forecast that was not there.
 
 The synthetic 2026-27 season's GW2 deadline is 2026-08-28T17:30Z (cutoff 16:00Z). Its forecast
-is computed now, so the test moves its recorded promotion and export times to before that
-cutoff — the record of a forecast promoted then — and every check reads those recorded times.
+is computed now, so a fake FPL clock answers with a time two hours before that cutoff while the
+forecast job runs (the server time the record trusts), and the test moves the host-clock
+promotion and export times there too; afterwards the clock tells the real time.
 """
 
 from __future__ import annotations
@@ -32,12 +33,15 @@ from fpl_api import ledger
 from fpl_api.container import AppServices
 from fpl_api.jobs import JobBackend
 from fpl_api.ledger import (
+    TIME_CHECK,
     capture,
+    checkpoint_candidate,
     due_gameweeks,
     forecast_path,
     load_checkpoint,
     pending_candidates,
     sha256_file,
+    unattested_newest,
 )
 from fpl_api.provenance import code_digest
 from fpl_api.retention import prune
@@ -48,6 +52,8 @@ from fpl_forecasting import distributions as dist
 from fpl_storage import models as m
 from fpl_storage.dataset import export_snapshot
 from fpl_storage.db import session_scope
+from fpl_worker.cli import task_forecast_ledger
+from tests.clock_util import FakeFplClock
 from tests.fixtures_util import fixture_dataset, with_gameweek_results
 
 SEASON = "2026-27"
@@ -107,7 +113,10 @@ def world(pg_url: str, tmp_path_factory: pytest.TempPathFactory) -> Iterator[dic
         snapshot_retention_keep=1,
     )
     svc = AppServices.build(st)
-    assert svc.engine is not None
+    assert svc.engine is not None and svc.server_clock is None  # the suite never calls FPL
+    clock = FakeFplClock()
+    clock.at = CUT[2] - timedelta(hours=2)
+    svc.server_clock = clock
     _load_gameweeks(svc.engine)
     key = jobs_mod._job_forecast(svc, {})  # computes, records the promotion, marks it ready
     fc = joblib.load(forecast_path(st, key))
@@ -120,6 +129,7 @@ def world(pg_url: str, tmp_path_factory: pytest.TempPathFactory) -> Iterator[dic
         "key": key,
         "fc": fc,
         "root": root,
+        "clock": clock,
     }
     svc.engine.dispose()
     with admin.connect() as c:
@@ -157,15 +167,31 @@ def test_the_forecast_job_commits_to_the_forecast_before_marking_it_ready(
         # the digest of the code that computed the numbers travels with the forecast
         assert promo.code_digest == fc.provenance["code_digest"] == code_digest()
     assert (st.artifact_dir / "serving" / f"{world['snap']}.ready").exists()
-    # the forecast job runs again for the same snapshot: the first promotion is kept
+    # FPL's server time around the computation: asked before it started, and after the file
+    # was written and hashed — the proof of when it existed (not the host's clock)
+    at = CUT[2] - timedelta(hours=2)
+    with session_scope(world["engine"]) as s:
+        (gen,) = s.scalars(select(m.ForecastAttestationRow)).all()
+        assert (gen.kind, gen.snapshot_id, gen.forecast_key) == ("generation", world["snap"], key)
+        assert gen.artifact_sha256 == promo.artifact_sha256
+        assert gen.not_before == at and gen.not_after == at + timedelta(seconds=1)
+        assert gen.source_url == "https://fantasy.premierleague.com/api/event-status/"
+        assert gen.evidence["before"]["date"] == at.isoformat()
+        assert gen.evidence["build_revision"] == "unrecorded"
+    # the forecast job runs again for the same snapshot: the first promotion is kept, and the
+    # file it loads (not computed now) only gets an existence attestation
     first = promo.promoted_at
     jobs_mod._job_forecast(world["svc"], {})
     with session_scope(world["engine"]) as s:
         assert s.get(m.ForecastPromotionRow, (world["snap"], world["key"])).promoted_at == first  # type: ignore[union-attr]
-    # record the promotion as having happened before the GW2 cutoff (see the module docstring)
+        kinds = sorted(a.kind for a in s.scalars(select(m.ForecastAttestationRow)))
+        assert kinds == ["existence", "generation"]
+    assert unattested_newest(world["engine"]) is None
+    # record the host-clock promotion at the same time (see the module docstring)
     _backdate(
         world["engine"], world["snap"], CUT[2] - timedelta(hours=2), CUT[2] - timedelta(hours=3)
     )
+    world["clock"].at = None  # from here on FPL tells the real time
 
 
 def test_a_gameweek_is_due_only_after_its_cutoff_and_only_once_the_record_exists(
@@ -209,18 +235,27 @@ def test_retention_keeps_an_uncaptured_candidate_whatever_its_age(world: dict[st
 def test_capture_freezes_the_forecast_served_at_the_cutoff(world: dict[str, Any]) -> None:
     eng, fc = world["engine"], world["fc"]
     cid = capture(
-        eng, world["settings"], world["svc"].data, SEASON, 2, CUT[2] + timedelta(minutes=5)
+        eng,
+        world["settings"],
+        world["svc"].data,
+        SEASON,
+        2,
+        CUT[2] + timedelta(minutes=5),
+        clock=world["clock"],
     )
     ck = load_checkpoint(eng, cid)
     h = ck.header
     assert h.state == "prospective", (h.reasons, h.checks)
     prospective = {k: v for k, v in h.checks.items() if k != "info"}
     assert all(v["ok"] for v in prospective.values()), h.checks
-    # clock-independent evidence from the data: no FPL news after the cutoff, no GW2 result
-    assert {"no_news_after_cutoff", "no_results_of_the_gameweek"} <= set(prospective)
-    assert (
-        h.checks["info"]["baselines"]["ok"] and h.checks["info"]["prediction_run_registered"]["ok"]
-    )
+    # FPL's server time decides; leakage checks on the data: no late news, no GW2 result
+    assert {TIME_CHECK, "no_news_after_cutoff", "no_results_of_the_gameweek"} <= set(prospective)
+    assert "promoted_before_cutoff" not in prospective  # the host's clock never decides
+    assert h.attested_at == CUT[2] - timedelta(hours=2) + timedelta(seconds=1)
+    info = h.checks["info"]
+    assert info["baselines"]["ok"] and info["prediction_run_registered"]["ok"]
+    assert info["local_clock"]["ok"] and info["later_promotion_without_server_time"]["ok"]
+    assert info["captured_server_time"]["ok"]  # FPL's time at capture, informational
     assert (h.season, h.gameweek, h.kind, h.cutoff_at) == (SEASON, 2, "live", CUT[2])
     assert h.prediction_run_id == fc.provenance["prediction_run_id"]
     assert h.artifact_sha256 == sha256_file(forecast_path(world["settings"], world["key"]))
@@ -261,6 +296,123 @@ def test_capture_freezes_the_forecast_served_at_the_cutoff(world: dict[str, Any]
     assert np.array_equal(dist.decode(ck.mc_lo, ck.mc_counts), want)
     assert ck.clim_counts is not None and ck.clim_counts.sum(axis=1).min() > 0
     world["cid"] = cid
+
+
+def test_without_fpl_server_time_the_same_forecast_is_only_prospective_unverified(
+    world: dict[str, Any], pg_url: str
+) -> None:
+    """The same promoted forecast, file and host-clock times, recorded in a second database
+    without FPL's server time: frozen in full, but never in the live record — the host's clock
+    and the absence of late news are not evidence of when it existed."""
+    from tests.conftest import run_alembic
+
+    name = f"ldg_unattested_{uuid.uuid4().hex[:8]}"
+    admin = create_engine(pg_url, isolation_level="AUTOCOMMIT")
+    with admin.connect() as c:
+        c.execute(text(f'CREATE DATABASE "{name}"'))
+    url = make_url(pg_url).set(database=name).render_as_string(hide_password=False)
+    try:
+        assert run_alembic(url, "upgrade", "head").returncode == 0
+        st = world["settings"].model_copy(update={"database_url": url})
+        svc = AppServices.build(st)
+        assert svc.engine is not None
+        _load_gameweeks(svc.engine)
+        with session_scope(world["engine"]) as s:
+            src = s.get(m.ForecastPromotionRow, (world["snap"], world["key"]))
+            assert src is not None
+            vals = {c.name: getattr(src, c.name) for c in m.ForecastPromotionRow.__table__.columns}
+        with session_scope(svc.engine) as s:
+            s.add(m.ForecastPromotionRow(**vals))
+        cid = capture(svc.engine, st, svc.data, SEASON, 2, CUT[2] + timedelta(minutes=5))
+        h = load_checkpoint(svc.engine, cid).header
+        assert h.state == "prospective_unverified", (h.reasons, h.checks)
+        assert [r.split(":")[0] for r in h.reasons] == [TIME_CHECK]
+        assert h.attested_at is None and h.n_rows > 0
+        assert h.checks["info"]["local_clock"]["ok"]  # the host's clock says "before": not enough
+        assert h.checks["no_news_after_cutoff"]["ok"]  # no late news: not enough either
+        svc.engine.dispose()
+    finally:
+        with admin.connect() as c:
+            c.execute(text(f'DROP DATABASE "{name}" WITH (FORCE)'))
+
+
+def test_fpl_server_time_selects_the_checkpoint_and_the_hosts_clock_never_does(
+    world: dict[str, Any],
+) -> None:
+    """Promotions of a season of their own: an attested forecast is preferred to a newer one
+    only the host's clock places before the cutoff; one FPL's time shows was computed after the
+    cutoff (a clock that lagged after sleep) is never a candidate; an attestation of another
+    hash or from another host proves nothing."""
+    season, t = "2031-32", datetime(2031, 10, 1, 10, 0, tzinfo=UTC)
+    official = "https://fantasy.premierleague.com/api/event-status/"
+
+    def promo(n: int, exported: timedelta, promoted: timedelta) -> m.ForecastPromotionRow:
+        return m.ForecastPromotionRow(
+            snapshot_id=f"snap_s{n}",
+            forecast_key=f"fc_s{n}",
+            season=season,
+            gameweek=7,
+            prediction_run_id=f"pred_s{n}",
+            snapshot_created_at=t + exported,
+            artifact_sha256=str(n) * 64,
+            promoted_at=t + promoted,
+        )
+
+    def att(n: int, sha: str, after: timedelta, url: str = official, **kw: Any) -> Any:
+        return m.ForecastAttestationRow(
+            snapshot_id=f"snap_s{n}",
+            forecast_key=f"fc_s{n}",
+            artifact_sha256=sha,
+            kind=kw.get("kind", "existence"),
+            not_before=kw.get("before"),
+            not_after=t + after,
+            source_url=url,
+            evidence={},
+        )
+
+    with session_scope(world["engine"]) as s:
+        s.add_all(
+            [
+                promo(1, -timedelta(hours=5), -timedelta(hours=5)),
+                promo(2, -timedelta(hours=1), -timedelta(hours=1)),
+                promo(3, -timedelta(minutes=20), -timedelta(minutes=10)),
+                promo(4, -timedelta(hours=3), -timedelta(hours=3)),
+            ]
+        )
+        s.flush()
+        s.add_all(
+            [
+                att(
+                    1,
+                    "1" * 64,
+                    -timedelta(hours=5),
+                    kind="generation",
+                    before=t - timedelta(hours=5, seconds=40),
+                ),
+                att(
+                    3,
+                    "3" * 64,
+                    timedelta(hours=2),
+                    kind="generation",
+                    before=t + timedelta(hours=2),
+                ),
+                att(4, "x" * 64, -timedelta(hours=3)),  # another file's hash
+                att(4, "4" * 64, -timedelta(hours=3), url="https://example.test/api/"),
+            ]
+        )
+    with session_scope(world["engine"]) as s:
+        c = checkpoint_candidate(s, season, 7, t)
+        assert c.promotion is not None and c.promotion.snapshot_id == "snap_s1"
+        assert c.attested_at == c.existed_by == t - timedelta(hours=5)
+        assert c.later is not None and c.later.snapshot_id == "snap_s2"  # reported, not used
+        # no attested forecast of GW8: the host's choice, which can be unverified at best
+        # (snap_s3 is newer by the host's clock but FPL's time says it was computed later)
+        c8 = checkpoint_candidate(s, season, 8, t)
+        assert c8.promotion is not None and c8.promotion.snapshot_id == "snap_s2"
+        assert c8.attested_at is None and c8.existed_by is None and c8.later is None
+        times = ledger.server_times(s, season)
+        assert ("snap_s4", "fc_s4") not in times
+        assert times[("snap_s3", "fc_s3")].computed_after == t + timedelta(hours=2)
 
 
 def test_a_concurrent_capture_finds_the_first_one(
@@ -396,3 +548,44 @@ def test_a_snapshot_promoted_again_under_another_forecast_key_is_a_new_promotion
         assert latest.forecast_key == "fc_rekeyed"
         served = ledger.served_at(s, SEASON, datetime.now(UTC))
         assert served is not None and served.forecast_key != world["key"]
+
+
+def test_a_forecast_fpl_could_not_timestamp_is_attested_by_the_schedulers_job(
+    world: dict[str, Any],
+) -> None:
+    """FPL unreachable while a forecast is promoted: serving goes on without the proof; the
+    scheduler's ledger task asks again every tick, and a failure is a recorded failed job
+    (visible before the cutoff), never a guess from the host's clock."""
+    svc, st, eng, clock = world["svc"], world["settings"], world["engine"], world["clock"]
+    time.sleep(1.1)
+    ds = with_gameweek_results(DS, SEASON, 2, functools.partial(_points, shift=3))
+    snap = export_snapshot(ds, world["root"]).name
+    svc.data.refresh()
+    clock.down = True
+    key = jobs_mod._job_forecast(svc, {})
+    assert svc.data.snapshot_id == snap
+    assert (st.artifact_dir / "serving" / f"{snap}.ready").exists()  # served regardless
+    with session_scope(eng) as s:
+        assert s.get(m.ForecastPromotionRow, (snap, key)) is not None
+        assert (
+            _count(eng, m.ForecastAttestationRow, m.ForecastAttestationRow.snapshot_id == snap) == 0
+        )
+    assert unattested_newest(eng) == (snap, key)
+    backend = JobBackend(svc)
+    out = task_forecast_ledger(svc, backend, "t1")
+    assert out["attest"] == snap
+    failed = backend.get(out["jobs"][-1])
+    assert failed is not None and failed["status"] == "failed"
+    assert "FPL server time not recorded" in str(failed["error"])
+    clock.down = False
+    out = task_forecast_ledger(svc, backend, "t2")
+    done = backend.get(out["jobs"][-1])
+    assert done is not None and done["result_ref"] == "attested", done
+    with session_scope(eng) as s:
+        (a,) = s.scalars(
+            select(m.ForecastAttestationRow).where(m.ForecastAttestationRow.snapshot_id == snap)
+        ).all()
+        assert a.kind == "existence" and a.not_before is None
+        assert a.artifact_sha256 == sha256_file(forecast_path(st, key))
+    assert unattested_newest(eng) is None
+    assert task_forecast_ledger(svc, backend, "t3")["attest"] is None

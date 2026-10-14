@@ -117,8 +117,9 @@ Deeper: [optimiser](docs/architecture/optimizer.md) · [result lifecycle](docs/a
   after the deadline, evaluations are insert-only and idempotent, and official corrections add
   a revision instead of overwriting ([design](docs/architecture/decision-journal.md)).
 * **A live record, evaluated by a contract fixed in advance.** The forecast served at each
-  decision cutoff is committed to (file hash, export time, database clock) before it can be
-  served and frozen afterwards; it is scored only on final results, with the gameweek as the
+  decision cutoff is committed to (file hash) before it can be served, its existence before the
+  cutoff is established by FPL's server clock rather than the host's, and it is frozen
+  afterwards; it is scored only on final results, with the gameweek as the
   unit of evidence, intervals, an exact sign-flip test and verdicts only at predeclared looks
   ([evaluation contract](docs/architecture/season-evaluation.md)).
 * **Result lifecycle.** Recommendations and workbench runs are judged against the promoted data

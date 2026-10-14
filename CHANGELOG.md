@@ -13,6 +13,12 @@ User-visible behaviour changes (§78). Milestones follow `docs/BUILD_STATUS.md`.
   news stamped after the cutoff, no result of the gameweek). It outlives the forecast cache, the snapshot and
   restarts; nothing is ever recomputed for a gameweek that was not recorded. The record started
   on 2026-10-14; 2026-27 GW1–6 are shown as "before the record".
+- **FPL server time for the forecast record.** The laptop's clock no longer decides whether a
+  forecast was frozen before kickoff: FPL's own server time (the HTTP `Date` of a request made
+  after the forecast file was written and hashed) must be before the cutoff. Without it a
+  checkpoint is "timing not proven" and never scored; FPL news stamps are a leakage check only.
+  Migration 0008 (`forecast_attestations`, state `prospective_unverified`); scheduler job
+  `forecast_attest`.
 - **Season Review** page (`/season-review`): the live record (forecast frozen before kickoff)
   with its checkpoint timeline; once results are final, per-gameweek tables, the difference from
   each predeclared baseline with intervals over gameweeks, and calibration checks against

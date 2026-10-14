@@ -313,6 +313,9 @@ class ForecastService:
         self.on_forecast: Callable[[Forecast, int, Path | None], None] | None = None
         self._mem: dict[str, Forecast] = {}
         self._lock = threading.Lock()
+        # key -> monotonic time this process started computing it (the forecast record bounds a
+        # computation's start only when it knows the computation happened here, after a time)
+        self.computed: dict[str, float] = {}
 
     def key(
         self,
@@ -373,6 +376,7 @@ class ForecastService:
             if k in self._mem:
                 return self._mem[k]
             t0 = time.perf_counter()
+            self.computed[k] = time.monotonic()
             try:
                 hist = history_cutoffs(ds, season)
                 cut = next(c for c in hist if c.season == season and c.gw == gw)

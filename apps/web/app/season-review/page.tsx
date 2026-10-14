@@ -72,9 +72,10 @@ interface TimelineItem {
   gameweek: number;
   cutoff: string;
   results_final_expected: string | null;
-  state: "before_record" | "upcoming" | "due" | "prospective" | "live_unverified" | "missed";
+  state: "before_record" | "upcoming" | "due" | "prospective" | "prospective_unverified" | "live_unverified" | "missed";
   captured_at: string | null;
   promoted_at: string | null;
+  attested_at?: string | null;
   reasons: string[];
   rows: number;
 }
@@ -107,7 +108,12 @@ interface RefSeason { G: number; rmse: Record<string, number>; crps: { model: nu
 
 interface SeasonReview {
   season: string;
-  timeline: { record_started: string | null; gameweeks: TimelineItem[]; next_checkpoint: TimelineItem | null };
+  timeline: {
+    record_started: string | null;
+    gameweeks: TimelineItem[];
+    next_checkpoint: TimelineItem | null;
+    current_forecast?: { promoted_at: string; gameweek: number; fpl_server_time: string | null } | null;
+  };
   evaluation: Evaluation | null;
   reference: { all: { gameweeks: number[]; seasons: Record<string, RefSeason> }; generated: string } | null;
   reference_window_is_default: boolean;
@@ -151,6 +157,7 @@ const STATE_LABEL: Record<TimelineItem["state"], string> = {
   upcoming: "upcoming",
   due: "capture pending (may be recorded as missed)",
   prospective: "frozen before kickoff",
+  prospective_unverified: "captured, timing not proven",
   live_unverified: "captured, not verified",
   missed: "missed",
 };
@@ -159,6 +166,7 @@ const STATE_TONE: Record<TimelineItem["state"], "good" | "warn" | "bad" | "neutr
   upcoming: "neutral",
   due: "neutral",
   prospective: "good",
+  prospective_unverified: "warn",
   live_unverified: "warn",
   missed: "bad",
 };
@@ -298,6 +306,13 @@ export default function SeasonReview() {
                 {next.results_final_expected ? `; results expected to be final around ${utc(next.results_final_expected)}` : ""}.
               </>
             ) : null}
+            {next && next.state === "upcoming" && d.timeline.current_forecast ? (
+              <div className="small" data-testid="current-forecast-time">
+                {d.timeline.current_forecast.fpl_server_time
+                  ? `The current forecast existed by ${utc(d.timeline.current_forecast.fpl_server_time)} by FPL's server clock.`
+                  : "FPL's server clock has not yet confirmed when the current forecast existed; until it does, it cannot count as frozen before kickoff."}
+              </div>
+            ) : null}
             {d.evaluation ? (
               <div className="small">
                 Evaluated {utc(d.evaluation.created_at)} · evaluation #{d.evaluation.seq} ({d.evaluation.trigger.replaceAll("_", " ")}) ·{" "}
@@ -312,9 +327,10 @@ export default function SeasonReview() {
           {/* 2. live record */}
           <Card title="Live record — forecast frozen before kickoff" testId="live-record" wide>
             <p className="small">
-              The forecast Copilot served at each gameweek&apos;s decision cutoff (90 minutes before the deadline). Its file hash, its data
-              export time and its promotion were recorded in the database before the cutoff, and the frozen forecast is checked against them;
-              the data itself must contain no FPL news stamped after the cutoff and no result of the gameweek. Gameweeks before{" "}
+              The forecast Copilot served at each gameweek&apos;s decision cutoff (90 minutes before the deadline). Its file hash was
+              recorded when it was published, and FPL&apos;s own server clock (not this computer&apos;s) must show the file existed before the
+              cutoff; the frozen forecast is checked against that hash, and its data must contain no FPL news stamped after the cutoff and no
+              result of the gameweek. Without FPL&apos;s time it is shown as &ldquo;timing not proven&rdquo; and never scored. Gameweeks before{" "}
               {d.timeline.record_started ? utc(d.timeline.record_started) : "the record began"} were not recorded and are never reconstructed.
             </p>
             <Timeline items={d.timeline.gameweeks} />
@@ -403,7 +419,9 @@ function Timeline({ items }: { items: TimelineItem[] }) {
                 <Badge tone={unscored ? "warn" : STATE_TONE[i.state]}>{STATE_LABEL[i.state]}{unscored ? " — not scored (no baselines)" : ""}</Badge>
               </td>
               <td className="small">
-                {i.state === "prospective" ? `${i.rows.toLocaleString()} player-gameweek forecasts · promoted ${utc(i.promoted_at)} · captured ${utc(i.captured_at)}` : null}
+                {i.state === "prospective"
+                  ? `${i.rows.toLocaleString()} player-gameweek forecasts · existed by ${utc(i.attested_at)} (FPL server time) · captured ${utc(i.captured_at)}`
+                  : null}
                 {i.reasons.length ? `${i.state === "prospective" ? " · " : ""}${i.reasons.join("; ")}` : null}
                 {i.state === "before_record" ? "the record had not started" : null}
               </td>

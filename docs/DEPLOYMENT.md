@@ -262,11 +262,22 @@ under assumptions, and `/squad/sync` answers `503` with guidance to enter the sq
 
 * The forecast job writes a `forecast_promotions` row (forecast file hash, export time,
   database clock) **before** the ready marker; if it cannot, the job fails and nothing is
-  promoted. The scheduler's `forecast_ledger` task (every 15 minutes) checks, in the database
-  only, for gameweeks whose decision cutoff has passed since the record began without a
-  checkpoint, and submits `forecast_capture` (lease 15 min). `season_eval` (hourly) submits an
-  evaluation only when the input digest changed. Both are idempotent; a failed capture is
-  submitted again on the next tick, and retention keeps its candidate meanwhile.
+  promoted. It then records FPL's server time (`forecast_attestations`, migration 0008): an
+  HTTPS request to `fantasy.premierleague.com/api/event-status/` before computing and another
+  after hashing the file. The worker therefore needs outbound HTTPS to FPL, which ingestion
+  already uses; `FPL_TIME_ATTESTATION=false` turns it off (the test suite does), and every
+  checkpoint is then at best `prospective_unverified`. A failure never blocks serving.
+* The scheduler's `forecast_ledger` task (every 15 minutes) checks, in the database only, for
+  gameweeks whose decision cutoff has passed since the record began without a checkpoint, and
+  submits `forecast_capture` (lease 15 min); and, when the newest promotion has no FPL server
+  time on record, `forecast_attest` (lease 5 min), which fails while FPL is unreachable.
+  `season_eval` (hourly) submits an evaluation only when the input digest changed. All are
+  idempotent; a failed capture or attestation is submitted again on the next tick, and
+  retention keeps the candidates meanwhile.
+* Persistence: the stack's services run with `restart: unless-stopped`, independent of any
+  terminal or editor session, but only while the Docker VM runs. On macOS with Colima, start
+  the VM at login (`brew services start colima`) or start it after every reboot; a laptop
+  asleep before a cutoff freezes an older forecast (contract §2.3).
 * Build with `FPL_BUILD_REVISION=$(git rev-parse HEAD)` (append `-dirty` when the tree has
   uncommitted changes); it is recorded with every forecast and checkpoint and is `unrecorded`
   otherwise. The code digest recorded beside it is computed from the installed sources.

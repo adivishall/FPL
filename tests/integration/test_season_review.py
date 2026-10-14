@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import Iterator
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -31,6 +31,7 @@ from fpl_api.settings import Settings
 from fpl_storage import models as m
 from fpl_storage.dataset import CanonicalDataset, export_snapshot
 from fpl_storage.db import session_scope
+from tests.clock_util import FakeFplClock
 from tests.fixtures_util import with_gameweek_results
 from tests.integration.test_identity import _bearer, _register
 from tests.integration.test_ledger import CUT, DS, SEASON, _backdate, _load_gameweeks
@@ -69,9 +70,13 @@ def world(pg_url: str, tmp_path_factory: pytest.TempPathFactory) -> Iterator[dic
     )
     svc = AppServices.build(st)
     assert svc.engine is not None
+    earlier = CUT[GW] - timedelta(hours=2)
+    # FPL's server time while the forecast job runs: two hours before the cutoff (the forecast
+    # is computed now; its host-clock times are moved there too)
+    svc.server_clock = clock = FakeFplClock(earlier)
     _load_gameweeks(svc.engine)
     jobs_mod._job_forecast(svc, {})
-    earlier = CUT[GW] - timedelta(hours=2)
+    clock.at = None
     _backdate(svc.engine, a.name, earlier, earlier - timedelta(hours=1))
     cid = capture(svc.engine, st, svc.data, SEASON, GW, CUT[GW] + timedelta(minutes=5))
     with TestClient(create_app(st, svc)) as client:
@@ -277,6 +282,12 @@ def test_the_season_review_endpoint_is_public_and_reads_stored_rows(
     assert body["season"] == SEASON
     states = {g["gameweek"]: g["state"] for g in body["timeline"]["gameweeks"]}
     assert states[1] == "before_record" and states[2] == "prospective"
+    gw2 = next(g for g in body["timeline"]["gameweeks"] if g["gameweek"] == 2)
+    # FPL's server time is what the page shows for "existed by", never the host's clock
+    attested = datetime.fromisoformat(gw2["attested_at"])
+    assert attested == CUT[GW] - timedelta(hours=2) + timedelta(seconds=1)
+    current = body["timeline"]["current_forecast"]
+    assert current is not None and current["fpl_server_time"] is not None
     ev = body["evaluation"]
     assert ev["metrics"]["results"]["all"]["h0"]["G"] == 1
     assert ev["trigger"] == "outcome_correction"

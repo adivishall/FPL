@@ -32,7 +32,15 @@ import pandas as pd
 import structlog
 from sqlalchemy import Engine, select, text
 
-from fpl_api.ledger import KIND, Checkpoint, load_checkpoint, record_started, season_gameweeks
+from fpl_api.ledger import (
+    KIND,
+    Checkpoint,
+    load_checkpoint,
+    record_started,
+    season_gameweeks,
+    served_at,
+    server_times,
+)
 from fpl_api.provenance import code_digest
 from fpl_api.services import DataService
 from fpl_domain.rules import load_ruleset
@@ -674,6 +682,7 @@ def timeline(engine: Engine, season: str, now: datetime | None = None) -> dict[s
                     "checkpoint_id": ck.id if ck else None,
                     "captured_at": ck.captured_at.isoformat() if ck else None,
                     "promoted_at": ck.promoted_at.isoformat() if ck and ck.promoted_at else None,
+                    "attested_at": ck.attested_at.isoformat() if ck and ck.attested_at else None,
                     "reasons": list(ck.reasons) if ck else [],
                     "rows": int(ck.n_rows) if ck else 0,
                     "prediction_run_id": ck.prediction_run_id if ck else None,
@@ -681,11 +690,27 @@ def timeline(engine: Engine, season: str, now: datetime | None = None) -> dict[s
                     "code_digest": ck.code_digest if ck else None,
                 }
             )
+        # the forecast served now — the next cutoff's candidate — and whether FPL's server time
+        # already shows its file existed (what makes that checkpoint prospective)
+        newest = served_at(s, season, now)
+        current = None
+        if newest is not None:
+            proof = server_times(s, season).get((newest.snapshot_id, newest.forecast_key))
+            current = {
+                "promoted_at": newest.promoted_at.isoformat(),
+                "gameweek": int(newest.gameweek),
+                "fpl_server_time": (
+                    proof.existed_by.isoformat()
+                    if proof is not None and proof.existed_by is not None
+                    else None
+                ),
+            }
     upcoming = next((i for i in items if i["state"] in ("upcoming", "due")), None)
     return {
         "record_started": started.isoformat() if started else None,
         "gameweeks": items,
         "next_checkpoint": upcoming,
+        "current_forecast": current,
     }
 
 

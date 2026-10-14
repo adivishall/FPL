@@ -225,11 +225,17 @@ Contract: `docs/architecture/season-evaluation.md`.
   count), because the shared finality rule is unchanged.
 * **Recorded decisions** in the Season Review are one manager's own, few, correlated and
   self-selected; nothing there estimates the effect of following Copilot.
-* **One host's clocks.** Promotion and export times come from the laptop's Docker VM and database
-  clocks. Two checks on the data itself (no FPL news stamped after the cutoff, no result of the
-  gameweek) bound a clock that lags after sleep, but a match in progress leaves no trace in the
-  data. A capture that keeps failing is retried every 15 minutes, with no dedicated alert (the
-  page shows "capture pending").
+* **Time comes from FPL's server, not a third party.** Promotion and export times come from the
+  laptop's clocks (Colima VM, database), which can lag after sleep; they never decide. A forecast
+  counts as frozen before kickoff only when FPL's HTTP `Date` (read after the file was written
+  and hashed) is before the cutoff; otherwise it is "timing not proven" and never scored. This
+  defeats a wrong clock, not an operator who fabricates rows (an RFC 3161 timestamp would). FPL
+  news stamps are a leakage check only.
+* **One laptop.** If FPL cannot be reached while the laptop is awake before a cutoff, that
+  gameweek is "timing not proven"; if the laptop sleeps through the hours before a cutoff, an
+  older (still pre-deadline) forecast is frozen. The Colima VM does not start at login. A capture
+  or attestation that keeps failing is a failed job every 15 minutes, with no dedicated alert
+  (the page shows "capture pending").
 * **Statistical assumptions** (contract §6.1, §14): gameweeks are treated as independent although
   form and injuries carry over, so intervals may be somewhat narrow; all-player calibration checks
   are diluted by players who rarely play; exclusions (postponements, departed players) are not

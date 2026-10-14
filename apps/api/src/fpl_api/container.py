@@ -11,6 +11,7 @@ import pandas as pd
 import structlog
 from sqlalchemy import Engine
 
+from fpl_api.attestation import FplServerClock, ServerClock
 from fpl_api.copilot import AnalysisStore
 from fpl_api.lineage import LineageStore
 from fpl_api.observability import Metrics
@@ -21,6 +22,7 @@ from fpl_api.services import (
     PriceService,
     RecommendationStore,
     StateStore,
+    sources_config,
 )
 from fpl_api.settings import Settings
 from fpl_api.watch import plan_watch
@@ -68,6 +70,7 @@ class AppServices:
     workbench: WorkbenchStore | None = None
     metrics: Metrics = field(default_factory=Metrics)
     extras: dict[str, Any] = field(default_factory=dict)
+    server_clock: ServerClock | None = None  # FPL's time for the forecast record (M1.5)
 
     @classmethod
     def build(cls, settings: Settings, dataset: Any = None) -> AppServices:
@@ -92,6 +95,9 @@ class AppServices:
             notifications=NotificationStore(engine) if engine else None,
             analyses=AnalysisStore(engine) if engine else None,
             workbench=WorkbenchStore(engine) if engine else None,
+            server_clock=(
+                FplServerClock.from_config(sources_config()) if settings.time_attestation else None
+            ),
         )
 
     # ------------------------------------------------------------------ shared building blocks

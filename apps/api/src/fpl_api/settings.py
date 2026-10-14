@@ -57,6 +57,11 @@ class Settings(BaseSettings):
         "sets False and serves only precomputed forecasts (ADR-0009)",
     )
     sync_horizon_limit: int = Field(5, description="larger optimisations run as async jobs")
+    time_attestation: bool = Field(
+        True,
+        description="record FPL's server time around each promoted forecast (the forecast "
+        "record's proof that it existed before a deadline); the test suite turns it off",
+    )
 
     @model_validator(mode="after")
     def _horizons_within_model_contract(self) -> Settings:

@@ -61,10 +61,12 @@ been played publicly, but before this system scored any of them.
 ### Live record — forecast frozen before kickoff
 
 What it is: the forecast the product served at a gameweek's decision cutoff. The forecast record
-captures it with checks that prove it was promoted before the cutoff (§2).
+captures it with checks that prove — by FPL's server clock, not this host's — that it existed
+before the cutoff (§2).
 
 Where it comes from: `forecast_checkpoints` rows with state `prospective`, and their
-`predictions` rows.
+`predictions` rows. A checkpoint whose timing FPL's clock does not establish
+(`prospective_unverified`) is not in this class.
 
 What it can show: genuine out-of-sample evidence. It is the only class that can support "the
 live forecasts are calibrated". It starts at GW7 of 2026-27.
@@ -115,14 +117,66 @@ first writes a `forecast_promotions` row with:
 
 The row is insert-if-absent, so the first promotion time is kept. If the row cannot be written,
 the job fails and nothing is promoted. So a served forecast always has its commitment in the
-database before the API can serve it.
+database before the API can serve it. `promoted_at` and the export time come from this host's
+clocks; they say what the host did, not when (§2.1a).
+
+### 2.1a FPL server time (time-attestation review, 2026-10-14)
+
+The stack runs on a laptop. Its clocks — the Colima VM's and the database's — can lag after the
+laptop sleeps, and FPL `news_added` stamps only show when FPL last edited a player's news. Neither
+can show that a forecast existed before a deadline. FPL's own API can: every response carries an
+HTTP `Date` header from FPL's CDN. A response is not generated before its request was sent, nor
+received before it was generated. So:
+
+* a request sent **after** the forecast file was written and hashed bounds the file's existence
+  from above: `not_after = Date + Age + 1 s`. `Age` (seconds the body sat in a cache) keeps the
+  bound conservative whichever way the CDN sets `Date`, and the second covers its whole-second
+  resolution. Observed on 2026-10-14: FPL is served by Fastly, `Date` equalled the NTP-synced host
+  clock to within a second while `Age` was 276 s — so the bound overstates by the cache age, the
+  safe direction;
+* a response received **before** the computation started bounds its start from below:
+  `not_before = Date`.
+
+`forecast_attestations` (migration 0008, insert-only) holds these per promotion:
+
+* **`generation`**: the forecast job reads FPL's time before computing, then — after recording
+  the promotion — hashes the file and reads FPL's time again. `not_before` is kept only when
+  that job computed the file after the first read (a file loaded from disk was computed
+  earlier).
+* **`existence`**: a later proof for a promotion without one (the job could not reach FPL, or
+  the promotion predates attestation). The scheduler's `forecast_ledger` task checks every 15
+  minutes whether the newest promotion — the candidate for the next cutoff — has one, and if
+  not submits a `forecast_attest` job: it re-hashes the stored file and, only if the hash is
+  still the promoted one, reads FPL's time. The job **fails** (recorded, counted, retried next
+  tick) when FPL cannot be reached, so a missing proof is visible before the cutoff.
+
+Each row stores the file hash read at attestation, the source URL, the raw `Date` and `Age`, the
+CDN edge, this host's clock at send and receipt (a skew measurement, never evidence), and the
+build revision and code digest of the process. Only `https://fantasy.premierleague.com` counts:
+the request goes through the ingestion client's host allowlist with redirects disabled, and the
+URL is checked again when a checkpoint is judged. An attestation proves something only about
+the hash the promotion recorded. A failure to reach FPL never blocks serving; it leaves the
+forecast without proof.
+
+What this does not defend against: an operator who fabricates rows. It establishes the time
+against a clock that lags or jumps, not against a dishonest host; a third-party timestamp
+(RFC 3161) would be the next step (§14).
 
 ### 2.2 Checkpoint rule
 
-For each (season, gameweek), the live checkpoint is the forecast the API would have served at the
-decision cutoff (deadline − 90 minutes). That is the forecast of the newest snapshot, by export
-time, among those whose promotion was recorded at or before the cutoff. This matches
-`DataService._newest(ready_only=True)`, which serves the newest export that has a ready marker.
+For each (season, gameweek), the live checkpoint is the forecast served at the decision cutoff
+(deadline − 90 minutes):
+
+1. **The host's choice** is the forecast of the newest snapshot, by export time, among those
+   whose promotion the host's clock places at or before the cutoff. This matches
+   `DataService._newest(ready_only=True)`, which serves the newest export that has a ready
+   marker. A promotion FPL's time shows was *computed after* the cutoff (`not_before` > cutoff:
+   a clock that lagged after sleep) is never a candidate.
+2. **FPL's time decides when it can.** If FPL's server time shows that a forecast *of this
+   gameweek* existed by the cutoff, the newest such forecast is frozen. A newer forecast that
+   only the host's clock places before the cutoff is reported in `checks.info`
+   (`later_promotion_without_server_time`) and never used.
+3. Otherwise the host's choice is frozen, and it can be `prospective_unverified` at best.
 
 It is not "the forecast every recommendation used":
 
@@ -133,46 +187,67 @@ Recorded decisions are scored against their own stored decision-time values (§9
 
 ### 2.3 Prospective test
 
-A checkpoint has state `prospective` only when all six checks hold:
+A checkpoint has state `prospective` only when every deciding check holds:
 
-1. `promoted_at` ≤ cutoff.
-2. The snapshot's export time ≤ cutoff. This bounds every channel by which information from after
-   the cutoff reaches a point-in-time view:
-   * result rows reloaded with corrected values that keep their original `available_at`;
-   * schedule backdating under rule S1;
-   * the players table, which is read without a time filter.
-3. The SHA-256 of the forecast file at capture equals the one in the promotion record. The
-   prediction run id, data snapshot and forecast key in the file also match the record.
-4. The cutoff in the forecast's provenance equals the cutoff computed from the gameweek's
-   deadline at capture. If FPL moved the deadline, the checkpoint is flagged `deadline_moved`, and
-   checks 1–2 apply against the earlier of the two cutoffs.
-5. **No FPL news after the cutoff.** No player's news in the forecast's own snapshot carries an
-   FPL `news_added` stamp after the cutoff.
-6. **No result of the gameweek.** No fixture of the gameweek has a result (provisional or final)
-   in that snapshot, and none of its result rows was loaded.
+1. **`fpl_server_time_before_cutoff`.** The earliest FPL server time on record for the promoted
+   file's hash (`not_after`, from the official API) is at or before the cutoff. This is the only
+   time evidence. The checkpoint's `attested_at` holds it.
+2. **`file_unchanged_since_promotion`.** The SHA-256 of the forecast file at capture equals the
+   one in the promotion record.
+3. **`identity_matches_promotion`.** The prediction run id, data snapshot, forecast key, season
+   and decision gameweek in the file match the record.
+4. **`cutoff_matches_deadline`.** The cutoff in the forecast's provenance equals the cutoff
+   computed from the gameweek's official deadline (`events[].deadline_time`, ingested hourly) at
+   capture. If FPL moved the deadline, the checkpoint is flagged `deadline_moved`, and check 1
+   applies against the earlier of the two cutoffs.
+5. **Leakage: `no_news_after_cutoff`.** No player's news in the forecast's own snapshot carries
+   an FPL `news_added` stamp after the cutoff.
+6. **Leakage: `no_results_of_the_gameweek`.** No fixture of the gameweek has a result
+   (provisional or final) in that snapshot, and none of its result rows was loaded.
 
-Checks 1–2 rely on this host's clocks (Docker VM and database). Checks 5–6 are clock-independent
-evidence from the data itself, using FPL's own timestamps; they guard against a laptop's VM clock
-lagging after sleep. A match in progress leaves no canonical trace, so check 6 bounds post-match
-data only. The checks are stored apart from informational ones (baselines available, prediction
-run registered), which never decide the state.
+Checks 5–6 detect post-cutoff data: a failure proves it reached the forecast. A pass proves
+nothing about time — news is not stamped on a schedule, and a match in progress leaves no
+canonical trace — so they are never used as a clock. Check 1 also bounds the snapshot: the
+forecast was computed from it, so its content was fixed before the file existed. That covers
+every channel by which later information could reach a point-in-time view (result rows reloaded
+with corrected values that keep their original `available_at`; schedule backdating under rule
+S1; the players table, read without a time filter).
+
+Informational, never deciding (`checks.info`):
+
+* `local_clock`: promotion and export times by the host's clocks against the cutoff (how the
+  host's choice was made; a skew signal next to FPL's time);
+* `later_promotion_without_server_time` (§2.2);
+* `captured_server_time`: FPL's time when the capture ran;
+* baselines available, feature frame reproduced, prediction run registered.
 
 Capture time is recorded but is not a check. The forecast file is never rewritten:
 
 * `ForecastService.get` returns an existing file;
 * retention only deletes;
-* retention keeps the candidate until it is captured (§2.6).
+* retention keeps the candidates until captured (§2.6).
 
 A capture after kickoff therefore adds no risk, and a host that sleeps through the cutoff does not
-lose the gameweek.
+lose the gameweek: what matters is that FPL's time showed the forecast existed before the cutoff,
+which the generation and existence attestations establish while the host is awake beforehand.
+A host asleep through the hours before the cutoff freezes an older — still genuinely
+prospective — forecast; its age is visible (`attested_at`, export time).
 
 ### 2.4 States
 
-* **`prospective`**: every check holds. These checkpoints form the live record.
-* **`live_unverified`**: a forecast was captured, but a check failed. The failed checks are
-  stored. It is shown separately with its reasons, and never scored with the live record.
-* **`missed`**: no promotion was recorded before the cutoff, or the file was gone at capture. The
-  reason is stored. Nothing is ever recomputed in its place.
+* **`prospective`**: every deciding check holds, FPL's server time included. These checkpoints
+  form the live record.
+* **`prospective_unverified`**: every other check holds, but no FPL server time shows the file
+  existed by the cutoff (none on record, or only a later one). The host's clock is never enough.
+  Stored in full with its reason; shown separately as "timing not proven"; never scored with the
+  live record.
+* **`live_unverified`**: a forecast was captured, but a check other than the server time failed
+  (a changed file, another identity, leakage in the data, the snapshot gone). The failed checks
+  are stored. It is shown separately with its reasons, and never scored with the live record.
+* **`missed`**: no promotion was recorded before the cutoff, the forecast served then was for
+  another gameweek, or the file was gone at capture. The reason is stored. Nothing is ever
+  recomputed in its place, and a forecast made after the deadline is never recorded as this
+  gameweek's.
 * **Before the record**: a gameweek whose cutoff precedes the first recorded promotion. No row is
   written. The page says when the record began.
 
@@ -186,7 +261,8 @@ Everything is insert-only.
 * state, with reasons and checks;
 * prediction run, forecast key, and data and feature snapshots;
 * cutoff, deadline and first kickoff;
-* export, promotion, generation and capture times;
+* export, promotion, generation and capture times, and `attested_at` — the FPL server time by
+  which the file provably existed (§2.1a);
 * model, feature and ruleset versions, and the simulation seed and size;
 * the compute-time and capture-time code digests;
 * the image build revision as given at build time: a git SHA, with `-dirty` when the tree had
@@ -235,15 +311,17 @@ distribution blob. A season is about 127k rows and about 10 MB of blobs.
 
 ### 2.6 Retention
 
-Until a checkpoint row exists, retention keeps three things for every gameweek whose cutoff has
-passed since the record began:
+Until a checkpoint row exists, retention keeps three things for every candidate (§2.2: FPL's
+choice, the host's choice and a newer unproven one) of every gameweek whose cutoff has passed
+since the record began, and for the newest promotion:
 
 * the candidate snapshot, with its caches;
 * its forecast file;
 * its ready marker.
 
 Once captured, the checkpoint is self-contained (rows, blobs, hashes), and the snapshot follows
-the normal rule.
+the normal rule. Promotion and attestation rows are never deleted (an attestation's promotion is
+RESTRICT).
 
 ### 2.7 Code identity
 
@@ -543,6 +621,11 @@ The scheduler task **`forecast_ledger`** runs every 15 minutes and only queries 
 each gameweek of the current season that has no checkpoint and whose cutoff has passed since the
 record began, it submits `forecast_capture {season, gameweek}`.
 
+The same task checks, from the database, whether the newest promotion has FPL's server time on
+record (§2.1a). If not, it submits **`forecast_attest {snapshot_id, forecast_key}`** (5-minute
+lease), which fails — recorded and counted like any failed job — when FPL cannot be reached, and
+is submitted again on the next tick.
+
 The **`forecast_capture`** job has a 15-minute lease. It:
 
 1. selects the candidate (§2.2);
@@ -551,7 +634,8 @@ The **`forecast_capture`** job has a 15-minute lease. It:
 4. writes the header, rows and blobs in one transaction.
 
 It is idempotent. The unique constraint makes a concurrent second capture a no-op, and a failed
-job writes nothing.
+job writes nothing. Both run in the Docker stack's scheduler and worker (`restart:
+unless-stopped`), not in any interactive session.
 
 ### 8.2 Evaluation
 
@@ -722,8 +806,9 @@ records, for the season under review.
      expected to be final;
    * the newest evaluation's time and version, and what changed since the previous one.
 2. **Live record — forecast frozen before kickoff**:
-   * the checkpoint timeline: per gameweek, captured / missed / before the record / unverified,
-     with reasons;
+   * the checkpoint timeline: per gameweek, captured / timing not proven / not verified / missed
+     / before the record, with reasons and the FPL server time by which the forecast existed;
+   * before a cutoff: whether FPL's server time already shows the current forecast existed;
    * the per-gameweek table;
    * one dot-and-interval "difference vs baseline" per comparison C1–C4, with direction counts;
    * K1–K3, with their margins and the past-season same-window value;
@@ -809,9 +894,18 @@ Data Health labels its gates "passed on past seasons 2023–26", and links here.
 * **Past-season comparability.** Past seasons filled missing outcomes with 0 where the live record
   excludes them, and their PIT-80 variance includes randomisation noise. Margins set from it are
   therefore conservative.
-* **Host clock and availability.** The stack runs on one laptop. Checks 5–6 of §2.3 bound a lagging
-  VM clock from the data side only. A capture that keeps failing is retried every 15 minutes, with
-  no dedicated alert. If no forecast is promoted before a cutoff, that gameweek is `missed`.
+* **Host clock and availability.** The stack runs on one laptop. Time evidence comes from FPL's
+  server (§2.1a), so a lagging clock cannot make a late forecast prospective; it can still make a
+  forecast `prospective_unverified` when FPL could not be reached while the host was awake before
+  the cutoff. A host asleep through the hours before a cutoff freezes an older forecast. The
+  Colima VM is not registered to start at login, so after a reboot nothing runs until it is
+  started. A capture or attestation that keeps failing is a failed job every 15 minutes (counted
+  in the job-failure metric), with no dedicated alert. If no forecast is promoted before a cutoff,
+  that gameweek is `missed`.
+* **Server time is not a third-party timestamp.** It defeats a wrong clock, not a dishonest
+  operator who fabricates rows; an RFC 3161 timestamp of each promoted hash would. `Date` has
+  one-second resolution and `Age` makes the upper bound conservative by the CDN's cache age
+  (minutes), which matters only for a forecast promoted within minutes of a cutoff.
 
 ## 15. Review findings and their resolution
 
@@ -883,7 +977,7 @@ the earlier version.
 |---|---|
 | A snapshot re-keyed by a configuration change kept its first promotion, so the record could name a forecast the API no longer served | Promotions keyed by (snapshot, forecast key), migration 0007; retention keeps the newest promotion as well as passed cutoffs' candidates (§2.1, §2.6) |
 | A failed promotion record or ready marker was never retried for a cached forecast | The scheduler re-promotes a cached serving forecast whose record or marker is missing |
-| Host clock trust after sleep | Clock-independent prospective checks 5–6 (§2.3) |
+| Host clock trust after sleep | Superseded by the time-attestation review below: checks 5–6 are leakage checks, not a clock |
 | Informational checks stored beside the prospective ones | Stored apart (`checks.info`) |
 | A formal look could be re-formed by a gameweek finalised late, or silently revised | Settled looks, and look revisions in the changes block (§6.2) |
 | "As served" pooled horizons and dropped postponement blanks | Horizon 0 only, with blanks scored as 0 |
@@ -897,3 +991,18 @@ the earlier version.
 | Page: stale verdicts between looks, "12 of 8", a chart whose marks always touched its edges, missing window states, no expected finality, local times, a hard-coded calibration date, an unknown season returning 500 | All fixed: the status is shown between looks with the checks so far; the chart uses a common scale (% of the baseline's error) and draws only intervals; window states, expected finality (last kickoff + lag) and UTC times are shown; the calibration text is derived from the timeline; an unknown season returns 404 |
 | The page needs a sign-in, but the contract said it was public | Contract amended (§12): the endpoint is public, the page sits behind the beta sign-in |
 
+### Time-attestation review (2026-10-14, before the GW7 cutoff and before any live outcome)
+
+A review of how the record establishes *when* a forecast existed, before the first live cutoff
+was armed. Evaluator version unchanged (`season-eval-1.1.0`): the statistics are untouched and
+only `prospective` checkpoints are scored, as before.
+
+| Finding | Resolution |
+|---|---|
+| `promoted_at` and the export time come from the laptop's clocks (Colima VM, database), which can lag after sleep, yet decided the prospective test | They are informational (`local_clock`); the deciding time check is FPL's server time, `fpl_server_time_before_cutoff` (§2.1a, §2.3) |
+| Absent post-cutoff FPL news was treated as clock evidence; `news_added` is when FPL edited a player's news, not a server clock | Checks 5–6 are leakage detection only: a failure disqualifies, a pass proves nothing about time (§2.3) |
+| Does FPL give a usable time? | Yes: `Date` from Fastly at delivery, plus `Age`; verified 2026-10-14 against an NTP-synced clock. Bounds: `not_after = Date + Age + 1 s` after the file is hashed, `not_before = Date` before computing (§2.1a) |
+| A forecast without such evidence could still be called prospective | New state `prospective_unverified` (migration 0008), shown as "timing not proven", never scored (§2.4) |
+| A promotion made while FPL was unreachable, or before this change, would stay unproven | The scheduler's `forecast_attest` job attests the newest promotion's stored file (hash checked first) and fails visibly while FPL is unreachable (§8.1) |
+| A clock that lagged after sleep could place a post-cutoff forecast before the cutoff | A promotion whose `not_before` is after the cutoff is never a candidate; an attested forecast of the gameweek is preferred to a newer unproven one, which is reported (§2.2) |
+| An attestation could vouch for a different file or come from another host | Counted only for the promoted hash and only from `https://fantasy.premierleague.com`, checked when stored and when judged |

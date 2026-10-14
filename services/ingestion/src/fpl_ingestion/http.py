@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import threading
 import time
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
@@ -60,6 +61,8 @@ class FetchResult:
     content_type: str
     retrieved_at: datetime
     attempts: int
+    # response headers, names lower-cased (the forecast record reads FPL's ``Date`` and ``Age``)
+    headers: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -139,6 +142,7 @@ class HttpFetcher:
             content_type=resp.headers.get("content-type", "application/octet-stream").split(";")[0],
             retrieved_at=datetime.now(UTC),
             attempts=attempts["n"],
+            headers={k.lower(): v for k, v in resp.headers.items()},
         )
 
     def close(self) -> None:

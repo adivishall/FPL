@@ -234,3 +234,92 @@ def test_0006_refuses_rows_it_cannot_place_and_its_downgrade_removes_the_record(
     finally:
         with admin.connect() as c:
             c.execute(text(f'DROP DATABASE "{name}" WITH (FORCE)'))
+
+
+def test_0008_keeps_the_record_and_holds_fpl_server_time_to_its_promotion(pg_url: str) -> None:
+    """0008 adds FPL server time (``forecast_attestations``) and the ``prospective_unverified``
+    state without touching existing promotions or checkpoints. An attestation belongs to a
+    promotion (which then cannot be deleted from under it) and its bounds are ordered.
+    Downgrading records an unverified checkpoint as ``live_unverified`` — a check did not hold —
+    the only state 0007 has for it."""
+    import uuid
+
+    from sqlalchemy import text
+    from sqlalchemy.engine import make_url
+    from sqlalchemy.exc import IntegrityError
+
+    name = f"mig_{uuid.uuid4().hex[:8]}"
+    admin = create_engine(pg_url, isolation_level="AUTOCOMMIT")
+    with admin.connect() as c:
+        c.execute(text(f'CREATE DATABASE "{name}"'))
+    url = make_url(pg_url).set(database=name).render_as_string(hide_password=False)
+    fpl = "https://fantasy.premierleague.com/api/event-status/"
+    try:
+        assert run_alembic(url, "upgrade", "0007").returncode == 0
+        eng = create_engine(url)
+        with eng.begin() as conn:
+            _insert(conn, "forecast_promotions", {"snapshot_id": "snap_a", "forecast_key": "fc_a"})
+            _insert(
+                conn,
+                "forecast_checkpoints",
+                {"id": "ckp_a", "season": "2026-27", "kind": "live", "state": "prospective"},
+            )
+        assert run_alembic(url, "upgrade", "0008").returncode == 0
+        with eng.begin() as conn:
+            assert conn.execute(
+                text("SELECT state, attested_at FROM forecast_checkpoints")
+            ).one() == (
+                "prospective",
+                None,
+            )
+            _insert(
+                conn,
+                "forecast_checkpoints",
+                {
+                    "id": "ckp_b",
+                    "season": "2026-27",
+                    "gameweek": 8,
+                    "kind": "live",
+                    "state": "prospective_unverified",
+                },
+            )
+            _insert(
+                conn,
+                "forecast_attestations",
+                {
+                    "snapshot_id": "snap_a",
+                    "forecast_key": "fc_a",
+                    "kind": "generation",
+                    "not_after": "2026-10-14T07:00:01Z",
+                    "not_before": "2026-10-14T06:58:00Z",
+                    "source_url": fpl,
+                    "evidence": {},
+                },
+            )
+        bad = (
+            {"snapshot_id": "snap_none", "forecast_key": "fc_a", "kind": "existence"},
+            {"snapshot_id": "snap_a", "forecast_key": "fc_a", "kind": "guess"},
+            {
+                "snapshot_id": "snap_a",
+                "forecast_key": "fc_a",
+                "kind": "generation",
+                "not_before": "2026-10-14T08:00:00Z",
+            },
+        )
+        for values in bad:
+            row = {"not_after": "2026-10-14T07:00:01Z", "source_url": fpl, "evidence": {}, **values}
+            with pytest.raises(IntegrityError), eng.begin() as conn:
+                _insert(conn, "forecast_attestations", row)
+        with pytest.raises(IntegrityError), eng.begin() as conn:
+            conn.execute(text("DELETE FROM forecast_promotions"))
+        assert run_alembic(url, "downgrade", "0007").returncode == 0
+        insp = inspect(eng)
+        assert "forecast_attestations" not in insp.get_table_names()
+        with eng.connect() as conn:
+            states = dict(conn.execute(text("SELECT id, state FROM forecast_checkpoints")).all())
+            assert states == {"ckp_a": "prospective", "ckp_b": "live_unverified"}
+        assert run_alembic(url, "upgrade", "head").returncode == 0
+        eng.dispose()
+    finally:
+        with admin.connect() as c:
+            c.execute(text(f'DROP DATABASE "{name}" WITH (FORCE)'))

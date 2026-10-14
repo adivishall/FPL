@@ -16,6 +16,8 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 os.environ.setdefault("FPL_CONFIG_DIR", str(REPO_ROOT / "config"))
+# no request to FPL from the suite: tests that need server time inject a fake clock
+os.environ.setdefault("FPL_TIME_ATTESTATION", "false")
 
 
 @pytest.fixture(scope="session")

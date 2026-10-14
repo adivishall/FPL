@@ -24,6 +24,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     LargeBinary,
@@ -604,18 +605,55 @@ class ForecastPromotionRow(Base):
     promoted_at: Mapped[datetime] = _created()
 
 
+class ForecastAttestationRow(Base):
+    """FPL server time bounding when a promoted forecast file existed (M1.5 contract §2.3).
+    The host's clocks can lag after sleep; FPL's ``Date`` header cannot. ``generation``: taken
+    around the forecast's computation (``not_before`` from a response received before it
+    started, only when this job computed the file; ``not_after`` from a request sent after the
+    file was written and hashed). ``existence``: taken later, after re-hashing the stored file
+    (``not_after`` only). Insert-only; ``artifact_sha256`` is the file hash read at attestation,
+    so a row whose hash differs from the promotion's proves nothing about it."""
+
+    __tablename__ = "forecast_attestations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["snapshot_id", "forecast_key"],
+            ["forecast_promotions.snapshot_id", "forecast_promotions.forecast_key"],
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("kind in ('generation','existence')", name="kind"),
+        CheckConstraint("not_before is null or not_before <= not_after", name="bounds"),
+        Index("ix_forecast_attestations_promotion", "snapshot_id", "forecast_key"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    snapshot_id: Mapped[str] = mapped_column(String(80))
+    forecast_key: Mapped[str] = mapped_column(String(80))
+    artifact_sha256: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(16))
+    not_before: Mapped[datetime | None] = _ts(nullable=True)  # FPL server time, lower bound
+    not_after: Mapped[datetime] = _ts()  # FPL server time: the file existed by then
+    source_url: Mapped[str] = mapped_column(Text)
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)  # headers, local clock
+    recorded_at: Mapped[datetime] = _created()
+
+
 class ForecastCheckpointRow(Base):
     """The forecast served at a gameweek's decision cutoff, frozen (M1.5 forecast record;
     ``docs/architecture/season-evaluation.md`` §2). Insert-only; one per season, gameweek and
-    kind. ``state``: ``prospective`` (every check of §2.3 holds — the live record),
-    ``live_unverified`` (captured, a check failed; never scored with the live record) or
-    ``missed`` (nothing to capture; never recomputed). The per-player rows are ``predictions``;
+    kind. ``state``: ``prospective`` (every check of §2.3 holds, FPL server time included — the
+    live record), ``prospective_unverified`` (every other check holds, but no FPL server time
+    shows the file existed before the cutoff), ``live_unverified`` (captured, a check failed) —
+    neither scored with the live record — or ``missed`` (nothing to capture; never
+    recomputed). The per-player rows are ``predictions``;
     context, baselines and distributions are content-addressed ``artifact_blobs``."""
 
     __tablename__ = "forecast_checkpoints"
     __table_args__ = (
         UniqueConstraint("season", "gameweek", "kind"),
-        CheckConstraint("state in ('prospective','live_unverified','missed')", name="state"),
+        CheckConstraint(
+            "state in ('prospective','prospective_unverified','live_unverified','missed')",
+            name="state",
+        ),
         CheckConstraint("kind in ('live')", name="kind"),
     )
     id: Mapped[str] = mapped_column(String(80), primary_key=True)  # ckp_<hash>
@@ -635,6 +673,8 @@ class ForecastCheckpointRow(Base):
     snapshot_created_at: Mapped[datetime | None] = _ts(nullable=True)
     promoted_at: Mapped[datetime | None] = _ts(nullable=True)
     generated_at: Mapped[datetime | None] = _ts(nullable=True)
+    # FPL server time by which the forecast file provably existed (forecast_attestations)
+    attested_at: Mapped[datetime | None] = _ts(nullable=True)
     captured_at: Mapped[datetime] = _created()
     artifact_sha256: Mapped[str | None] = mapped_column(String(64))
     code_digest: Mapped[str | None] = mapped_column(String(32))  # the computing process

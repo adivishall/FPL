@@ -20,6 +20,7 @@ transaction, atomic file renames), so re-submitting it is always safe.
 
 from __future__ import annotations
 
+import time
 import traceback
 import uuid
 from collections.abc import Callable
@@ -36,10 +37,11 @@ from rq.timeouts import JobTimeoutException
 from sqlalchemy import select
 
 from fpl_api.alerts import evaluate_alerts
+from fpl_api.attestation import read as read_server_time
 from fpl_api.container import AppServices, build_recommendation
 from fpl_api.copilot import compute_squad_analysis
 from fpl_api.journal import run_evaluations
-from fpl_api.ledger import capture, record_promotion
+from fpl_api.ledger import attest, attest_existence, capture, record_promotion
 from fpl_api.lifecycle import INPUTS_MISMATCH, invalidate_for_snapshot, reason
 from fpl_api.retention import prune
 from fpl_api.season import run as season_run
@@ -61,14 +63,24 @@ def _job_forecast(svc: AppServices, p: dict[str, Any]) -> str:
     ctx = svc.context()
     snapshot = svc.data.snapshot_id
     season, gw = p.get("season", ctx.season), p.get("gameweek", ctx.gameweek)
+    serving = (season, gw) == (ctx.season, ctx.gameweek) and p.get("n_sims") is None
+    recorded = serving and svc.engine is not None and svc.data.snapshot_path(snapshot) is not None
+    # FPL's time before computing bounds the computation's start (forecast record, M1.5)
+    before = read_server_time(svc.server_clock, "forecast_start") if recorded else None
+    asked = time.monotonic()
     fc = svc.forecasts.get(season, gw, svc.horizon(p.get("horizon")), p.get("n_sims"), compute=True)
     key = str(fc.provenance.get("forecast_key", fc.run_id))
-    serving = (season, gw) == (ctx.season, ctx.gameweek) and p.get("n_sims") is None
     if serving and fc.provenance.get("data_snapshot_id") == snapshot:
         # the forecast record's commitment comes first (M1.5). Only exported snapshots are
         # promoted by the API's ready-only selection; a pinned or injected dataset is not
-        if svc.engine is not None and svc.data.snapshot_path(snapshot) is not None:
+        if recorded and svc.engine is not None:
             record_promotion(svc.engine, svc.settings, svc.data, fc, snapshot)
+            # then FPL's time after the file exists: the proof it existed by then. ``before``
+            # only when this job computed the file (a loaded one was computed earlier). A
+            # failure leaves it to the scheduler's attestation job; serving goes on.
+            computed = svc.forecasts.computed.get(key)
+            fresh = before if computed is not None and computed >= asked else None
+            attest(svc.engine, svc.settings, svc.server_clock, snapshot, key, fresh)
         mark_serving_ready(svc.settings, snapshot, key)  # the API may now promote it
         if svc.engine is not None:  # the promotion event: older results become historical
             invalidate_for_snapshot(svc.engine, svc.serving_snapshot_id(), svc.settings)
@@ -231,7 +243,28 @@ def _job_forecast_capture(svc: AppServices, p: dict[str, Any]) -> str:
     gameweek returns its existing checkpoint, a concurrent capture finds the first one."""
     if svc.engine is None:
         raise RuntimeError("database required")
-    return capture(svc.engine, svc.settings, svc.data, p["season"], int(p["gameweek"]))
+    return capture(
+        svc.engine,
+        svc.settings,
+        svc.data,
+        p["season"],
+        int(p["gameweek"]),
+        clock=svc.server_clock,
+    )
+
+
+def _job_forecast_attest(svc: AppServices, p: dict[str, Any]) -> str:
+    """FPL's server time for a promotion whose generation attestation failed or predates it
+    (M1.5 forecast record): re-hash the file, then ask FPL the time. Fails (recorded, retried
+    next tick) when FPL cannot be reached, so a missing proof is visible before the cutoff."""
+    if svc.engine is None:
+        raise RuntimeError("database required")
+    out = attest_existence(
+        svc.engine, svc.settings, svc.server_clock, p["snapshot_id"], p["forecast_key"]
+    )
+    if out in ("unavailable", "no_clock"):
+        raise RuntimeError(f"FPL server time not recorded for {p['snapshot_id']}: {out}")
+    return out
 
 
 def _job_season_eval(svc: AppServices, p: dict[str, Any]) -> str:
@@ -261,6 +294,7 @@ JOB_KINDS: dict[str, JobFn] = {
     "workbench": _job_workbench,
     "journal": _job_journal,
     "forecast_capture": _job_forecast_capture,
+    "forecast_attest": _job_forecast_attest,
     "season_eval": _job_season_eval,
 }
 # Upper bound on a healthy run of each kind: RQ's job timeout and the de-duplication lease.
@@ -274,6 +308,7 @@ JOB_LEASE: dict[str, timedelta] = {
     "workbench": timedelta(minutes=20),
     "journal": timedelta(minutes=15),
     "forecast_capture": timedelta(minutes=15),
+    "forecast_attest": timedelta(minutes=5),
     "season_eval": timedelta(minutes=15),
 }
 ABANDONED = "abandoned: no result within the job lease (worker lost or killed)"
