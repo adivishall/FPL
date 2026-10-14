@@ -33,7 +33,7 @@ requirement and marks partial work as PARTIAL (99 requirements: 81 COMPLETE, 15 
 V1 release work after M14 is planned and logged in `docs/V1_RELEASE_PLAN.md`; its verification
 records are §2a and §2b (final). Public deployment waits on operator inputs (host, domain,
 secrets); everything else for V1 is done. Product milestones after V1 are recorded in §2c
-(M1.1a), §2d (M1.2), §2e (M1.3) and §2f (M1.4).
+(M1.1a), §2d (M1.2), §2e (M1.3), §2f (M1.4) and §2g (M1.5).
 
 ## 2. M14 verification record (2026-10-04 – 06, local machine)
 
@@ -345,6 +345,38 @@ web e2e (14 passed, including the journal flow and the migrated pre-M1.4 decisio
 builds. The documentation commit recording this is checked by its own run (reported with the
 milestone, not written into itself).
 
+## 2g. M1.5 — Season Review: the forecast record and live-season evaluation (2026-10-14)
+
+Scope: evaluate the live season honestly — forecasts frozen before kickoff, scored only on final
+results, by a method fixed in advance — and show it on a Season Review page beside the past
+seasons and, privately, the manager's own recorded decisions
+(`docs/architecture/season-evaluation.md`).
+
+| Area | Result |
+|---|---|
+| Evaluation contract | committed `f4df364` on 2026-10-14, before the first live checkpoint (GW7 cutoff 2026-10-17 08:30 UTC) and before any live outcome; amended the same day by the implementation review (`dde3853`), still before the cutoff and before any outcome. Four critics reviewed the draft (statistics, leakage, feasibility, product honesty and privacy), each finding checked by a separate verifier (three verifiers did not complete; those findings were assessed against the code): every finding is recorded in §15 as accepted, rejected with a reason, or deferred — e.g. percentile bootstrap replaced by t-intervals and an exact sign-flip test with verdicts only at looks G = 8, 16 and season end; a database promotion record instead of marker times; failed live checkpoints kept out of every class; `ep_next` rejected as a baseline (not ingested point-in-time); the GW1–6 replay and a live shadow benchmark deferred |
+| Forecast record | the forecast job commits to a serving forecast before marking it ready (`forecast_promotions`: file SHA-256, prediction run, export time, database clock; keyed by snapshot and forecast key); after each decision cutoff `forecast_capture` freezes the forecast the API served into `forecast_checkpoints`, `predictions` (now keyed by checkpoint, RESTRICT) and two content-addressed blobs (decision-time context and baselines fitted on the forecast's own snapshot with the `forecast_eval` code; exact Monte Carlo and climatology distributions as per-value counts). Prospective only when promotion and export precede the cutoff, the file is byte-identical to the promoted one, the cutoff is the gameweek's, and the data itself shows no FPL news after the cutoff and no result of the gameweek; otherwise `live_unverified` or `missed`, never recomputed. Retention keeps every uncaptured candidate and the newest promotion. Migrations 0006 and 0007 |
+| The record on the local stack | started 2026-10-14 03:26:13 UTC (first promotion: GW7 forecast `fc_9fd3f1b718ff5e7e`, file hash in the database equal to the file's); GW1–6 of 2026-27 predate it and are shown as "before the record". GW7 deadline verified from the latest FPL bootstrap payload (retrieved 2026-10-14 02:31 UTC, `deadline_source` official): 2026-10-17 10:00 UTC, cutoff 08:30 UTC, first kickoff 11:30 UTC. A rehearsal on a copy of the stack's database (dropped afterwards; the live record untouched) captured GW7 at cutoff + 5 min as `prospective` with every check passing: 3,335 player × gameweek rows (667 players at horizon 0, 224 regulars, 105 with status `u`), no missing baseline, 4.9 s, ~0.9 GB peak, a repeat returning the same checkpoint |
+| Evaluation | `fpl_forecasting.season_eval` (fair CRPS and expected PIT coverage from distribution counts, per-gameweek sums, t-intervals, exact sign-flip with Holm, TOST equivalence against margins fixed from 2023-26 per-gameweek variability, ECE with its null band) and `fpl_api.season` (eligibility under the shared finality rule; exclusions counted, never read as 0; insert-only revisions with trigger and changes; advisory lock; no writes from older data). The same per-gameweek method applied to the past seasons' GW7–14 gives, in each of 2023-24, 2024-25 and 2025-26, "lower error than the baseline" on all four primary comparisons (Holm-adjusted sign-flip p = 0.031, the smallest attainable at G = 8) and "within tolerance" on all three calibration checks — the first live look can detect a margin of the past seasons' size, and nothing is claimed before it |
+| Season Review | `GET /season-review` (public, no manager data, stored rows only), `GET /season-review/evaluations`, `POST /season-review/evaluate` (operator), `GET /journal/summary` (owner only); the `/season-review` page with the status strip, the live record and its timeline, the past seasons over the same weeks, the private decisions section, the calibration state ("No calibration adjustment has been made") and how every number shown is evaluated; Data Health labels its gates "passed on past seasons 2023–26" |
+| Implementation review | three reviewers (forecast record; evaluation statistics; product honesty and privacy), each re-checked against the code and, where practical, by reproduction: every confirmed finding fixed with a regression test (`7457989`, `fe6fcf3`) — among them a re-keyed snapshot dropping its newer promotion, settled looks (a late-final gameweek could re-form a look), the "as served" sensitivity pooling horizons and missing postponement blanks, exclusions pooled across horizons, segment verdicts, unused minimum sizes, a Monte Carlo p of 0, a stale guard that failed open, an over-broad digest, armband-changed decisions compared with the plan's expectation, an unpublished past-season split, and page issues (stale verdicts between looks, a chart whose marks always touched its edges, local times, an unknown season returning 500). Recorded in the contract's §15 |
+| Tests | on the final source (`24277c4`), development machine: Python fast tier **529 passed**, 0 failed, 6 deselected (slow and network); slow + network **6 passed**; new: season evaluation unit 13, forecast-record checks 5, finality 3, forecast record integration 10 (commitment before the marker, due only after the cutoff, before-the-record, retention keeps the candidate whatever its age, the frozen rows equal the forecast's numbers and samples, concurrent and repeated capture, survival after deleting the cache and the feature store and in a fresh process, missed gameweeks never recomputed, RESTRICT, re-keyed promotions), Season Review integration 8 (nothing scored before final results, in-progress and provisional windows, exclusions by reason incl. a postponement and a missing result, hand-computed C1 and CITL, horizon-0 "as served", a correction revision and no revision for an uncovered player, the stale guard, the public endpoint doing no work, operator-only evaluation, the scheduler's due-check), journal summary (route order, ownership, self-reported points never used, the published split), migrations 0006 (guard, RESTRICT, downgrade); ruff, ruff format, mypy (124 source files), import-linter 4/4, `tsc`, `next build`: clean. Browser flows: development stack **15 passed** (new: the Season Review keeps the classes apart and claims nothing early); production topology on the final images **24 passed**, 0 failed, 0 skipped (new: the public endpoint carries no manager data, the proxy key and a user session cannot evaluate, the private summary needs the owner) |
+| Rollout | backend first (`9e1cab1`: a `pg_dump` of 18.7 MB, 46 tables with data; `0005 → 0006`), then the final images (`24277c4`: dump 18.8 MB, 49 tables; `0006 → 0007`): api / worker / scheduler run engine image `50fed46eb04c` with `FPL_BUILD_REVISION=24277c4…` (clean tree), web runs `738d96a80c57`; all services healthy; data preserved; the scheduler records a promotion with each hourly forecast, its ledger task finds nothing due before the cutoff, and `season_eval` waits for the first checkpoint |
+| Defects 52 and 53 | unchanged and still **open**: the engine reproduces itself byte-exactly on one machine only (cross-machine engine-output regression coverage is missing; the frozen forecasts are stored rather than recomputed for this reason), and the MILP's inherited club excess is labelled, not fixed (illegal plans are rejected independently; fallback plans are labelled "best valid plan among those explored; not proven optimal"). M1.5 touches neither the engine nor the optimiser |
+
+CI: `24277c4` (the M1.5 source: `c9068cf`, `f4df364`, `07260e0`, `9e1cab1`, `950982f`, `c35622e`,
+`7457989`, `fe6fcf3`, `dde3853`, `24277c4`) —
+[run 38510488940](https://github.com/adivishall/fpl-copilot/actions/runs/38510488940)
+**success** on every job: lint, security, test (522 passed, 7 skipped — the byte-exact golden on
+linux-x86_64 by design, defect 52, and six worker tests that need a local `redis-server` binary the
+runner does not have; they pass on the development machine — 6 deselected), optimiser suite
+(54 + 7 passed), web e2e (15 passed, including the Season Review flow) and container builds. The
+backend commit `9e1cab1` had its own green run
+([38506021089](https://github.com/adivishall/fpl-copilot/actions/runs/38506021089)); the run of
+`dde3853` was cancelled when `24277c4` superseded it. The documentation commit recording this is
+checked by its own run (reported with the milestone, not written into itself). The GW7 checkpoint
+is captured unattended at the cutoff on 2026-10-17 and recorded here once verified.
+
 ## 3. Environment
 
 Apple M4 (10 logical CPUs), 16 GB RAM, macOS 27.0.1; Python 3.12.15 (uv), Node 22.23, PostgreSQL
@@ -382,7 +414,9 @@ Genuinely open items, in priority order (details in the audit and limitations):
 3. Expose league analytics (head-to-head, template, differential) through the API/UI.
 4. A public deployment target (VM + TLS reverse proxy), Alertmanager routing, and archival of
    raw payloads / live-observation tables (snapshot and cache retention is done).
-5. Evaluate the live models on 2026-27 outcomes as the season progresses (first unseen season).
+5. Evaluate the live models on 2026-27 outcomes as the season progresses (first unseen season):
+   the forecast record and the evaluation run since M1.5 (§2g); the first formal look needs
+   8 final live gameweeks (GW7–14, about 10 December 2026).
 
 ## 8. Historical test record (M1–M5, from the original build log)
 
