@@ -16,6 +16,7 @@ const NAV: [string, string][] = [
   ["/players", "Player Lab"],
   ["/what-if", "What-If"],
   ["/journal", "Journal"],
+  ["/season-review", "Season Review"],
   ["/alerts", "Alerts"],
   ["/backtests", "Backtest Lab"],
   ["/health", "Data Health"],

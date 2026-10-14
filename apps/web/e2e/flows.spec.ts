@@ -78,7 +78,7 @@ test("future planner, player lab, backtest lab and data health render real data"
   await expect(report).toContainText("Forecast evaluation");
   await page.goto("/health");
   await expect(page.getByTestId("services")).toContainText("live_source");
-  await expect(page.getByTestId("models")).toContainText("passed");
+  await expect(page.getByTestId("models")).toContainText("passed on past seasons 2023–26"); // not live evidence
 });
 
 test("what-if scenario re-simulates the squad", async ({ page }) => {
@@ -307,4 +307,27 @@ test("a decision recorded on the Overview is kept in the journal and evaluated a
   await expect(page.getByTestId("evidence")).not.toContainText(info.staged_results_snapshot_id);
   await page.goto("/journal");
   await expect(page.locator('[data-testid^="decision-jd_"]').first()).toContainText("final");
+});
+
+test("the season review keeps the live record, past seasons and the manager's own decisions apart and claims nothing early", async ({ page }) => {
+  await page.goto("/season-review");
+  // nothing frozen yet in this stack: no live gameweek, no evaluation, the empty state
+  await expect(page.getByTestId("season-status")).toContainText("Live record: 0 of 8 gameweeks final");
+  await expect(page.getByTestId("live-empty")).toContainText("No live gameweek is final yet");
+  await expect(page.getByTestId("timeline")).toContainText("before the record");
+  await expect(page.getByTestId("timeline-gw1")).toHaveAttribute("data-state", "before_record");
+  // past seasons: the same method, labelled as context with its dates
+  const ref = page.getByTestId("reference");
+  for (const s of ["2023-24", "2024-25", "2025-26"]) await expect(ref).toContainText(s);
+  await expect(page.getByTestId("past-seasons")).toContainText("selection bias");
+  // the manager's own recorded decisions (the journal flow above recorded and evaluated one)
+  await expect(page.getByTestId("your-decisions")).toContainText("decisions recorded");
+  await expect(page.getByTestId("your-decisions")).toContainText("cannot show a trend");
+  await expect(page.getByTestId("calibration-state")).toHaveAttribute("data-state", "deferred");
+  await expect(page.getByTestId("calibration")).toContainText("No calibration adjustment has been made");
+  await expect(page.getByTestId("ui-numbers")).toContainText("P(play)");
+  // no evidence-class jargon, no grade
+  const text = await page.locator("main").innerText();
+  expect(text).not.toMatch(/prospective|class [HRPJ]\b/i);
+  expect(text).not.toMatch(/% good|decision score|rating/i);
 });

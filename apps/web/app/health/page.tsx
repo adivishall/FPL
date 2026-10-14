@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Badge, Card, FreshnessBanner, State, useApi } from "@/components/ui";
 import type { Freshness } from "@/lib/api";
 
@@ -40,9 +42,15 @@ export default function DataHealth() {
           ) : null}
         </Card>
         <Card title="Model status (promotion gates)" testId="models">
+          <p className="small">
+            Gates are checked on the past seasons 2023–26 (walk-forward evaluation), not on this season&apos;s live forecasts — those are
+            in the <Link href="/season-review">Season Review</Link>.
+          </p>
           {Object.entries(allGates).map(([name, g]) => (
             <div key={name} style={{ marginBottom: 8 }}>
-              <strong>{name}</strong> <Badge tone={g.passed ? "good" : "bad"}>{g.passed ? "passed" : "failed"}</Badge> <code>{g.config_ref}</code>
+              <strong>{name}</strong>{" "}
+              <Badge tone={g.passed ? "good" : "bad"}>{g.passed ? "passed on past seasons 2023–26" : "failed on past seasons 2023–26"}</Badge>{" "}
+              <code>{g.config_ref}</code>
               <ul className="clean small">
                 {g.checks.map((c) => <li key={c.name}>{c.passed ? "✓" : "✗"} {c.name}: {c.value?.toFixed(4) ?? "—"} ({c.target})</li>)}
               </ul>
