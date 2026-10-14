@@ -608,7 +608,10 @@ def test_the_summary_is_the_managers_own_and_scores_only_final_decisions_made_in
     )
     rc = out["outcomes"]["range_counts"]
     assert rc["n"] == 1 and rc["typical_inside"] == [0, 1]
-    assert rc["past_seasons"] == {"below": 0.053, "inside": 0.816, "above": 0.132}
+    # the published engine squad-level check (ml/reports/backtest.md), not a re-derivation
+    assert rc["past_seasons"]["weeks"] == 96
+    assert rc["past_seasons"]["inside"] == pytest.approx(0.8333, abs=1e-4)
+    assert rc["armband_changed_excluded"] == 0
     assert "interval_95_mean" not in out["outcomes"]["vs_hold"]  # under six decisions
     assert out["limits"]  # and nothing else: no rating, grade or "good decision" share
     assert set(out) == {

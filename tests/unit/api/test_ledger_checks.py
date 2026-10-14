@@ -8,7 +8,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fpl_api.ledger import prospective_checks
+import pandas as pd
+
+from fpl_api.ledger import data_checks, prospective_checks
 
 CUTOFF = datetime(2026, 10, 17, 8, 30, tzinfo=UTC)
 SHA = "a" * 64
@@ -88,3 +90,32 @@ def test_a_moved_deadline_is_flagged_and_judged_on_the_earlier_cutoff() -> None:
     )
     c = prospective_checks(early, SHA, prov(), "2026-27", 7, CUTOFF + timedelta(hours=2))
     assert failed(c) == [] and c["deadline_moved"]["ok"]
+
+
+def _ds(news: list[str | None], statuses: list[str], result_rows: int) -> dict[str, pd.DataFrame]:
+    return {
+        "player_snapshots": pd.DataFrame(
+            {"season": "2026-27", "player_code": range(len(news)), "news_added": news}
+        ),
+        "fixtures": pd.DataFrame(
+            {"season": "2026-27", "gw": 7, "fixture_id": range(len(statuses)), "status": statuses}
+        ),
+        "player_match": pd.DataFrame(
+            {"season": "2026-27", "gw": [7] * result_rows, "player_code": range(result_rows)}
+        ),
+    }
+
+
+def test_the_data_itself_must_predate_the_cutoff() -> None:
+    """Clock-independent evidence (a laptop VM's clock can lag after sleep): FPL's own news
+    stamps and the gameweek's results."""
+    ok = data_checks(
+        _ds(["2026-10-17T07:00:00Z", None], ["scheduled"] * 2, 0), "2026-27", 7, CUTOFF
+    )
+    assert all(v["ok"] for v in ok.values())
+    late = data_checks(_ds(["2026-10-17T08:31:00Z"], ["scheduled"], 0), "2026-27", 7, CUTOFF)
+    assert not late["no_news_after_cutoff"]["ok"]
+    played = data_checks(_ds([None], ["provisional", "scheduled"], 0), "2026-27", 7, CUTOFF)
+    assert not played["no_results_of_the_gameweek"]["ok"]
+    rows = data_checks(_ds([None], ["scheduled"], 3), "2026-27", 7, CUTOFF)
+    assert not rows["no_results_of_the_gameweek"]["ok"]

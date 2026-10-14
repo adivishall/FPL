@@ -29,7 +29,7 @@ import numpy.typing as npt
 import pandas as pd
 from scipy import stats
 
-EVALUATOR_VERSION = "season-eval-1.0.0"
+EVALUATOR_VERSION = "season-eval-1.1.0"
 LOOKS = (8, 16)  # formal looks by scored gameweeks; plus the season's last evaluation
 ALPHA = 0.05
 MIN_INTERVAL_GAMEWEEKS = 3
@@ -106,7 +106,13 @@ def metric_config() -> dict[str, Any]:
             "flagged": "status i/d/s/n or chance of playing < 100",
         },
         "pit": "expected central coverage (non-randomised)",
+        "pit_central": [0.1, 0.9],
         "crps": "fair (no self-pairs)",
+        "sign_flip": {"exact_max": SIGN_FLIP_EXACT_MAX, "draws": SIGN_FLIP_DRAWS},
+        "min_rows_for_interval": MIN_ROWS_FOR_INTERVAL,
+        "min_events_for_interval": MIN_EVENTS_FOR_INTERVAL,
+        "flagged_status": list(FLAGGED_STATUS),
+        "verdicts": "population all, horizon 0, at settled looks only",
     }
 
 
@@ -256,7 +262,9 @@ SUM_COLUMNS = (
     "pit_hi",
     "covered_p10_p90",
     "p6",
+    "y2",
     "y6",
+    "y10",
     "pstart",
     "ystart",
 )
@@ -317,7 +325,10 @@ def sign_flip_p(d: npt.ArrayLike) -> float | None:
         signs = rng.choice((-1.0, 1.0), size=(SIGN_FLIP_DRAWS, g))
     means = np.abs((signs * x).mean(axis=1))
     tol = 1e-12 * max(1.0, obs)
-    return float(((means >= obs - tol).sum()) / len(means))
+    hits = int((means >= obs - tol).sum())
+    if g <= SIGN_FLIP_EXACT_MAX:  # every pattern, the observed one included
+        return float(hits / len(means))
+    return float((1 + hits) / (1 + len(means)))  # a valid Monte Carlo p-value, never 0
 
 
 def holm(pvals: dict[str, float | None]) -> dict[str, float | None]:
@@ -393,14 +404,34 @@ def ece_null_band(p: npt.ArrayLike, draws: int = ECE_NULL_DRAWS) -> dict[str, fl
     return {"null_median": float(np.median(sims)), "null_p95": float(np.quantile(sims, 0.95))}
 
 
-def _comparison(d: npt.NDArray[np.float64]) -> dict[str, Any]:
+EVENTS = {"brier_2": "y2", "brier_6": "y6", "brier_10": "y10", "brier_start": "ystart"}
+
+
+def interval_allowed(sums: pd.DataFrame, statistic: str) -> tuple[bool, str | None]:
+    """Contract §6.4 minimum sizes for an interval: ≥ 3 gameweeks and, for point, CRPS and
+    minutes statistics ≥ 300 rows, for probabilities ≥ 50 events and ≥ 50 non-events."""
+    g, rows = len(sums), float(sums["n"].sum()) if len(sums) else 0.0
+    if g < MIN_INTERVAL_GAMEWEEKS:
+        return False, f"fewer than {MIN_INTERVAL_GAMEWEEKS} gameweeks"
+    ev = EVENTS.get(statistic)
+    if ev is not None:
+        events = float(sums[ev].sum())
+        if min(events, rows - events) < MIN_EVENTS_FOR_INTERVAL:
+            return False, f"fewer than {MIN_EVENTS_FOR_INTERVAL} events or non-events"
+    elif rows < MIN_ROWS_FOR_INTERVAL:
+        return False, f"fewer than {MIN_ROWS_FOR_INTERVAL} rows"
+    return True, None
+
+
+def _comparison(d: npt.NDArray[np.float64], sums: pd.DataFrame, statistic: str) -> dict[str, Any]:
     g = len(d)
-    ci = t_interval(d)
+    ok, why = interval_allowed(sums, statistic)
+    ci = t_interval(d) if ok else None
     return {
         "G": g,
         "mean": float(d.mean()) if g else None,
         "interval_95": ci,
-        "interval_label": f"wide: {g} gameweeks" if ci is not None and g < 8 else None,
+        "interval_label": (f"wide: {g} gameweeks" if ci is not None and g < 8 else why),
         "p_sign_flip": sign_flip_p(d),
         "direction": _direction(d),
         "per_gameweek": [float(x) for x in d],
@@ -427,19 +458,11 @@ def look_points(g: int, final: bool) -> list[int]:
     return pts
 
 
-def summarize(sums: pd.DataFrame, final: bool = False) -> dict[str, Any]:
-    """Every number of one population × horizon window from its per-gameweek sums (ordered by
-    target gameweek; looks use the first L scored gameweeks)."""
-    sums = sums.sort_values("target_gw").reset_index(drop=True)
-    g = len(sums)
-    out: dict[str, Any] = {"G": g, "gameweeks": [int(x) for x in sums["target_gw"]]}
-    if g == 0:
-        out["status"] = "no_scored_gameweeks"
-        return out
+def levels(sums: pd.DataFrame) -> dict[str, Any]:
+    """Pooled levels of a window (row-weighted), from its per-gameweek sums."""
     n = float(sums["n"].sum())
     tot = sums[list(SUM_COLUMNS)].sum()
-    out["rows"] = int(n)
-    out["levels"] = {
+    return {
         "rmse": {
             "model": float(np.sqrt(tot["se_model"] / n)),
             **{b: float(np.sqrt(tot[f"se_{b}"] / n)) for b in POINT_BASELINES},
@@ -480,50 +503,102 @@ def summarize(sums: pd.DataFrame, final: bool = False) -> dict[str, Any]:
         if sums["spearman"].notna().any()
         else None,
     }
-    looks = look_points(g, final)
+
+
+def comparison_means(sums: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    """Mean per-gameweek difference and direction counts of the primary comparisons (no
+    tests): the past-season reference needs only these."""
+    out = {}
+    for k, spec in PRIMARY.items():
+        d = _diff(sums, spec["statistic"], spec["baseline"])
+        out[k] = {"mean": float(d.mean()) if len(d) else None, "direction": _direction(d)}
+    return out
+
+
+def _look(head: pd.DataFrame) -> dict[str, Any]:
+    raw = {
+        k: sign_flip_p(_diff(head, PRIMARY[k]["statistic"], PRIMARY[k]["baseline"]))
+        for k in PRIMARY
+    }
+    adj = holm(raw)
+    comps = {}
+    for k in PRIMARY:
+        d = _diff(head, PRIMARY[k]["statistic"], PRIMARY[k]["baseline"])
+        ok, _ = interval_allowed(head, PRIMARY[k]["statistic"])
+        comps[k] = {
+            "p_sign_flip": raw[k],
+            "p_holm": adj[k],
+            "interval_95": t_interval(d) if ok else None,
+            "verdict": _verdict(d, adj[k]) if ok else "no_clear_difference",
+        }
+    cal = {}
+    for k, spec in MARGINS.items():
+        ok, _ = interval_allowed(
+            head, "brier_6" if k == "K1" else "brier_start" if k == "K2" else "pit"
+        )
+        cal[k] = (
+            equivalence(_calibration_stat(head, spec["statistic"]), spec["band"])["verdict"]
+            if ok
+            else "inconclusive"
+        )
+    return {
+        "gameweeks": [int(x) for x in head["target_gw"]],
+        "comparisons": comps,
+        "calibration": cal,
+    }
+
+
+def summarize(
+    sums: pd.DataFrame,
+    final: bool = False,
+    verdicts: bool = False,
+    pending: Iterable[int] = (),
+) -> dict[str, Any]:
+    """Every number of one population × horizon window from its per-gameweek sums (ordered by
+    target gameweek). Formal looks — the only place verdicts appear — are computed only when
+    ``verdicts`` (the primary window: all players, horizon 0; segments never carry verdicts)
+    and only once the look's gameweeks are settled: look L uses the first L scored gameweeks
+    and is issued only when no gameweek before the L-th is still awaiting final results
+    (``pending``), so a later result can never silently re-form it; a revised official result
+    inside it revises it, and the evaluation's changes block says so."""
+    sums = sums.sort_values("target_gw").reset_index(drop=True)
+    g = len(sums)
+    out: dict[str, Any] = {"G": g, "gameweeks": [int(x) for x in sums["target_gw"]]}
+    if g == 0:
+        out["status"] = "no_scored_gameweeks"
+        return out
+    out["rows"] = int(sums["n"].sum())
+    out["levels"] = levels(sums)
     comps: dict[str, Any] = {}
     for key, spec in {**PRIMARY, **SECONDARY}.items():
-        d = _diff(sums, str(spec["statistic"]), str(spec["baseline"]))
+        d = _diff(sums, spec["statistic"], spec["baseline"])
         comps[key] = {
             **{k: v for k, v in spec.items() if k != "model"},
-            "baseline_label": BASELINE_NAMES[str(spec["baseline"])],
-            **_comparison(d),
+            "baseline_label": BASELINE_NAMES[spec["baseline"]],
+            **_comparison(d, sums, spec["statistic"]),
             "primary": key in PRIMARY,
         }
-    look_out: dict[str, Any] = {}
-    for at in looks:
-        head = sums.iloc[:at]
-        raw = {
-            k: sign_flip_p(_diff(head, str(PRIMARY[k]["statistic"]), str(PRIMARY[k]["baseline"])))
-            for k in PRIMARY
-        }
-        adj = holm(raw)
-        look_out[str(at)] = {
-            "gameweeks": [int(x) for x in head["target_gw"]],
-            "comparisons": {
-                k: {
-                    "p_sign_flip": raw[k],
-                    "p_holm": adj[k],
-                    "interval_95": t_interval(
-                        _diff(head, str(PRIMARY[k]["statistic"]), str(PRIMARY[k]["baseline"]))
-                    ),
-                    "verdict": _verdict(
-                        _diff(head, str(PRIMARY[k]["statistic"]), str(PRIMARY[k]["baseline"])),
-                        adj[k],
-                    ),
-                }
-                for k in PRIMARY
-            },
-            "calibration": {
-                k: equivalence(_calibration_stat(head, spec["statistic"]), spec["band"])["verdict"]
-                for k, spec in MARGINS.items()
-            },
-        }
     out["comparisons"] = comps
+    look_out: dict[str, Any] = {}
+    waiting: dict[str, int] = {}
+    if verdicts:
+        waiting_on = sorted(int(p) for p in pending)
+        for at in look_points(g, final):
+            head = sums.iloc[:at]
+            before = [p for p in waiting_on if p < int(head["target_gw"].max())]
+            if before:
+                waiting[str(at)] = before[0]
+                continue
+            look_out[str(at)] = _look(head)
     calibration: dict[str, Any] = {}
     for k, mspec in MARGINS.items():
         stat_g = _calibration_stat(sums, mspec["statistic"])
-        eq = equivalence(stat_g, mspec["band"])
+        ok, why = interval_allowed(
+            sums, "brier_6" if k == "K1" else "brier_start" if k == "K2" else "pit"
+        )
+        eq = (
+            equivalence(stat_g, mspec["band"]) if ok else {"interval_90": None, "interval_95": None}
+        )
         calibration[k] = {
             "name": mspec["name"],
             "band": list(mspec["band"]),
@@ -531,20 +606,24 @@ def summarize(sums: pd.DataFrame, final: bool = False) -> dict[str, Any]:
             "mean": float(stat_g.mean()),
             "interval_90": eq["interval_90"],
             "interval_95": eq["interval_95"],
+            "interval_label": None if ok else why,
         }
     out["calibration"] = calibration
     out["looks"] = look_out
-    out["status"] = (
-        "too_few_gameweeks"
-        if g < MIN_VERDICT_GAMEWEEKS
-        else ("look" if str(g) in look_out else "monitoring")
-    )
+    out["looks_waiting"] = waiting  # look → the earliest gameweek whose results it awaits
+    if not verdicts:
+        out["status"] = "descriptive"
+    elif g < MIN_VERDICT_GAMEWEEKS:
+        out["status"] = "too_few_gameweeks"
+    else:
+        out["status"] = "look" if str(g) in look_out else "monitoring"
     out["per_gameweek"] = [
         {
             "gw": int(r.target_gw),
             "n": int(r.n),
             "rmse_model": float(np.sqrt(r.se_model / r.n)),
             "rmse_ppg": float(np.sqrt(r.se_ppg / r.n)),
+            "bias_model": float(r.err_model / r.n),
             "crps_model": float(r.crps_model / r.n),
             "crps_climatology": float(r.crps_climatology / r.n),
             "brier_6_model": float(r.brier_6_model / r.n),
@@ -572,11 +651,13 @@ def calibration_state(window: dict[str, Any]) -> dict[str, Any]:
     g = int(window.get("G", 0))
     looks = window.get("looks") or {}
     if not looks:
-        return {
-            "state": "deferred",
-            "reason": f"{g} of {MIN_VERDICT_GAMEWEEKS} live gameweeks final",
-            "final_gameweeks": g,
-        }
+        waiting = window.get("looks_waiting") or {}
+        reason = (
+            f"the first formal check waits for GW{min(waiting.values())}'s final results"
+            if waiting
+            else f"{g} of {MIN_VERDICT_GAMEWEEKS} live gameweeks final"
+        )
+        return {"state": "deferred", "reason": reason, "final_gameweeks": g}
     latest = looks[max(looks, key=int)]
     verdicts = latest["calibration"]
     if any(v == "outside_tolerance" for v in verdicts.values()):

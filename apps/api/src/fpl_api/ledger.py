@@ -31,7 +31,7 @@ import hashlib
 import io
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -134,8 +134,13 @@ def record_promotion(
                 artifact_sha256=sha256_file(forecast_path(settings, key)),
                 code_digest=p.get("code_digest"),
             )
-            .on_conflict_do_nothing(index_elements=["snapshot_id"])
+            .on_conflict_do_nothing(index_elements=["snapshot_id", "forecast_key"])
         )
+
+
+def promotion_recorded(engine: Engine, snapshot_id: str, forecast_key: str) -> bool:
+    with session_scope(engine) as s:
+        return s.get(m.ForecastPromotionRow, (snapshot_id, forecast_key)) is not None
 
 
 # ----------------------------------------------------------------------------- what is due
@@ -182,7 +187,28 @@ def season_gameweeks(engine: Engine, season: str | None = None) -> list[Gameweek
             .where(m.SeasonRow.season_code == season)
             .order_by(m.GameweekRow.gw)
         ).all()
-    buffer = load_ruleset(season).timing.decision_buffer_minutes
+        if not rows:  # an unknown season (also one without a ruleset): nothing to show
+            return []
+        last_kickoff = dict(
+            s.execute(
+                select(m.FixtureRow.gw, func.max(m.FixtureRow.kickoff_at))
+                .join(m.SeasonRow, m.SeasonRow.id == m.FixtureRow.season_id)
+                .where(m.SeasonRow.season_code == season, m.FixtureRow.gw.is_not(None))
+                .group_by(m.FixtureRow.gw)
+            ).all()
+        )
+    timing = load_ruleset(season).timing
+    buffer = timing.decision_buffer_minutes
+    lag = timedelta(hours=timing.finalization_lag_hours)
+
+    def final_expected(gw: int, finalized: Any) -> datetime | None:
+        """FPL's own finalisation time once known; until then the last kickoff plus the
+        ruleset's finalisation lag (an estimate)."""
+        if finalized is not None:
+            return _utc(finalized)
+        k = last_kickoff.get(gw)
+        return _utc(k) + lag if k is not None else None
+
     return [
         Gameweek(
             season=season,
@@ -190,7 +216,7 @@ def season_gameweeks(engine: Engine, season: str | None = None) -> list[Gameweek
             deadline=_utc(deadline),
             cutoff=decision_cutoff(_utc(deadline), buffer).to_pydatetime(),
             first_kickoff=_utc(started) if started is not None else None,
-            final_expected=_utc(final) if final is not None else None,
+            final_expected=final_expected(int(gw), final),
         )
         for gw, deadline, started, final in rows
     ]
@@ -236,20 +262,24 @@ def served_at(s: Any, season: str, cutoff: datetime) -> m.ForecastPromotionRow |
     return row
 
 
-def pending_candidates(engine: Engine | None, now: datetime | None = None) -> dict[str, str]:
-    """{snapshot id: forecast key} of every due gameweek's candidate: retention keeps these
-    (snapshot, caches, marker and forecast file) until the checkpoint is written."""
+def pending_candidates(engine: Engine | None, now: datetime | None = None) -> set[tuple[str, str]]:
+    """(snapshot id, forecast key) pairs retention keeps (snapshot, caches, marker and file):
+    every due gameweek's candidate until its checkpoint is written, and the newest promotion —
+    the candidate for the next cutoff — whatever the ready marker says."""
     if engine is None:
-        return {}
-    out: dict[str, str] = {}
-    due = due_gameweeks(engine, now)
-    if not due:
-        return out
+        return set()
+    now = now or datetime.now(UTC)
+    out: set[tuple[str, str]] = set()
+    gws = season_gameweeks(engine)
     with session_scope(engine) as s:
-        for g in due:
+        for g in due_gameweeks(engine, now):
             row = served_at(s, g.season, g.cutoff)
             if row is not None:
-                out[row.snapshot_id] = row.forecast_key
+                out.add((row.snapshot_id, row.forecast_key))
+        if gws:
+            newest = served_at(s, gws[0].season, now)
+            if newest is not None:
+                out.add((newest.snapshot_id, newest.forecast_key))
     return out
 
 
@@ -319,9 +349,34 @@ class _Built:
     checks: dict[str, Any]
 
 
-def _build_rows(
-    settings: Settings, data: DataService, fc: Forecast, season: str, gw: int
-) -> _Built:
+def data_checks(ds: Any, season: str, gw: int, cutoff: datetime) -> dict[str, dict[str, Any]]:
+    """Clock-independent evidence that the forecast's data predates the cutoff, from the data
+    itself rather than this host's clock (a laptop's VM clock can lag after sleep): no FPL news
+    item in the snapshot was stamped after the cutoff by FPL's own server, and no fixture of
+    the gameweek had a result (provisional or final) and no result row of it was loaded. (A
+    match in progress has no canonical trace, so this bounds post-match data only.)"""
+    snaps = ds["player_snapshots"]
+    snaps = snaps[snaps["season"] == season]
+    added = pd.to_datetime(snaps.get("news_added"), utc=True, errors="coerce").dropna()
+    latest_news = added.max() if len(added) else None
+    fx = ds["fixtures"]
+    fx = fx[(fx["season"] == season) & (fx["gw"] == gw)]
+    played = fx[fx["status"].isin(["provisional", "final"])]
+    pm = ds["player_match"]
+    rows = pm[(pm["season"] == season) & (pm["gw"] == gw)]
+    return {
+        "no_news_after_cutoff": {
+            "ok": latest_news is None or latest_news <= pd.Timestamp(cutoff),
+            "detail": f"latest FPL news stamp {latest_news}, cutoff {cutoff}",
+        },
+        "no_results_of_the_gameweek": {
+            "ok": played.empty and rows.empty,
+            "detail": f"{len(played)} fixtures with results, {len(rows)} result rows for GW{gw}",
+        },
+    }
+
+
+def _build_rows(settings: Settings, fc: Forecast, season: str, gw: int, ds: Any) -> _Built:
     """Context, baselines and distributions for every forecast row. Baselines are fitted on the
     forecast's own snapshot through the point-in-time view at its cutoff (the walk-forward
     benchmark code); without that snapshot they are unavailable, never fitted elsewhere."""
@@ -334,15 +389,10 @@ def _build_rows(
     gi = np.searchsorted(sim.gameweeks, keys["target_gw"].to_numpy())
     mc = sim.points[:, pi, gi].T  # [rows, S]
     checks: dict[str, Any] = {}
-    snap_id = str(p["data_snapshot_id"])
-    path = data.snapshot_path(snap_id)
     clim = None
-    if path is None:
-        checks["baselines"] = {"ok": False, "reason": f"snapshot {snap_id} no longer stored"}
+    if ds is None:
+        checks["baselines"] = {"ok": False, "reason": "the forecast's snapshot is no longer stored"}
         return _Built(ctx, mc, clim, checks)
-    ds = load_snapshot(path)
-    if ds.snapshot_id != snap_id:
-        raise RuntimeError(f"snapshot {path} loaded as {ds.snapshot_id}, expected {snap_id}")
     hist = history_cutoffs(ds, season)
     cut = next(c for c in hist if c.season == season and c.gw == gw)
     horizon = int(summary["horizon"].max()) + 1
@@ -538,20 +588,31 @@ def capture(
     p = fc.provenance
 
     # ---- the prospective test (§2.3); capture time is recorded, never a criterion
-    checks = prospective_checks(promo_vals, sha, p, season, gw, g.cutoff)
+    snap_id = str(p.get("data_snapshot_id"))
+    snap_path = data.snapshot_path(snap_id)
+    ds = load_snapshot(snap_path) if snap_path is not None else None
+    if ds is not None and ds.snapshot_id != snap_id:
+        raise RuntimeError(f"snapshot {snap_path} loaded as {ds.snapshot_id}, expected {snap_id}")
+    checks: dict[str, Any] = prospective_checks(promo_vals, sha, p, season, gw, g.cutoff)
+    if ds is not None:
+        checks.update(data_checks(ds, season, gw, min(_utc(p["cutoff"]), g.cutoff)))
+    else:  # retention keeps it until capture; without it the data cannot be checked
+        checks["snapshot_available"] = {"ok": False, "detail": f"{snap_id} no longer stored"}
     failed = [k for k, v in checks.items() if not v["ok"]]
     state = "prospective" if not failed else "live_unverified"
 
-    built = _build_rows(settings, data, fc, season, gw)
-    checks.update(built.checks)
+    # ---- informational: never part of the prospective test
+    built = _build_rows(settings, fc, season, gw, ds)
+    info: dict[str, Any] = dict(built.checks)
     summary = fc.summary.rename(columns={"gw": "target_gw"})
     with session_scope(engine) as s:
         run = s.get(m.PredictionRunRow, str(p["prediction_run_id"]))
         generated = run.generated_at if run is not None else None
-    checks["prediction_run_registered"] = {
+    info["prediction_run_registered"] = {
         "ok": run is not None,
         "detail": str(generated) if generated is not None else "no prediction_runs row",
     }
+    checks["info"] = info
     rows = _prediction_rows(summary, built.context, run is not None, str(p["prediction_run_id"]))
     rows_sha = _frame_digest(rows.assign(components_json=rows["components_json"].map(json.dumps)))
     ctx = built.context.drop(columns=["n_teams"], errors="ignore")
@@ -578,8 +639,8 @@ def capture(
     np.savez_compressed(buf, **blob_parts)
     cid = _checkpoint_id(KIND, season, gw, p["prediction_run_id"], sha)
     reasons = [f"{k}: {checks[k].get('detail', '')}" for k in failed]
-    if not checks["baselines"]["ok"]:
-        reasons.append(f"baselines_unavailable: {checks['baselines']['reason']}")
+    if not info["baselines"]["ok"]:
+        reasons.append(f"baselines_unavailable: {info['baselines']['reason']}")
     try:
         with session_scope(engine) as s:
             ctx_sha = _blob(s, _parquet(ctx), "application/vnd.apache.parquet")

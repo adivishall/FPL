@@ -17,7 +17,7 @@ import shutil
 import time
 import uuid
 from collections.abc import Iterator
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import joblib
@@ -149,7 +149,7 @@ def test_the_forecast_job_commits_to_the_forecast_before_marking_it_ready(
 ) -> None:
     st, key, fc = world["settings"], world["key"], world["fc"]
     with session_scope(world["engine"]) as s:
-        promo = s.get(m.ForecastPromotionRow, world["snap"])
+        promo = s.get(m.ForecastPromotionRow, (world["snap"], world["key"]))
         assert promo is not None
         assert (promo.season, promo.gameweek, promo.forecast_key) == (SEASON, 2, key)
         assert promo.prediction_run_id == fc.provenance["prediction_run_id"]
@@ -161,7 +161,7 @@ def test_the_forecast_job_commits_to_the_forecast_before_marking_it_ready(
     first = promo.promoted_at
     jobs_mod._job_forecast(world["svc"], {})
     with session_scope(world["engine"]) as s:
-        assert s.get(m.ForecastPromotionRow, world["snap"]).promoted_at == first  # type: ignore[union-attr]
+        assert s.get(m.ForecastPromotionRow, (world["snap"], world["key"])).promoted_at == first  # type: ignore[union-attr]
     # record the promotion as having happened before the GW2 cutoff (see the module docstring)
     _backdate(
         world["engine"], world["snap"], CUT[2] - timedelta(hours=2), CUT[2] - timedelta(hours=3)
@@ -187,7 +187,7 @@ def test_a_gameweek_is_due_only_after_its_cutoff_and_only_once_the_record_exists
 
 def test_retention_keeps_an_uncaptured_candidate_whatever_its_age(world: dict[str, Any]) -> None:
     st, eng = world["settings"], world["engine"]
-    assert pending_candidates(eng) == {world["snap"]: world["key"]}
+    assert pending_candidates(eng) == {(world["snap"], world["key"])}
     # newer exports push the candidate out of the newest snapshots; its forecast file is old
     time.sleep(1.1)
     newer = []
@@ -214,7 +214,13 @@ def test_capture_freezes_the_forecast_served_at_the_cutoff(world: dict[str, Any]
     ck = load_checkpoint(eng, cid)
     h = ck.header
     assert h.state == "prospective", (h.reasons, h.checks)
-    assert all(v["ok"] for v in h.checks.values()), h.checks
+    prospective = {k: v for k, v in h.checks.items() if k != "info"}
+    assert all(v["ok"] for v in prospective.values()), h.checks
+    # clock-independent evidence from the data: no FPL news after the cutoff, no GW2 result
+    assert {"no_news_after_cutoff", "no_results_of_the_gameweek"} <= set(prospective)
+    assert (
+        h.checks["info"]["baselines"]["ok"] and h.checks["info"]["prediction_run_registered"]["ok"]
+    )
     assert (h.season, h.gameweek, h.kind, h.cutoff_at) == (SEASON, 2, "live", CUT[2])
     assert h.prediction_run_id == fc.provenance["prediction_run_id"]
     assert h.artifact_sha256 == sha256_file(forecast_path(world["settings"], world["key"]))
@@ -287,7 +293,10 @@ def test_capturing_again_writes_nothing_and_a_recomputed_forecast_is_a_new_versi
     assert _count(eng, m.ForecastCheckpointRow) == 1
     assert _count(eng, m.PredictionRow) == n_rows
     assert _count(eng, m.ArtifactBlob) == n_blobs
-    assert pending_candidates(eng, CUT[2] + timedelta(minutes=10)) == {}
+    # the GW2 candidate is released; only the newest promotion (the next cutoff's) is kept
+    assert (world["snap"], world["key"]) not in pending_candidates(
+        eng, CUT[2] + timedelta(minutes=10)
+    ) or not due_gameweeks(eng, CUT[2] + timedelta(minutes=10))
     assert 2 not in [g.gameweek for g in due_gameweeks(eng)]
     # the newest export gets its own forecast: a distinct promotion; the checkpoint is unchanged
     svc.data.refresh()
@@ -358,3 +367,32 @@ def test_rows_of_a_checkpoint_cannot_be_deleted_from_under_it(world: dict[str, A
 
     with pytest.raises(IntegrityError), session_scope(world["engine"]) as s:
         s.execute(text("DELETE FROM forecast_checkpoints WHERE id = :id"), {"id": world["cid"]})
+
+
+def test_a_snapshot_promoted_again_under_another_forecast_key_is_a_new_promotion(
+    world: dict[str, Any],
+) -> None:
+    """Review finding: keyed by snapshot alone, a re-keyed serving forecast (a configuration
+    change) was dropped, and the record named a forecast the API no longer served."""
+    import copy
+
+    st, eng = world["settings"], world["engine"]
+    snap = world["snap"]
+    with session_scope(eng) as s:
+        first = s.get(m.ForecastPromotionRow, (snap, world["key"]))
+        assert first is not None
+    fc = copy.copy(world["fc"])
+    fc.provenance = {**world["fc"].provenance, "forecast_key": "fc_rekeyed"}
+    target = forecast_path(st, "fc_rekeyed")
+    target.write_bytes(b"another serving forecast of the same snapshot")
+    ledger.record_promotion(eng, st, world["svc"].data, fc, snap)
+    with session_scope(eng) as s:
+        rows = s.scalars(
+            select(m.ForecastPromotionRow).where(m.ForecastPromotionRow.snapshot_id == snap)
+        ).all()
+        assert {r.forecast_key for r in rows} == {world["key"], "fc_rekeyed"}
+        # within a snapshot the later promotion is the one served (ready marker rewritten)
+        latest = max(rows, key=lambda r: r.promoted_at)
+        assert latest.forecast_key == "fc_rekeyed"
+        served = ledger.served_at(s, SEASON, datetime.now(UTC))
+        assert served is not None and served.forecast_key != world["key"]

@@ -591,10 +591,12 @@ class ForecastPromotionRow(Base):
 
     __tablename__ = "forecast_promotions"
     __table_args__ = (Index("ix_forecast_promotions_season_gameweek", "season", "gameweek"),)
+    # a snapshot can be promoted again with another forecast key (a model, feature or
+    # simulation configuration change): each is its own promotion
     snapshot_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    forecast_key: Mapped[str] = mapped_column(String(80), primary_key=True)
     season: Mapped[str] = mapped_column(String(9))
     gameweek: Mapped[int] = mapped_column(SmallInteger)
-    forecast_key: Mapped[str] = mapped_column(String(80))
     prediction_run_id: Mapped[str] = mapped_column(String(80))
     snapshot_created_at: Mapped[datetime] = _ts()  # the export time the API orders by
     artifact_sha256: Mapped[str] = mapped_column(String(64))
@@ -637,6 +639,7 @@ class ForecastCheckpointRow(Base):
     artifact_sha256: Mapped[str | None] = mapped_column(String(64))
     code_digest: Mapped[str | None] = mapped_column(String(32))  # the computing process
     capture_code_digest: Mapped[str] = mapped_column(String(32))
+    # the computing process's declared build (captured rows); the capturing one's (missed rows)
     build_revision: Mapped[str] = mapped_column(String(64))
     provenance_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     populations_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)

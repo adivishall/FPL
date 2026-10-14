@@ -183,9 +183,18 @@ def test_final_results_are_scored_with_the_contract_statistics(world: dict[str, 
     real = pm[(pm["season"] == SEASON) & (pm["gw"] == GW)].groupby("player_code")["points"].sum()
     excluded = rows["player_code"].eq(gone) | rows["team_code"].isin(moved_clubs)
     ex = ev.exclusions_json["by_reason"]
+    moved = int(rows["team_code"].isin(moved_clubs).sum())
     assert ex["outcome_missing"] == 1  # the missing rows are never read as 0 points
-    assert ex["schedule_changed"] == int(rows["team_code"].isin(moved_clubs).sum()) > 0
+    assert ex["schedule_changed"] == moved > 0
     assert sum(ex.values()) == int(excluded.sum())
+    assert ev.exclusions_json["by_reason_h0"] == ex  # GW2 is the checkpoint's own gameweek
+    # "as served" (horizon 0 only): the postponed clubs' players got 0 points that week
+    sens = ev.metrics_json["sensitivity"]
+    assert sens["schedule_changed_rows_h0"] == sens["as_served_rows_h0"] == moved
+    blanked = rows[rows["team_code"].isin(moved_clubs)]
+    kept = rows[~excluded]
+    pairs = list(kept["mean"] - kept["player_code"].map(real)) + list(blanked["mean"])
+    assert sens["rmse_as_served_h0_all"] == pytest.approx(np.sqrt(np.mean(np.square(pairs))))
     kept = rows[~excluded]
     y = kept["player_code"].map(real).to_numpy(float)
     h0 = ev.metrics_json["results"]["all"]["h0"]
@@ -195,6 +204,8 @@ def test_final_results_are_scored_with_the_contract_statistics(world: dict[str, 
     assert h0["levels"]["citl_6"] == pytest.approx(np.mean(kept["prob_6_plus"] - (y >= 6)))
     assert h0["comparisons"]["C1"]["interval_95"] is None  # one gameweek: values only
     assert h0["status"] == "too_few_gameweeks" and h0["looks"] == {}
+    regulars = ev.metrics_json["results"]["regulars"]["h0"]
+    assert regulars["status"] == "descriptive" and regulars["looks"] == {}  # never verdicts
     assert "h1" not in ev.metrics_json["results"]["all"]  # GW3 is not final: no horizon 1 yet
     assert set(ev.metrics_json["ece_null"]["all"]) == {"p6", "start"}
     assert ev.metrics_json["calibration_state"]["state"] == "deferred"
@@ -214,6 +225,17 @@ def test_a_corrected_official_result_writes_a_revision(world: dict[str, Any]) ->
     assert ev.seq == prev.seq + 1
     (rev,) = ev.changes_json["revised"]
     assert rev["gw"] == 2 and rev["points_total"][1] == rev["points_total"][0] + 3
+    # a correction to a player no checkpoint forecast changes nothing (no spurious revision)
+    frames2 = {k: v.copy() for k, v in frames.items()}
+    pm2 = frames2["player_match"]
+    forecast_codes = set(load_checkpoint(world["svc"].engine, world["cid"]).rows["player_code"])
+    outsider = pm2.index[
+        (pm2["season"] == SEASON) & (pm2["gw"] == GW) & ~pm2["player_code"].isin(forecast_codes)
+    ]
+    if len(outsider):
+        pm2.loc[outsider[0], "points"] = pm2.loc[outsider[0], "points"] + 7
+        _promote(world, CanonicalDataset(frames2, dict(ds.meta)))
+        assert _run(world).startswith("unchanged:")
     assert [e.seq for e in _evaluations(world)] == list(range(1, ev.seq + 1))  # all kept
 
 
@@ -227,6 +249,16 @@ def test_a_process_on_older_data_never_writes(world: dict[str, Any]) -> None:
     n = len(_evaluations(world))
     out = season.run(world["svc"].engine, stale)
     assert out.startswith("stale:") and len(_evaluations(world)) == n
+    # unknown export time: refuse rather than write a row that disables the guard
+    from fpl_storage.dataset import load_snapshot
+
+    newest = max(world["root"].glob("snap_*"), key=lambda p: (p / "manifest.json").stat().st_mtime)
+    ds = load_snapshot(newest)
+    ds.meta.pop("created_at", None)
+    st2 = st.model_copy(update={"snapshots_root": world["root"] / "elsewhere"})
+    blind = DataService(st2, ds)
+    assert season.run(world["svc"].engine, blind).startswith(("stale:", "unchanged:"))
+    assert len(_evaluations(world)) == n
 
 
 def test_the_season_review_endpoint_is_public_and_reads_stored_rows(
@@ -251,6 +283,7 @@ def test_the_season_review_endpoint_is_public_and_reads_stored_rows(
     ref = body["reference"]
     assert ref is not None and set(ref["all"]["seasons"]) == {"2023-24", "2024-25", "2025-26"}
     assert ref["all"]["gameweeks"] == [2]  # the same weeks as the live record
+    assert client.get("/api/v1/season-review", params={"season": "1999-00"}).status_code == 404
     assert body["calibration"]["state"] == "deferred"
     assert body["method"]["looks"] == [8, 16]
     assert "manager_key" not in r.text  # public: no manager data

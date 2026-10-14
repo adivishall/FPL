@@ -1500,7 +1500,11 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
         sums — no grades, no effect estimates."""
         need_db()
         assert svc.engine is not None
-        return _jsonable(journal_summary(svc.engine, manager_key, season))
+        return _jsonable(
+            journal_summary(
+                svc.engine, manager_key, season, settings.reports_path / "backtest.json"
+            )
+        )
 
     @r.get("/journal/{entry_id}")
     def journal_entry(

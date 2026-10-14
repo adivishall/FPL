@@ -89,7 +89,7 @@ def checkpoint_headers(engine: Engine, season: str) -> list[Header]:
                 gameweek=int(r.gameweek),
                 state=r.state,
                 rows_sha256=r.rows_sha256,
-                baselines=bool((r.checks or {}).get("baselines", {}).get("ok")),
+                baselines=bool(((r.checks or {}).get("info") or {}).get("baselines", {}).get("ok")),
                 ruleset_version=(r.provenance_json or {}).get("ruleset_version"),
                 target_gameweeks=[
                     int(g) for g in (r.populations_json or {}).get("target_gameweeks", [])
@@ -104,15 +104,41 @@ def _results(ds: CanonicalDataset, season: str, gw: int) -> pd.DataFrame:
     return pm[(pm["season"] == season) & (pm["gw"] == gw)]
 
 
-def window_states(ds: CanonicalDataset, season: str, gws: list[int]) -> dict[int, dict[str, Any]]:
+def checkpoint_players(engine: Engine, headers: list[Header]) -> dict[int, set[int]]:
+    """Per target gameweek, the players the live-record checkpoints forecast (database only)."""
+    ids = [h.id for h in headers if h.state == "prospective"]
+    if not ids:
+        return {}
+    with session_scope(engine) as s:
+        rows = s.execute(
+            select(m.PredictionRow.gw, m.PredictionRow.player_code)
+            .where(m.PredictionRow.checkpoint_id.in_(ids))
+            .distinct()
+        ).all()
+    out: dict[int, set[int]] = {}
+    for gw, code in rows:
+        out.setdefault(int(gw), set()).add(int(code))
+    return out
+
+
+def window_states(
+    ds: CanonicalDataset,
+    season: str,
+    gws: list[int],
+    players: dict[int, set[int]] | None = None,
+) -> dict[int, dict[str, Any]]:
     """Per target gameweek: its finality state and counts and, once final, the content hash of
-    its result rows (a correction to official data changes it)."""
+    the result rows of the players the checkpoints forecast (a correction to one of their
+    official results changes it; one to a player no checkpoint covers does not)."""
     out: dict[int, dict[str, Any]] = {}
     for gw in gws:
         fin = gameweek_finality(ds, season, gw)
         w: dict[str, Any] = {"gw": gw, "state": fin.state(), "counts": fin.counts()}
         if fin.final:
-            r = _results(ds, season, gw)[
+            r = _results(ds, season, gw)
+            if players is not None:
+                r = r[r["player_code"].isin(sorted(players.get(gw, set())))]
+            r = r[
                 ["player_code", "fixture_id", "team_code", "points", "minutes", "starts"]
             ].sort_values(["player_code", "fixture_id"])
             w["outcome_digest"] = hashlib.sha256(r.to_csv(index=False).encode()).hexdigest()
@@ -128,11 +154,14 @@ def target_gameweeks(headers: list[Header]) -> list[int]:
     return sorted({g for h in headers if h.state == "prospective" for g in h.target_gameweeks})
 
 
-def input_digest(headers: list[Header], windows: dict[int, dict[str, Any]]) -> str:
+def input_digest(headers: list[Header], windows: dict[int, dict[str, Any]], season: str) -> str:
     """What the evaluation's numbers depend on (§3.2); the code digest is not part of it."""
+    rs = load_ruleset(season)
     return _h(
         {
             "config": se.metric_config(),
+            "horizons": list(HORIZONS),
+            "ruleset": [rs.ruleset_version, rs.timing.finalization_lag_hours],
             "checkpoints": [(h.id, h.state, h.rows_sha256, h.baselines) for h in headers],
             "windows": {
                 str(g): (w["state"], w.get("outcome_digest"), w.get("digest_state"))
@@ -167,10 +196,19 @@ def outcomes(ds: CanonicalDataset, season: str, gw: int) -> pd.DataFrame:
 @dataclass
 class Scored:
     rows: pd.DataFrame  # standardised score inputs + population flags, eligible rows only
-    exclusions: Counter[str] = field(default_factory=Counter)
-    as_served_se: list[float] = field(default_factory=list)  # schedule-changed, realised
-    clubs_gained_fixture: int = 0
+    exclusions: Counter[str] = field(default_factory=Counter)  # final target GWs, all horizons
+    exclusions_h0: Counter[str] = field(default_factory=Counter)  # the primary horizon
+    # horizon 0, "as served": squared errors of schedule-changed rows on what users got
+    as_served_se: list[float] = field(default_factory=list)
+    schedule_changed_h0: int = 0
+    clubs_gained_fixture_h0: int = 0
     per_checkpoint: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    def exclude(self, reason: str, n: int, horizon: int) -> None:
+        if n:
+            self.exclusions[reason] += n
+            if horizon == 0:
+                self.exclusions_h0[reason] += n
 
 
 def score_checkpoint(
@@ -185,18 +223,27 @@ def score_checkpoint(
     if h.state != "prospective":
         return
     rs = (h.provenance_json or {}).get("ruleset_version")
-    if rs != load_ruleset(season).ruleset_version:
-        out.exclusions["ruleset_changed"] += len(rows)
+    unusable = (
+        "ruleset_changed"
+        if rs != load_ruleset(season).ruleset_version
+        else "baselines_unavailable"
+        if ck.clim_counts is None or ck.mc_counts is None or ck.mc_lo is None or ck.clim_lo is None
+        else None
+    )
+    if unusable is not None:  # counted on final target gameweeks only, like every reason
+        for gw, n in (
+            rows.loc[rows["target_gw"].isin(final_gws), "target_gw"].value_counts().items()
+        ):
+            out.exclude(unusable, int(n), int(gw) - h.gameweek)
         return
-    if ck.clim_counts is None or ck.mc_counts is None or ck.mc_lo is None or ck.clim_lo is None:
-        in_final = rows["target_gw"].isin(final_gws)
-        out.exclusions["baselines_unavailable"] += int(in_final.sum())
-        return
+    assert ck.mc_counts is not None and ck.clim_counts is not None
+    assert ck.mc_lo is not None and ck.clim_lo is not None
     fixtures = ds["fixtures"]
     for gw in sorted(int(x) for x in rows["target_gw"].unique()):
         if gw not in final_gws:
             continue
         finals.append(gw)
+        horizon = gw - h.gameweek
         idx = np.flatnonzero(rows["target_gw"].to_numpy() == gw)
         sub = rows.iloc[idx].merge(
             outcomes(ds, season, gw), on="player_code", how="left", suffixes=("", "_real")
@@ -225,26 +272,31 @@ def score_checkpoint(
         complete = (sub["fixture_ids_real"] == sub["fixture_ids"]).to_numpy()
         ok = schedule_same & have & same_club & complete
         changed = ~schedule_same
-        out.exclusions["schedule_changed"] += int(changed.sum())
-        out.exclusions["outcome_missing"] += int((schedule_same & ~have).sum())
-        out.exclusions["club_changed"] += int((schedule_same & have & ~same_club).sum())
+        out.exclude("schedule_changed", int(changed.sum()), horizon)
+        out.exclude("outcome_missing", int((schedule_same & ~have).sum()), horizon)
+        out.exclude("club_changed", int((schedule_same & have & ~same_club).sum()), horizon)
         # rows for only some of the forecast's fixtures: never completed with zeros
-        out.exclusions["outcome_incomplete"] += int(
-            (schedule_same & have & same_club & ~complete).sum()
+        out.exclude(
+            "outcome_incomplete", int((schedule_same & have & same_club & ~complete).sum()), horizon
         )
-        served = changed & have
-        if served.any():  # the "as served" sensitivity scores these on their realised values
-            out.as_served_se += list(
-                (sub.loc[served, "mean"].to_numpy(float) - sub.loc[served, "y"].to_numpy(float))
-                ** 2
-            )
+        if horizon == 0 and changed.any():
+            # "as served": what users got for the rows the schedule change excluded — their
+            # realised points, or 0 when their club no longer played in the gameweek (a
+            # postponement blank); a player with no row at a club that still played is unknown
+            out.schedule_changed_h0 += int(changed.sum())
+            blank = (club_final == "").to_numpy()
+            served = changed & (have | blank)
+            y_served = np.where(have, sub["y"].fillna(0).to_numpy(float), 0.0)
+            out.as_served_se += list((sub["mean"].to_numpy(float)[served] - y_served[served]) ** 2)
         assumed_by_club: dict[int, set[int]] = {}
         for team, ids in zip(sub["team_code"], sub["fixture_ids"], strict=True):
             if pd.notna(team) and isinstance(ids, str) and ids:
                 assumed_by_club.setdefault(int(team), set()).update(int(f) for f in ids.split(","))
         for team, real in club_fixtures.items():  # clubs that gained a fixture after the forecast
-            if {int(f) for f in real.split(",") if f} - assumed_by_club.get(team, set()):
-                out.clubs_gained_fixture += 1
+            if horizon == 0 and {int(f) for f in real.split(",") if f} - assumed_by_club.get(
+                team, set()
+            ):
+                out.clubs_gained_fixture_h0 += 1
         if not ok.any():
             continue
         sel = idx[ok]
@@ -272,9 +324,11 @@ def _populations(rows: pd.DataFrame) -> dict[str, pd.Series]:
     }
 
 
-def evaluate(scored: Scored, final: bool) -> dict[str, Any]:
+def evaluate(scored: Scored, final: bool, pending_h0: set[int] | None = None) -> dict[str, Any]:
     """Every summary of the scored rows: population × horizon windows (horizon 0 primary;
-    horizons never pooled), the ECE null bands for horizon 0 and the calibration state."""
+    horizons never pooled; verdicts only for all players at horizon 0, at settled looks —
+    ``pending_h0`` are horizon-0 target gameweeks still awaiting final results), the ECE null
+    bands for horizon 0 and the calibration state."""
     rows = scored.rows
     results: dict[str, dict[str, Any]] = {}
     ece_null: dict[str, Any] = {}
@@ -288,19 +342,34 @@ def evaluate(scored: Scored, final: bool) -> dict[str, Any]:
                 sel = mask.to_numpy() & (rows["horizon"].to_numpy() == h)
                 if not sel.any():
                     continue
-                results[name][f"h{h}"] = se.summarize(se.gameweek_sums(sc[sel]), final=final)
+                primary = name == "all" and h == 0
+                results[name][f"h{h}"] = se.summarize(
+                    se.gameweek_sums(sc[sel]),
+                    final=final,
+                    verdicts=primary,
+                    pending=sorted(pending_h0 or ()) if primary else (),
+                )
             h0 = mask.to_numpy() & (rows["horizon"].to_numpy() == 0)
             if h0.any():
-                ece_null[name] = {
-                    "p6": se.ece_null_band(sc.loc[h0, "p6"]),
-                    "start": se.ece_null_band(sc.loc[h0, "pstart"]),
-                }
+                lv = results[name]["h0"]["levels"]
+                ece_null[name] = {}
+                for key, col, obs in (
+                    ("p6", "p6", lv["ece_6"]),
+                    ("start", "pstart", lv["ece_start"]),
+                ):
+                    band = se.ece_null_band(sc.loc[h0, col])
+                    ece_null[name][key] = {
+                        **band,
+                        "observed": obs,
+                        "excess": obs - band["null_median"] if obs is not None else None,
+                    }
     primary = results.get("all", {}).get("h0", {"G": 0})
     return {
         "results": results,
         "ece_null": ece_null,
         "sensitivity": {
-            "schedule_changed_rows": len(scored.as_served_se),
+            "schedule_changed_rows_h0": scored.schedule_changed_h0,
+            "as_served_rows_h0": len(scored.as_served_se),
             "rmse_as_served_h0_all": _as_served(scored, rows),
         },
         "calibration_state": se.calibration_state(primary),
@@ -313,11 +382,12 @@ def evaluate(scored: Scored, final: bool) -> dict[str, Any]:
 
 
 def _as_served(scored: Scored, rows: pd.DataFrame) -> float | None:
-    """RMSE over every scored row plus the schedule-changed ones on their realised values (all
-    horizons): exclusions cannot make the forecast look better than it was to users."""
-    if rows.empty and not scored.as_served_se:
+    """Horizon 0, all players: RMSE over the scored rows plus the schedule-changed rows on what
+    users got (their points, or 0 for a postponement blank)."""
+    if not scored.schedule_changed_h0:
         return None
-    se_ok = ((rows["mean"] - rows["y"]) ** 2).tolist() if not rows.empty else []
+    h0 = rows[rows["horizon"] == 0] if not rows.empty else rows
+    se_ok = ((h0["mean"] - h0["y"]) ** 2).tolist() if not h0.empty else []
     allv = se_ok + scored.as_served_se
     return float(np.sqrt(np.mean(allv))) if allv else None
 
@@ -339,8 +409,10 @@ def plan(engine: Engine, ds: CanonicalDataset, season: str | None = None) -> Pla
     headers = checkpoint_headers(engine, season)
     g = ds["gameweeks"]
     last_gw = int(g.loc[g["season"] == season, "gw"].max())
-    windows = window_states(ds, season, target_gameweeks(headers))
-    return Plan(season, headers, windows, input_digest(headers, windows), last_gw)
+    windows = window_states(
+        ds, season, target_gameweeks(headers), checkpoint_players(engine, headers)
+    )
+    return Plan(season, headers, windows, input_digest(headers, windows, season), last_gw)
 
 
 def latest_evaluation(engine: Engine, season: str) -> m.SeasonEvaluationRow | None:
@@ -403,9 +475,35 @@ def _changes(
         k: int(ex["by_reason"].get(k, 0)) - int(prev_ex.get(k, 0))
         for k in set(prev_ex) | set(ex["by_reason"])
     }
+    prev_looks = ((prev.metrics_json or {}).get("results", {}).get("all", {}).get("h0") or {}).get(
+        "looks"
+    ) or {}
+    looks = head.get("looks") or {}
+    look_changes = [
+        {
+            "look": at,
+            "check": k,
+            "before": prev_looks[at][part][k]
+            if part == "calibration"
+            else prev_looks[at][part][k]["verdict"],
+            "after": looks[at][part][k] if part == "calibration" else looks[at][part][k]["verdict"],
+        }
+        for at in sorted(set(prev_looks) & set(looks), key=int)
+        for part in ("comparisons", "calibration")
+        for k in looks[at][part]
+        if k in prev_looks[at][part]
+        and (
+            prev_looks[at][part][k] != looks[at][part][k]
+            if part == "calibration"
+            else prev_looks[at][part][k]["verdict"] != looks[at][part][k]["verdict"]
+        )
+    ]
     changes = {
         "newly_scored": sorted(scored - prev_scored),
+        "no_longer_scored": sorted(prev_scored - scored),
         "revised": revised,
+        "looks_issued": sorted(set(looks) - set(prev_looks), key=int),
+        "looks_revised": look_changes,
         "exclusion_deltas": {k: v for k, v in delta.items() if v},
         "headline": {
             "before": prev.changes_json.get("headline", {}).get("after"),
@@ -416,7 +514,7 @@ def _changes(
         trigger = "evaluator_change"
     elif changes["newly_scored"]:
         trigger = "new_gameweek_final"
-    elif revised:
+    elif revised or changes["no_longer_scored"]:
         trigger = "outcome_correction"
     else:
         trigger = "record_change"
@@ -438,7 +536,12 @@ def run(engine: Engine, data: DataService) -> str:
     for h in p.headers:
         ck = load_checkpoint(engine, h.id)
         score_checkpoint(ck, ds, p.season, final_gws, scored)
-    metrics = evaluate(scored, final=p.last_gw in final_gws)
+    pending_h0 = {
+        h.gameweek
+        for h in p.headers
+        if h.state == "prospective" and h.gameweek not in final_gws and h.gameweek in p.windows
+    }
+    metrics = evaluate(scored, final=p.last_gw in final_gws, pending_h0=pending_h0)
     windows = [
         {
             **w,
@@ -452,16 +555,22 @@ def run(engine: Engine, data: DataService) -> str:
     ]
     exclusions = {
         "by_reason": dict(scored.exclusions),
-        "clubs_gained_fixture": scored.clubs_gained_fixture,
+        "by_reason_h0": dict(scored.exclusions_h0),
+        "clubs_gained_fixture_h0": scored.clubs_gained_fixture_h0,
         "status_u_rows_h0": metrics.pop("status_u_rows_h0"),
     }
     started = record_started(engine)
     snap_path = data.snapshot_path(ds.snapshot_id)
-    created = (
-        datetime.fromisoformat(json.loads((snap_path / "manifest.json").read_text())["created_at"])
+    created_raw = (
+        json.loads((snap_path / "manifest.json").read_text())["created_at"]
         if snap_path is not None
-        else None
+        else (ds.meta or {}).get("created_at")
     )
+    if created_raw is None:  # never write without knowing how new the data is (fail closed)
+        return f"stale:{ds.snapshot_id} has no known export time"
+    created = pd.Timestamp(created_raw).to_pydatetime()
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=UTC)
     metrics["checkpoints"] = scored.per_checkpoint
     metrics["record_started"] = started.isoformat() if started else None
     with session_scope(engine) as s:
@@ -479,7 +588,6 @@ def run(engine: Engine, data: DataService) -> str:
         if (
             prev is not None
             and prev.snapshot_created_at is not None
-            and created is not None
             and created < prev.snapshot_created_at
         ):
             return f"stale:{ds.snapshot_id} is older than the data of evaluation {prev.id}"
@@ -609,11 +717,11 @@ def reference_window(
         sums = sums[sums["target_gw"].isin(gameweeks)]
         if sums.empty:
             continue
-        w = se.summarize(sums)
-        lv = w["levels"]
+        lv = se.levels(sums)
+        means = se.comparison_means(sums)
         out["seasons"][season] = {
-            "G": w["G"],
-            "rows": w["rows"],
+            "G": len(sums),
+            "rows": int(sums["n"].sum()),
             "rmse": lv["rmse"],
             "crps": lv["crps"],
             "brier_6": lv["brier_6"],
@@ -624,13 +732,7 @@ def reference_window(
             "ece_6": lv["ece_6"],
             "ece_start": lv["ece_start"],
             "bias_model": lv["bias_model"],
-            "comparisons": {
-                k: {
-                    "mean": w["comparisons"][k]["mean"],
-                    "direction": w["comparisons"][k]["direction"],
-                }
-                for k in se.PRIMARY
-            },
+            "comparisons": means,
         }
     return out
 

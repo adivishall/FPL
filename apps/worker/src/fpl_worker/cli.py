@@ -37,11 +37,11 @@ from sqlalchemy import func, select
 from fpl_api.container import AppServices
 from fpl_api.jobs import JobBackend, services
 from fpl_api.journal import JournalStore
-from fpl_api.ledger import due_gameweeks
+from fpl_api.ledger import due_gameweeks, promotion_recorded
 from fpl_api.lifecycle import invalidate_for_snapshot
 from fpl_api.season import latest_evaluation
 from fpl_api.season import plan as season_plan
-from fpl_api.services import ForecastUnavailable
+from fpl_api.services import ForecastUnavailable, is_serving_ready
 from fpl_domain.config import load_versioned_config
 from fpl_ingestion import cli as ingest_cli
 from fpl_ingestion.logs import configure_logging
@@ -110,7 +110,20 @@ def task_forecast_precompute(svc: AppServices, jobs: JobBackend, b: str) -> dict
         else {}
     )
     try:
-        svc.forecasts.get(ctx.season, ctx.gameweek, svc.settings.forecast_horizon, compute=False)
+        fc = svc.forecasts.get(
+            ctx.season, ctx.gameweek, svc.settings.forecast_horizon, compute=False
+        )
+        snapshot = svc.data.snapshot_id
+        key = str(fc.provenance.get("forecast_key"))
+        unpromoted = not is_serving_ready(svc.settings, snapshot) or (
+            svc.engine is not None
+            and svc.data.snapshot_path(snapshot) is not None
+            and not promotion_recorded(svc.engine, snapshot, key)
+        )
+        if unpromoted:  # computed, but the promotion (record + marker) failed or predates M1.5:
+            # the forecast job loads it from disk and promotes it
+            job = jobs.submit("forecast", {"season": ctx.season, "gameweek": ctx.gameweek})
+            return {"status": "promoting", "job_id": job, "invalidated": swept}
         # the forecast is in place: precompute each manager's Copilot Home analysis for this
         # snapshot (de-duplicated per snapshot and state, so repeats cost nothing)
         analyses = _submit_squad_analyses(svc, jobs)

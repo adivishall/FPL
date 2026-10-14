@@ -135,7 +135,9 @@ def prune(settings: Settings, engine: Engine | None, now: float | None = None) -
     ids = [p.name for p in complete]
     ready = [s for s in ids if is_serving_ready(settings, s)]
     candidates = pending_candidates(engine)  # forecast record: not yet captured
-    with_caches = set(ids[-keep_n:]) | set(ready[-1:]) | pinned_snapshots() | set(candidates)
+    with_caches = (
+        set(ids[-keep_n:]) | set(ready[-1:]) | pinned_snapshots() | {c[0] for c in candidates}
+    )
     referenced = referenced_snapshots(engine)
     for p in complete:
         if p.name in with_caches:
@@ -156,7 +158,7 @@ def prune(settings: Settings, engine: Engine | None, now: float | None = None) -
             if d.name not in with_caches:
                 remove(d)
                 rep.deleted_files += 1
-    serving_keys = set(candidates.values())
+    serving_keys = {c[1] for c in candidates}
     for marker in (art / "serving").glob("*.ready"):
         if marker.stem in with_caches:
             serving_keys.add(json.loads(marker.read_text()).get("forecast_key"))

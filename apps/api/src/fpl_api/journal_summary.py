@@ -9,15 +9,22 @@ for one manager only — the route applies the journal's ownership checks:
   final; realised points are the evaluator's, from official results — never a value the manager
   typed. Per decision first; "first gameweek only".
 * **Range counts** against the binomial typical range for that many decisions, beside the
-  past-season split of the same check; totals as paired sums with their n; an interval only from
-  six scored non-HOLD decisions (t-interval and exact sign-flip test, as for the live record).
+  published past-season split of the same check (``ml/reports/backtest.json``
+  ``squad_calibration``); totals as paired sums with their n; an interval only from six scored
+  non-HOLD decisions (t-interval and exact sign-flip test, as for the live record).
+* **Armband changes.** A decision-time expectation belongs to the plan as the engine built it,
+  with its own captain; when the manager changed the armband (or HOLD's stored armband was not
+  kept) the row is shown but left out of the range counts and the paired sums, as the journal's
+  own evaluation does.
 
 Nothing here grades decisions or estimates the effect of following Copilot.
 """
 
 from __future__ import annotations
 
+import json
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 from scipy import stats
@@ -28,9 +35,6 @@ from fpl_storage import models as m
 from fpl_storage.db import session_scope
 
 MIN_FOR_INTERVAL = 6
-# Past-season backtests (engine plans, 114 gameweeks, 2023-26): realised points against the
-# plan's decision-time 80 % range — below / inside / above, against the nominal 10 / 80 / 10.
-PAST_SEASON_RANGE_SPLIT = {"below": 0.053, "inside": 0.816, "above": 0.132}
 LIMITS = (
     "You choose which decisions to record and which advice to follow, so these are not a sample "
     "of anything.",
@@ -53,7 +57,31 @@ def _f(v: Any) -> float | None:
     return float(v) if v is not None else None
 
 
-def summary(engine: Engine, manager_key: str, season: str | None = None) -> dict[str, Any]:
+def past_season_split(backtest_report: Path | None) -> dict[str, Any] | None:
+    """The published engine squad-level range check (non-chip weeks, 2023-26)."""
+    if backtest_report is None:
+        return None
+    try:
+        sc = json.loads(backtest_report.read_text()).get("squad_calibration") or {}
+    except (OSError, ValueError):
+        return None
+    if not sc:
+        return None
+    return {
+        "below": float(sc["below_p10"]),
+        "inside": float(sc["coverage_p10_p90"]),
+        "above": float(sc["above_p90"]),
+        "weeks": int(sc["weeks"]),
+        "source": "ml/reports/backtest.md (engine plans, non-chip weeks, 2023-26)",
+    }
+
+
+def summary(
+    engine: Engine,
+    manager_key: str,
+    season: str | None = None,
+    backtest_report: Path | None = None,
+) -> dict[str, Any]:
     with session_scope(engine) as s:
         q = select(m.DecisionJournalRow).where(m.DecisionJournalRow.manager_key == manager_key)
         if season is not None:
@@ -88,10 +116,13 @@ def summary(engine: Engine, manager_key: str, season: str | None = None) -> dict
             ev = latest.get(e.entry_id)
             if not (e.prospective and e.evidence_json and ev is not None and ev.status == "final"):
                 continue
-            chosen = (e.evidence_json or {}).get("chosen") or {}
+            evidence = e.evidence_json or {}
+            chosen = evidence.get("chosen") or {}
             expected = chosen.get("expected") or {}
             gain = chosen.get("gain_vs_hold") or {}
             detail = ev.detail_json or {}
+            armband_changed = bool(evidence.get("captain_override"))
+            hold_armband_kept = (evidence.get("hold") or {}).get("armband_as_stored") is not False
             rows.append(
                 {
                     "entry_id": e.entry_id,
@@ -106,6 +137,10 @@ def summary(engine: Engine, manager_key: str, season: str | None = None) -> dict
                     "difference_vs_hold": _f(detail.get("difference_vs_hold")),
                     "expected_difference_vs_hold": _f(gain.get("mean")),
                     "difference_range": detail.get("difference_band"),
+                    # the expectation is the engine's plan with its own armband: comparable
+                    # with the result only when the manager kept that armband
+                    "comparable": not armband_changed,
+                    "comparable_vs_hold": not armband_changed and hold_armband_kept,
                     "evaluation": {"id": ev.id, "seq": ev.seq, "evaluated_at": ev.evaluated_at},
                 }
             )
@@ -117,14 +152,15 @@ def summary(engine: Engine, manager_key: str, season: str | None = None) -> dict
         "counts": counts,
         "actions": actions,
         "adherence": adherence,
-        "outcomes": _outcomes(rows),
+        "outcomes": _outcomes(rows, past_season_split(backtest_report)),
         "limits": list(LIMITS),
         "caveat": "Your own records, private to you. Behaviour is described, not graded.",
     }
 
 
-def _outcomes(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    ranged = [r for r in rows if r["range"] in ("below", "within", "above")]
+def _outcomes(rows: list[dict[str, Any]], past: dict[str, Any] | None) -> dict[str, Any]:
+    comparable = [r for r in rows if r["comparable"]]
+    ranged = [r for r in comparable if r["range"] in ("below", "within", "above")]
     n = len(ranged)
     range_counts = {
         "below": sum(r["range"] == "below" for r in ranged),
@@ -132,17 +168,18 @@ def _outcomes(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "above": sum(r["range"] == "above" for r in ranged),
         "n": n,
         "typical_inside": typical_range(n) if n else None,
-        "past_seasons": PAST_SEASON_RANGE_SPLIT,
+        "past_seasons": past,
+        "armband_changed_excluded": len(rows) - len(comparable),
     }
     vs_expected = [
         r["realised_points"] - r["expected_points"]
-        for r in rows
+        for r in comparable
         if r["realised_points"] is not None and r["expected_points"] is not None
     ]
     non_hold = [
         r["difference_vs_hold"]
         for r in rows
-        if r["action"] != "HOLD" and r["difference_vs_hold"] is not None
+        if r["comparable_vs_hold"] and r["action"] != "HOLD" and r["difference_vs_hold"] is not None
     ]
     vs_hold: dict[str, Any] = {
         "n": len(non_hold),

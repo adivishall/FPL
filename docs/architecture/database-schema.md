@@ -218,9 +218,9 @@ erDiagram
   }
   forecast_promotions {
     string snapshot_id PK
+    string forecast_key PK
     string season
     smallinteger gameweek
-    string forecast_key
     string prediction_run_id
     datetime snapshot_created_at
     string artifact_sha256

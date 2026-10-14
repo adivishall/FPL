@@ -109,7 +109,7 @@ def _sums(d_mse: list[float], seed: int = 0) -> pd.DataFrame:
 
 
 def test_no_verdict_before_the_first_look_however_one_sided() -> None:
-    w = se.summarize(_sums([-0.3] * 5))
+    w = se.summarize(_sums([-0.3] * 5), verdicts=True)
     c1 = w["comparisons"]["C1"]
     assert w["status"] == "too_few_gameweeks" and w["looks"] == {}
     assert c1["direction"] == {"lower": 5, "higher": 0, "equal": 0}
@@ -119,28 +119,30 @@ def test_no_verdict_before_the_first_look_however_one_sided() -> None:
 
 
 def test_a_look_gives_verdicts_with_holm_and_equivalence() -> None:
-    w = se.summarize(_sums([-0.3, -0.25, -0.35, -0.2, -0.3, -0.28, -0.32, -0.27]))
+    w = se.summarize(_sums([-0.3, -0.25, -0.35, -0.2, -0.3, -0.28, -0.32, -0.27]), verdicts=True)
     assert w["status"] == "look" and list(w["looks"]) == ["8"]
     look = w["looks"]["8"]
     assert look["comparisons"]["C1"]["verdict"] == "lower_error"
     assert look["comparisons"]["C1"]["p_holm"] >= look["comparisons"]["C1"]["p_sign_flip"]
     assert look["calibration"]["K3"] == "within_tolerance"
     # between looks: the latest look stands, the current window is monitoring
-    w9 = se.summarize(_sums([-0.3, -0.25, -0.35, -0.2, -0.3, -0.28, -0.32, -0.27, 0.4]))
+    w9 = se.summarize(
+        _sums([-0.3, -0.25, -0.35, -0.2, -0.3, -0.28, -0.32, -0.27, 0.4]), verdicts=True
+    )
     assert w9["status"] == "monitoring" and list(w9["looks"]) == ["8"]
-    mixed = se.summarize(_sums([-0.3, 0.25, -0.35, 0.2, -0.3, 0.28, -0.32, 0.27]))
+    mixed = se.summarize(_sums([-0.3, 0.25, -0.35, 0.2, -0.3, 0.28, -0.32, 0.27]), verdicts=True)
     assert mixed["looks"]["8"]["comparisons"]["C1"]["verdict"] == "no_clear_difference"
     assert se.look_points(8, final=False) == [8]
     assert se.look_points(20, final=True) == [8, 16, 20]
 
 
 def test_calibration_state_never_recalibrates() -> None:
-    w = se.summarize(_sums([-0.3] * 8))
+    w = se.summarize(_sums([-0.3] * 8), verdicts=True)
     st = se.calibration_state(w)
     assert st["state"] in ("not_needed", "deferred") and st["look"] == 8
     off = _sums([-0.3] * 8)
     off["pit80"] = off["n"] * 0.70
-    assert se.calibration_state(se.summarize(off))["state"] == "review_suggested"
+    assert se.calibration_state(se.summarize(off, verdicts=True))["state"] == "review_suggested"
 
 
 def test_ece_null_band_is_seeded_and_covers_calibrated_forecasts() -> None:
@@ -156,3 +158,32 @@ def test_ece_null_band_is_seeded_and_covers_calibrated_forecasts() -> None:
 def test_row_scores_need_every_input() -> None:
     with pytest.raises(KeyError):
         se.row_scores(pd.DataFrame({"y": [1.0]}))
+
+
+def test_a_look_waits_for_every_earlier_gameweek_and_segments_never_carry_verdicts() -> None:
+    """Review finding: look 8 used the first 8 *scored* gameweeks, so a gameweek still awaiting
+    final results could be skipped and the look silently re-formed once it arrived."""
+    sums = _sums([-0.3] * 9)
+    sums["target_gw"] = [7, 8, 9, 11, 12, 13, 14, 15, 16]  # GW10 not final yet
+    w = se.summarize(sums, verdicts=True, pending=[10])
+    assert w["looks"] == {} and w["looks_waiting"] == {"8": 10}
+    assert w["status"] == "monitoring"
+    assert "GW10" in se.calibration_state(w)["reason"]
+    seg = se.summarize(_sums([-0.3] * 8))  # a segment or another horizon
+    assert seg["looks"] == {} and seg["status"] == "descriptive"
+
+
+def test_monte_carlo_sign_flip_p_is_never_zero() -> None:
+    p = se.sign_flip_p([-1.0] * 20)
+    assert p is not None and p > 0 and p == pytest.approx(1 / (1 + se.SIGN_FLIP_DRAWS))
+
+
+def test_intervals_need_the_minimum_events_and_rows() -> None:
+    few = _sums([-0.3] * 4)
+    few["y10"] = 2.0  # 8 hauls of 10+ in four gameweeks
+    w = se.summarize(few)
+    assert w["comparisons"]["brier_10_vs_climatology"]["interval_95"] is None
+    assert "events" in w["comparisons"]["brier_10_vs_climatology"]["interval_label"]
+    assert w["comparisons"]["C1"]["interval_95"] is not None
+    small = few.assign(n=60)  # 240 rows in four gameweeks
+    assert se.summarize(small)["comparisons"]["C1"]["interval_95"] is None
