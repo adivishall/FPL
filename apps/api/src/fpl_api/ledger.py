@@ -148,6 +148,7 @@ class Gameweek:
     deadline: datetime
     cutoff: datetime
     first_kickoff: datetime | None
+    final_expected: datetime | None = None  # last kickoff + the ruleset's finalisation lag
 
 
 def record_started(engine: Engine) -> datetime | None:
@@ -171,7 +172,12 @@ def season_gameweeks(engine: Engine, season: str | None = None) -> list[Gameweek
             if season is None:
                 return []
         rows = s.execute(
-            select(m.GameweekRow.gw, m.GameweekRow.deadline_at, m.GameweekRow.started_at)
+            select(
+                m.GameweekRow.gw,
+                m.GameweekRow.deadline_at,
+                m.GameweekRow.started_at,
+                m.GameweekRow.finalized_at,
+            )
             .join(m.SeasonRow, m.SeasonRow.id == m.GameweekRow.season_id)
             .where(m.SeasonRow.season_code == season)
             .order_by(m.GameweekRow.gw)
@@ -184,8 +190,9 @@ def season_gameweeks(engine: Engine, season: str | None = None) -> list[Gameweek
             deadline=_utc(deadline),
             cutoff=decision_cutoff(_utc(deadline), buffer).to_pydatetime(),
             first_kickoff=_utc(started) if started is not None else None,
+            final_expected=_utc(final) if final is not None else None,
         )
-        for gw, deadline, started in rows
+        for gw, deadline, started, final in rows
     ]
 
 

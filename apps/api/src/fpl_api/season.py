@@ -547,10 +547,10 @@ def timeline(engine: Engine, season: str, now: datetime | None = None) -> dict[s
             ck = cks.get(g.gameweek)
             if ck is not None:
                 state = ck.state
-            elif started is None or g.cutoff < started:
-                state = "before_record"
             elif g.cutoff > now:
                 state = "upcoming"
+            elif started is None or g.cutoff < started:
+                state = "before_record"
             else:
                 state = "due"
             items.append(
@@ -558,6 +558,10 @@ def timeline(engine: Engine, season: str, now: datetime | None = None) -> dict[s
                     "gameweek": g.gameweek,
                     "deadline": g.deadline.isoformat(),
                     "cutoff": g.cutoff.isoformat(),
+                    "first_kickoff": g.first_kickoff.isoformat() if g.first_kickoff else None,
+                    "results_final_expected": (
+                        g.final_expected.isoformat() if g.final_expected else None
+                    ),
                     "state": state,
                     "checkpoint_id": ck.id if ck else None,
                     "captured_at": ck.captured_at.isoformat() if ck else None,

@@ -57,6 +57,45 @@ def _stage_results(snapshot_b: Path, root: Path) -> Path:
     return export_snapshot(with_gameweek_results(ds_b, season, 2, lambda c: c % 7 + 1), root)
 
 
+def _seed_gameweeks(url: str, ds: Any) -> None:
+    """The ``gameweeks`` table as the live ingestion keeps it in production (seasons and
+    official deadlines): the forecast record and the Season Review read deadlines from it."""
+    from sqlalchemy import create_engine, text  # noqa: PLC0415
+
+    from fpl_domain.rules import load_ruleset  # noqa: PLC0415
+
+    g = ds["gameweeks"]
+    engine = create_engine(url)
+    with engine.begin() as c:
+        for season in sorted(g["season"].unique()):
+            sid = c.execute(
+                text(
+                    "INSERT INTO seasons (season_code, ruleset_version, schema_version) "
+                    "VALUES (:s, :r, 1) ON CONFLICT (season_code) DO UPDATE SET "
+                    "season_code = EXCLUDED.season_code RETURNING id"
+                ),
+                {"s": season, "r": load_ruleset(season).ruleset_version},
+            ).scalar_one()
+            for r in g[g["season"] == season].itertuples():
+                c.execute(
+                    text(
+                        "INSERT INTO gameweeks (season_id, gw, deadline_at, started_at, "
+                        "finalized_at, status, deadline_source) VALUES (:sid, :gw, :d, :k, :f, "
+                        ":st, :src) ON CONFLICT (season_id, gw) DO NOTHING"
+                    ),
+                    {
+                        "sid": sid,
+                        "gw": int(r.gw),
+                        "d": r.deadline_at,
+                        "k": r.first_kickoff_at,
+                        "f": None if r.finalized_at != r.finalized_at else r.finalized_at,
+                        "st": str(r.status),
+                        "src": str(r.deadline_source)[:32],
+                    },
+                )
+    engine.dispose()
+
+
 STACK_INFO = ROOT / "apps" / "web" / "e2e" / ".e2e-stack.json"
 
 
@@ -159,6 +198,7 @@ def main() -> None:
                 "FPL_WEB_API_KEYS_SHA256": json.dumps([hash_key(E2E_KEY)]),
             }
         )
+        _seed_gameweeks(url, ds_a)
         from fpl_api.app import create_app  # noqa: PLC0415 (reads env set above)
         from fpl_api.settings import Settings  # noqa: PLC0415
 
