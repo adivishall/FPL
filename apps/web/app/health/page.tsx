@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { Badge, Card, FreshnessBanner, State, useApi } from "@/components/ui";
+import { Badge, Card, FreshnessBanner, PageHeader, State, useApi } from "@/components/ui";
 import type { Freshness } from "@/lib/api";
 
 interface Health {
@@ -23,11 +23,12 @@ export default function DataHealth() {
   return (
     <>
       <FreshnessBanner f={h.data?.freshness} />
-      <h1>Data Health</h1>
+      <PageHeader title="Data Health" lede="Whether the data behind every number is fresh and every service is reachable, and the model gates — checked on past seasons, never on this season's live forecasts." />
       <div className="grid">
         <Card title="Services" testId="services">
           <State loading={h.loading} error={h.error} />
           {h.data ? (
+            <div className="table-wrap">
             <table>
               <tbody>
                 {Object.entries(h.data.checks).map(([k, v]) => (
@@ -39,6 +40,7 @@ export default function DataHealth() {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : null}
         </Card>
         <Card title="Model status (promotion gates)" testId="models">
@@ -59,6 +61,7 @@ export default function DataHealth() {
         </Card>
         <Card title="Data-quality incidents" wide>
           <State loading={dq.loading} error={dq.error} empty={dq.data && !dq.data.events.length ? "No incidents recorded in this database (ingestion quality gates run in the data pipeline; see docs/DATA_DICTIONARY.md)." : undefined} />
+          <div className="table-wrap">
           <table>
             <tbody>
               {dq.data?.events.map((e, i) => (
@@ -66,6 +69,7 @@ export default function DataHealth() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       </div>
     </>

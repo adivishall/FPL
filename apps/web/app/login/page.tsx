@@ -39,7 +39,9 @@ function LoginForm() {
   }
 
   return (
-    <Card title="Sign in" testId="login">
+    <div className="auth">
+    <Card title="Sign in" testId="login" tone="accent">
+      <p className="small">FPL Copilot is an invite-only beta: probabilistic forecasts, whole-squad planning and a journal that checks itself against the official results.</p>
       <form onSubmit={submit} className="kv">
         <label htmlFor="email">E-mail</label>
         <input id="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -52,8 +54,9 @@ function LoginForm() {
         </div>
       </form>
       {err ? <p className="error" role="alert">{err}</p> : null}
-      <p className="small">This is an invite-only beta. Sessions are stored in an HttpOnly cookie on this site and expire after 30 days.</p>
+      <p className="small">Sessions are stored in an HttpOnly cookie on this site and expire after 30 days.</p>
     </Card>
+    </div>
   );
 }
 

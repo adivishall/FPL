@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { Badge, Card, State, useApi } from "@/components/ui";
+import { Badge, Callout, Card, PageHeader, Stat, State, Stats, useApi } from "@/components/ui";
 import { loadSettings } from "@/lib/settings";
 
 // ---------------------------------------------------------------- API shapes (GET /season-review)
@@ -282,16 +282,25 @@ export default function SeasonReview() {
   const next = d?.timeline.next_checkpoint;
   return (
     <>
-      <h1>Season Review</h1>
-      <p className="small">
-        How this season&apos;s live forecasts are doing, judged only on official results that are final, against forecasts frozen before
-        kickoff. Each part says what evidence it is; they are never combined into one score.
-      </p>
+      <PageHeader
+        title="Season Review"
+        lede="How this season's live forecasts are doing, judged only on official results that are final, against forecasts frozen before kickoff. Each part says what evidence it is; they are never combined into one score."
+      />
       <State loading={r.loading} error={r.error} />
       {d ? (
         <>
+          <Stats>
+            <Stat label="Live gameweeks final" value={scored < FIRST_LOOK ? `${scored} of ${FIRST_LOOK}` : scored} hint={scored < FIRST_LOOK ? "needed for the first formal check" : "formal checks issued"} />
+            <Stat
+              label={next ? `GW${next.gameweek} forecast` : "Next checkpoint"}
+              value={next ? (next.state === "due" ? "capture pending" : "freezes") : "—"}
+              hint={next && next.state !== "due" ? utc(next.cutoff) : next ? "after the cutoff" : "no gameweek upcoming"}
+            />
+            <Stat label="Calibration" value={d.calibration.state.replaceAll("_", " ")} hint={d.calibration.state === "deferred" ? "no adjustment made" : "see the calibration section"} />
+            <Stat label="Evaluation" value={d.evaluation ? `#${d.evaluation.seq}` : "none yet"} hint={d.evaluation ? utc(d.evaluation.created_at) : "nothing frozen to evaluate"} />
+          </Stats>
           {/* 1. status strip */}
-          <div className="banner fresh" role="status" data-testid="season-status">
+          <div className="callout info" role="status" data-testid="season-status">
             <strong>
               {scored < FIRST_LOOK
                 ? `Live record: ${scored} of ${FIRST_LOOK} gameweeks final`
@@ -336,10 +345,10 @@ export default function SeasonReview() {
             <Timeline items={d.timeline.gameweeks} />
             {d.evaluation?.windows.length ? <Windows windows={d.evaluation.windows} /> : null}
             {!live || live.G === 0 ? (
-              <p className="muted" data-testid="live-empty">
+              <Callout tone="pending" testId="live-empty">
                 No live gameweek is final yet. Results become final when FPL has checked them and the finalisation period has passed, usually
                 three to four days after a gameweek&apos;s last match.
-              </p>
+              </Callout>
             ) : (
               <LiveResults live={live} evaluation={d.evaluation!} />
             )}
@@ -406,7 +415,7 @@ function WhatChanged({ changes }: { changes: Evaluation["changes"] }) {
 function Timeline({ items }: { items: TimelineItem[] }) {
   const shown = items.filter((i) => i.state !== "upcoming").concat(items.filter((i) => i.state === "upcoming").slice(0, 2));
   return (
-    <table data-testid="timeline">
+    <div className="table-wrap"><table data-testid="timeline">
       <thead><tr><th>GW</th><th>Decision cutoff</th><th>Forecast record</th><th>Detail</th></tr></thead>
       <tbody>
         {shown.map((i) => {
@@ -429,7 +438,7 @@ function Timeline({ items }: { items: TimelineItem[] }) {
           );
         })}
       </tbody>
-    </table>
+    </table></div>
   );
 }
 
@@ -492,7 +501,7 @@ function LiveResults({ live, evaluation }: { live: Window; evaluation: Evaluatio
       ) : (
         <p className="small muted">No interval yet: intervals need at least three final gameweeks (and enough events for the probabilities).</p>
       )}
-      <table data-testid="comparisons">
+      <div className="table-wrap"><table data-testid="comparisons">
         <thead><tr><th>Comparison</th><th>Baseline</th><th>Mean difference</th><th>95 % interval</th><th>Gameweeks with lower error</th><th>Regular starters (mean)</th><th>Verdict</th></tr></thead>
         <tbody>
           {primary.map((k) => {
@@ -510,7 +519,7 @@ function LiveResults({ live, evaluation }: { live: Window; evaluation: Evaluatio
             );
           })}
         </tbody>
-      </table>
+      </table></div>
       {looks.length ? (
         <p className="small" data-testid="looks">
           Formal checks so far:{" "}
@@ -523,7 +532,7 @@ function LiveResults({ live, evaluation }: { live: Window; evaluation: Evaluatio
         window overstates the full-season margin for expected points (not for the other three).
       </p>
       <h3>Are the probabilities and ranges honest?</h3>
-      <table data-testid="calibration-checks">
+      <div className="table-wrap"><table data-testid="calibration-checks">
         <thead><tr><th>Check</th><th>Live value</th><th>Tolerance</th><th>90 % interval</th><th>Verdict</th></tr></thead>
         <tbody>
           {Object.entries(live.calibration ?? {}).map(([k, c]) => (
@@ -536,7 +545,7 @@ function LiveResults({ live, evaluation }: { live: Window; evaluation: Evaluatio
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       <p className="small">
         Outcomes below the 10th percentile: {pct1(lv.pit_below_10)}; above the 90th: {pct1(lv.pit_above_90)} (10 % each when the range is
         honest). ECE (descriptive, no verdict): P(6+) {f3(lv.ece_6)}; a perfectly calibrated forecast would typically show{" "}
@@ -546,7 +555,7 @@ function LiveResults({ live, evaluation }: { live: Window; evaluation: Evaluatio
         starters&apos; values are in the per-gameweek detail.
       </p>
       <h3>Per gameweek (descriptive)</h3>
-      <table data-testid="per-gameweek">
+      <div className="table-wrap"><table data-testid="per-gameweek">
         <thead><tr><th>GW</th><th>Players</th><th>RMSE model / ppg × avail.</th><th>Bias</th><th>CRPS model / climatology</th><th>PIT-80</th><th>CITL P(6+)</th><th>CITL P(start)</th></tr></thead>
         <tbody>
           {(live.per_gameweek ?? []).map((g) => (
@@ -556,7 +565,7 @@ function LiveResults({ live, evaluation }: { live: Window; evaluation: Evaluatio
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {regulars?.levels ? (
         <p className="small">
           Regular starters (start rate ≥ 50 %): {regulars.rows} player-gameweeks, RMSE {f3(regulars.levels.rmse.model)} (ppg × availability{" "}
@@ -588,7 +597,7 @@ function PastSeasons({ review }: { review: SeasonReview }) {
         (selection bias). Computed only on 2023-26 data (summarised {utc(ref.generated)}; forecasts published 2026-10-06; thresholds committed
         2026-10-02).
       </p>
-      <table data-testid="reference">
+      <div className="table-wrap"><table data-testid="reference">
         <thead><tr><th>Season</th><th>Gameweeks</th><th>RMSE model / ppg × avail.</th><th>CRPS model / climatology</th><th>PIT-80</th><th>CITL P(6+)</th><th>CITL P(start)</th></tr></thead>
         <tbody>
           {Object.entries(ref.all.seasons).map(([s, v]) => (
@@ -598,7 +607,7 @@ function PastSeasons({ review }: { review: SeasonReview }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       <p className="small">
         Full past-season reports: <Link href="/backtests">Backtest Lab</Link> (forecast evaluation and the strategy backtest). The engine&apos;s live
         decisions are not benchmarked this season; strategy comparisons come from past seasons only.
@@ -637,7 +646,7 @@ function YourDecisions({ managerKey, season }: { managerKey: string; season: str
         <p className="muted" data-testid="decisions-empty">No decision recorded before its deadline has final results yet.</p>
       ) : (
         <>
-          <table data-testid="decision-rows">
+          <div className="table-wrap"><table data-testid="decision-rows">
             <thead><tr><th>GW</th><th>Action</th><th>Relation</th><th>Points</th><th>Expected when you decided (80 % range)</th><th>vs holding: actual (expected)</th><th>Evaluation</th></tr></thead>
             <tbody>
               {o.rows.map((x) => (
@@ -656,7 +665,7 @@ function YourDecisions({ managerKey, season }: { managerKey: string; season: str
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <p className="small">
             First gameweek only; later weeks of a transfer are not counted. Inside the 80 % range: {rc.inside} of {rc.n}
             {rc.typical_inside ? ` (with ${rc.n} decisions, ${rc.typical_inside[0]}–${rc.typical_inside[1]} inside is unsurprising)` : ""}; below {rc.below},
@@ -690,10 +699,10 @@ function Method({ review }: { review: SeasonReview }) {
         zero; those exclusions are not random (postponements follow cup runs). &ldquo;A simple rule resembling FPL&apos;s expected points&rdquo; is a
         baseline Copilot computes; FPL&apos;s own expected points are not used.
       </p>
-      <table data-testid="ui-numbers">
+      <div className="table-wrap"><table data-testid="ui-numbers">
         <thead><tr><th>Number shown in Copilot</th><th>How it is evaluated here</th></tr></thead>
         <tbody>{UI_NUMBERS.map(([n, how]) => <tr key={n}><td>{n}</td><td className="small">{how}</td></tr>)}</tbody>
-      </table>
+      </table></div>
       <p className="small">
         Known open findings, unaffected by this page: cross-machine reproducibility of the engine (defect 52) and the inherited club-limit
         formulation in the optimiser (defect 53; illegal plans are rejected independently). Full method:{" "}

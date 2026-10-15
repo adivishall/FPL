@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { useUser } from "@/components/auth";
-import { Card, State } from "@/components/ui";
+import { Card, PageHeader, State } from "@/components/ui";
 import { ApiError, api, del, post } from "@/lib/api";
 import { type UiSettings, loadSettings, saveSettings } from "@/lib/settings";
 
@@ -88,8 +88,9 @@ export default function Settings() {
   }
   return (
     <>
-      <h1>Settings</h1>
-      <Card testId="settings">
+      <PageHeader title="Settings" lede="Which team Copilot plans for, how it weighs risk, how far ahead it looks, and what it may notify you about. Profiles never change the rules." />
+      <div className="stack">
+      <Card title="Planning" testId="settings">
         <div className="kv">
           <label htmlFor="mk">Manager key</label>
           <span>
@@ -136,6 +137,7 @@ export default function Settings() {
         <button className="secondary" onClick={exportData} data-testid="export-data">Export (JSON)</button>{" "}
         <button className="danger" onClick={deleteData} data-testid="delete-data">Delete all my data</button>
       </Card>
+      </div>
     </>
   );
 }

@@ -31,7 +31,8 @@ export default function PlayerDetail({ params }: { params: Promise<{ code: strin
       <h1>{prof.data?.player.web_name ?? code} <span className="small">{prof.data?.player.position} · {money(prof.data?.player.price)}</span></h1>
       <State loading={prof.loading || fc.loading} error={prof.error ?? fc.error} />
       <div className="grid">
-        <Card title="Forecast distribution by gameweek" testId="forecast">
+        <Card title="Forecast distribution by gameweek" testId="forecast" wide>
+          <div className="table-wrap">
           <table>
             <thead><tr><th>GW</th><th>p10 · IQR · mean · p90</th><th>Mean</th><th>P(≥6)</th><th>P(≥10)</th><th>P(start)</th><th>Minutes</th></tr></thead>
             <tbody>
@@ -48,22 +49,26 @@ export default function PlayerDetail({ params }: { params: Promise<{ code: strin
               ))}
             </tbody>
           </table>
+          </div>
           <p className="small">Joint Monte Carlo of the decomposed model; run <code>{String(fc.data?.provenance?.prediction_run_id ?? "")}</code>.</p>
         </Card>
         <Card title="Where the points come from (expected, per GW)">
+          <div className="table-wrap">
           <table>
             <thead><tr><th>Component</th>{rows.map((r) => <th key={r.gw}>GW{r.gw}</th>)}</tr></thead>
             <tbody>
               {comps.map((c) => (
                 <tr key={c}>
                   <td>{c.replace("xp_", "").replaceAll("_", " ")}</td>
-                  {rows.map((r) => <td key={r.gw}>{pts(r[c as `xp_${string}`], 2)}</td>)}
+                  {rows.map((r) => <td key={r.gw} className="num">{pts(r[c as `xp_${string}`], 2)}</td>)}
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
         <Card title="Recent matches (known at the cutoff)">
+          <div className="table-wrap">
           <table>
             <thead><tr><th>Season GW</th><th>Min</th><th>Pts</th><th>G</th><th>A</th><th>xG</th><th>xA</th><th>Bonus</th></tr></thead>
             <tbody>
@@ -75,6 +80,7 @@ export default function PlayerDetail({ params }: { params: Promise<{ code: strin
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
         <Card title="Price & availability">
           <ul className="clean small">

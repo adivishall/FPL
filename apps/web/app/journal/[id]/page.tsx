@@ -3,7 +3,7 @@
 import { use } from "react";
 
 import { Markdown } from "@/components/markdown";
-import { Badge, Card, State, useApi } from "@/components/ui";
+import { Badge, Card, PageHeader, State, useApi } from "@/components/ui";
 import type { Recommendation, Trace } from "@/lib/api";
 
 const STAGES: [string, string][] = [
@@ -41,7 +41,7 @@ export default function JournalEntry({ params }: { params: Promise<{ id: string 
   const tr = useApi<Trace>(`/recommendations/${id}/trace`);
   return (
     <>
-      <h1>Recommendation {id}</h1>
+      <PageHeader title={<>Recommendation <span className="small">{id}</span></>} lede="The stored recommendation read back through the lineage tables: every stage it depends on, with the integrity checks that link them." />
       <State loading={rec.loading} error={rec.error} />
       {tr.data ? (
         <Card title="Traceability (§76.2): read back from the lineage tables" testId="trace" wide>

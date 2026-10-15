@@ -38,7 +38,8 @@ export default function Register() {
   }
 
   return (
-    <Card title="Create your account" testId="register">
+    <div className="auth">
+    <Card title="Create your account" testId="register" tone="accent">
       <form onSubmit={submit} className="kv">
         <label htmlFor="invite">Invitation code</label>
         <input id="invite" required value={invite} onChange={(e) => setInvite(e.target.value)} autoComplete="off" />
@@ -59,5 +60,6 @@ export default function Register() {
         or erase everything from Settings at any time.
       </p>
     </Card>
+    </div>
   );
 }

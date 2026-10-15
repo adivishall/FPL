@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { LifecycleBadge } from "@/components/lifecycle";
-import { Badge, Card, PlayerName, State, useApi } from "@/components/ui";
+import { Badge, Card, PageHeader, PlayerName, State, useApi } from "@/components/ui";
 import type { Recommendation, SquadState } from "@/lib/api";
 import { money, pct, pts, signed } from "@/lib/format";
 import { loadSettings } from "@/lib/settings";
@@ -20,7 +20,7 @@ export default function FuturePlanner() {
   const historical = r?.lifecycle ? !r.lifecycle.current : false;
   return (
     <>
-      <h1>Future Planner</h1>
+      <PageHeader title="Future Planner" lede="The recommended path over the planning horizon: moves, chips and expected points per gameweek, with how stable the first move is under forecast perturbations." />
       <State loading={rec.loading} error={rec.error} />
       {r?.lifecycle ? (
         <div data-testid="planner-lifecycle" data-state={r.lifecycle.state}>
@@ -35,6 +35,7 @@ export default function FuturePlanner() {
       {r ? (
         <div className="grid">
           <Card title={historical ? "Recommended path (historical — not current)" : "Recommended path"} wide testId="path">
+            <div className="table-wrap">
             <table>
               <thead><tr><th>GW</th><th>Action</th><th>Moves</th><th>Chip</th><th>xP</th><th>Δ vs hold</th><th>P(Δ&gt;0)</th><th>FT</th><th>Bank</th><th>Captain</th><th>Fixtures</th></tr></thead>
               <tbody>
@@ -55,9 +56,11 @@ export default function FuturePlanner() {
                 ))}
               </tbody>
             </table>
+            </div>
             {r.stability ? <p className="small">Stability: <strong>{r.stability.label}</strong> — the recommended first move stays near-optimal in {pct(r.stability.share_near_optimal)} of {r.stability.perturbations} forecast perturbations.</p> : null}
           </Card>
           <Card title="Chip windows" wide testId="chips">
+            <div className="table-wrap">
             <table>
               <thead><tr><th>Chip</th><th>Window</th><th>Recommendation</th><th>Best GW</th><th>Value now</th><th>Value of waiting</th><th>Reason</th></tr></thead>
               <tbody>
@@ -74,6 +77,7 @@ export default function FuturePlanner() {
                 ))}
               </tbody>
             </table>
+            </div>
           </Card>
           <Card title="Alternative sequences" wide>
             {r.alternatives.map((a) => (

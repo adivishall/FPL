@@ -5,7 +5,7 @@ import { use, useState } from "react";
 
 import { ActionSummary, AdherenceBadge, EvaluationBadge, evaluationLabel } from "@/components/journal";
 import { LifecycleBadge } from "@/components/lifecycle";
-import { Badge, Card, PlayerName, State, useApi } from "@/components/ui";
+import { Badge, Callout, Card, PageHeader, PlayerName, State, useApi } from "@/components/ui";
 import { ApiError, post, waitForJob, type JournalEntry, type JournalPlanEvidence, type JournalScore } from "@/lib/api";
 import { pts, signed, when } from "@/lib/format";
 
@@ -47,7 +47,7 @@ function Score({ s, label }: { s: JournalScore | null | undefined; label: string
   return (
     <tr>
       <td>{label}</td>
-      <td>{s ? <strong>{s.points}</strong> : <span className="muted">—</span>}</td>
+      <td className="num">{s ? <strong>{s.points}</strong> : <span className="muted">—</span>}</td>
       <td className="small">{s ? `${s.gross} before ${s.hit_points} hit pts · armband ×${s.multiplier}${s.auto_subs.length ? ` · ${s.auto_subs.length} auto-sub(s)` : ""}` : "not scored"}</td>
     </tr>
   );
@@ -92,11 +92,11 @@ export default function JournalEntryPage({ params }: { params: Promise<{ id: str
   const latest = d?.state === "active" || (last && (last.status === "final" || last.status === "unavailable")) ? last : null;
   return (
     <>
-      <h1>Decision · GW{d?.gameweek ?? ""}</h1>
+      <PageHeader title={<>Decision <span className="small">· GW{d?.gameweek ?? ""}</span></>} lede="What you decided, what Copilot recommended and why, the evidence as it was when you decided (never updated), and the outcome once the results are final." />
       <State loading={e.loading} error={e.error} />
       {d ? (
         <div className="grid">
-          <Card title="Your decision" testId="entry-decision">
+          <Card title="Your decision" testId="entry-decision" tone="accent">
             <p data-testid="entry-action"><ActionSummary e={d} /> <AdherenceBadge adherence={d.adherence} /></p>
             {d.state === "superseded" ? (
               <p className="small" data-testid="entry-superseded">
@@ -211,18 +211,18 @@ export default function JournalEntryPage({ params }: { params: Promise<{ id: str
             </p>
             {err ? <p className="error" role="alert">{err}</p> : null}
             {!last ? (
-              <p className="small muted" data-testid="outcome-none">
+              <Callout tone="pending" testId="outcome-none">
                 {!ev
                   ? "Not evaluated: there is no decision-time evidence to compare the outcome with."
                   : active
                     ? "Not evaluated yet: the results are checked every hour, or now with the button."
                     : "Not evaluated: a later decision replaced this one before it was."}
-              </p>
+              </Callout>
             ) : null}
             {latest?.detail.reason ? <p className="small" data-testid="outcome-reason">{latest.detail.reason}</p> : null}
             {latest && (latest.detail.chosen || latest.detail.hold || latest.detail.recommended) ? (
               <table data-testid="outcome-scores">
-                <thead><tr><th></th><th>Points</th><th></th></tr></thead>
+                <thead><tr><th></th><th className="num">Points</th><th></th></tr></thead>
                 <tbody>
                   <Score s={latest.detail.chosen} label="Your decision" />
                   <Score s={latest.detail.hold} label="Holding" />
@@ -237,18 +237,20 @@ export default function JournalEntryPage({ params }: { params: Promise<{ id: str
             {latest?.detail.players?.length ? (
               <details>
                 <summary>Players</summary>
+                <div className="table-wrap">
                 <table className="small">
-                  <thead><tr><th>Player</th><th>Role</th><th>Min</th><th>Pts</th><th>Counted</th><th>xP when you decided</th></tr></thead>
+                  <thead><tr><th>Player</th><th>Role</th><th className="num">Min</th><th className="num">Pts</th><th>Counted</th><th className="num">xP when you decided</th></tr></thead>
                   <tbody>
                     {latest.detail.players.map((p) => (
                       <tr key={p.player_code}>
                         <td><PlayerName code={p.player_code} names={names} /></td>
-                        <td>{p.role}</td><td>{p.minutes}</td><td>{p.points}</td><td>{p.counted ? "yes" : ""}</td>
-                        <td>{p.xp_next !== null && p.xp_next !== undefined ? pts(p.xp_next) : "—"}</td>
+                        <td>{p.role}</td><td className="num">{p.minutes}</td><td className="num">{p.points}</td><td>{p.counted ? "yes" : ""}</td>
+                        <td className="num">{p.xp_next !== null && p.xp_next !== undefined ? pts(p.xp_next) : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               </details>
             ) : null}
             {d.evaluations && d.evaluations.length > 1 ? (

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { PlayerPicker } from "@/components/player-picker";
 import { Pitch } from "@/components/pitch";
-import { Card, FreshnessBanner, State, useApi } from "@/components/ui";
+import { Card, FreshnessBanner, PageHeader, State, useApi } from "@/components/ui";
 import Link from "next/link";
 
 import { ApiError, api, post, type ForecastRow, type PlayerRow, type SquadState, type SyncResult } from "@/lib/api";
@@ -117,7 +117,7 @@ export default function SquadPlanner() {
   return (
     <>
       <FreshnessBanner f={squad.data?.freshness} />
-      <h1>Squad Planner</h1>
+      <PageHeader title="Squad Planner" lede="Your stored squad as the lineup optimiser would field it — starting XI, bench order and armband — and where it is kept up to date from." />
       <div className="grid">
         <Card title="Starting XI, bench and armband" testId="lineup">
           <State loading={squad.loading} error={squad.error && !squad.error.startsWith("404") ? squad.error : null} />
@@ -176,6 +176,7 @@ export default function SquadPlanner() {
         </Card>
         {st ? (
           <Card title="Fixture & expectation timeline" wide>
+            <div className="table-wrap">
             <table>
               <thead><tr><th>Player</th><th>Pos</th>{gws.map((g) => <th key={g}>GW{g}</th>)}</tr></thead>
               <tbody>
@@ -191,6 +192,7 @@ export default function SquadPlanner() {
                 ))}
               </tbody>
             </table>
+            </div>
             <p className="small">Cell: expected points (start probability). Blank = no fixture.</p>
           </Card>
         ) : null}

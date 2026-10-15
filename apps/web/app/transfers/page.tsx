@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecordDecision } from "@/components/journal";
 import { LifecycleBadge, WhatChanged } from "@/components/lifecycle";
 import { PlayerPicker } from "@/components/player-picker";
-import { Badge, Card, PlayerName, Prob, State, confidenceTone, useApi } from "@/components/ui";
+import { Badge, Callout, Card, PageHeader, PlayerName, Prob, State, confidenceTone, useApi } from "@/components/ui";
 import { track } from "@/lib/analytics";
 import { ApiError, api, post, type PlanSpec, type PlayerRow, type WorkbenchContext, type WorkbenchPlan, type WorkbenchRun } from "@/lib/api";
 import { money, pct, signed, when } from "@/lib/format";
@@ -141,11 +141,10 @@ export default function TransferWorkbench() {
 
   return (
     <>
-      <h1>Transfer Workbench</h1>
-      <p className="small">
-        Compare concrete plans for your whole squad against doing nothing: the same forecast and simulation for every plan,
-        legality checked by the rules engine, hit costs shown separately. The workbench recommends; you decide.
-      </p>
+      <PageHeader
+        title="Transfer Workbench"
+        lede="Compare concrete plans for your whole squad against doing nothing: the same forecast and simulation for every plan, legality checked by the rules engine, hit costs shown separately. The workbench recommends; you decide."
+      />
       <div className="grid">
         <Card title="Your squad" testId="wb-squad" wide>
           <State loading={ctx.loading} error={ctx.error} />
@@ -156,9 +155,10 @@ export default function TransferWorkbench() {
                 {money(c.state.selling_value)}) · chips available: {c.state.chips_available.length ? c.state.chips_available.join(", ") : "none"} · hit cost{" "}
                 {c.rules.hit_cost} pts
               </p>
+              <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Player</th><th>Pos</th><th>Club</th><th>Bought / now / sells</th><th>xP next</th><th>xP {c.horizon} GW</th><th>Start</th><th>Status</th><th></th></tr>
+                  <tr><th>Player</th><th>Pos</th><th>Club</th><th>Bought / now / sells</th><th className="num">xP next</th><th className="num">xP {c.horizon} GW</th><th className="num">Start</th><th>Status</th><th></th></tr>
                 </thead>
                 <tbody>
                   {c.players.map((p) => (
@@ -171,25 +171,26 @@ export default function TransferWorkbench() {
                       </td>
                       <td>{p.position}</td>
                       <td>{p.team}</td>
-                      <td className="small">{money(p.purchase_price)} / {money(p.price)} / <strong>{money(p.selling_price)}</strong></td>
-                      <td>{p.xp_next.toFixed(1)}</td>
-                      <td>{p.xp_horizon.toFixed(1)}</td>
-                      <td>{pct(p.p_start_next)}</td>
+                      <td className="small nowrap">{money(p.purchase_price)} / {money(p.price)} / <strong>{money(p.selling_price)}</strong></td>
+                      <td className="num">{p.xp_next.toFixed(1)}</td>
+                      <td className="num">{p.xp_horizon.toFixed(1)}</td>
+                      <td className="num">{pct(p.p_start_next)}</td>
                       <td><Badge tone={p.status === "a" ? "good" : p.status === "d" ? "warn" : "bad"}>{STATUS[p.status] ?? p.status}</Badge></td>
                       <td>
                         <button className={out === p.player_code ? "" : "secondary"} onClick={() => { setOut(p.player_code); setIncoming(null); }} data-testid={`out-${p.player_code}`}>
-                          Sell
+                          {out === p.player_code ? "Selling" : "Sell"}
                         </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
             </>
           ) : null}
         </Card>
 
-        <Card title="What to evaluate" testId="wb-plan">
+        <Card title="What to evaluate" testId="wb-plan" tone="brand">
           <p>
             Outgoing: {outPlayer ? <strong data-testid="out-name">{outPlayer.name}</strong> : <span className="muted">none (hold and the optimiser's plan only)</span>}
             {outPlayer ? <span className="small"> · sells for {money(outPlayer.selling_price)} → budget {money(outPlayer.selling_price + (c?.state.bank ?? 0))}</span> : null}
@@ -275,8 +276,8 @@ export default function TransferWorkbench() {
         </Card>
 
         <Card title={run && run.lifecycle && !run.lifecycle.current && run.status === "succeeded" ? "Plans compared with holding (historical run — not current)" : "Plans compared with holding"} testId="plans" wide>
-          {!res && !pending ? <p className="muted">Choose a player to sell (or just evaluate) to compare plans.</p> : null}
-          {pending && !res ? <p role="status">Solving every plan on the whole squad…</p> : null}
+          {!res && !pending ? <Callout>Choose a player to sell (or just evaluate) to compare plans.</Callout> : null}
+          {pending && !res ? <Callout tone="pending" role="status">Solving every plan on the whole squad…</Callout> : null}
           {res && hold ? (
             <>
               <p className="small" data-testid="wb-trace">
@@ -284,15 +285,16 @@ export default function TransferWorkbench() {
                 {run?.result?.snapshot_id} · forecast {run?.result?.forecast_key} · squad state {run?.state_id} · computed {when(run?.result?.computed_at)} · optimiser {res.config_ref} ·
                 rules {res.ruleset_version}
               </p>
+              <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Plan</th><th>Moves now</th><th>Net vs hold ({res.horizon} GW)</th><th>Gross</th><th>Hit cost</th><th>p10 / p90</th><th>P(&gt;hold)</th><th>Next GW xP</th><th>Bank / FT after</th><th>Solver</th><th></th>
+                    <th>Plan</th><th>Moves now</th><th className="num">Net vs hold ({res.horizon} GW)</th><th className="num">Gross</th><th className="num">Hit cost</th><th>p10 / p90</th><th>P(&gt;hold)</th><th className="num">Next GW xP</th><th>Bank / FT after</th><th>Solver</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {res.plans.map((p) => (
-                    <tr key={p.label} data-testid={`plan-${p.label}`} className={p.valid ? undefined : "invalid"}>
+                    <tr key={p.label} data-testid={`plan-${p.label}`} className={!p.valid ? "invalid" : p.label === "hold" ? "baseline" : undefined}>
                       <td>
                         <Badge tone={actionTone(p.action)}>{p.action}</Badge> <strong>{p.label}</strong>
                         <div className="small">{p.reason}{p.requested_by === "engine" ? " (engine)" : ""}</div>
@@ -303,19 +305,20 @@ export default function TransferWorkbench() {
                           <div key={s}><PlayerName code={s} names={names} /> → <PlayerName code={p.buys[i] ?? s} names={names} /></div>
                         ))}
                       </td>
-                      <td data-testid={`net-${p.label}`}>{p.label === "hold" ? "—" : signed(p.gain_horizon.mean)}</td>
-                      <td>{p.label === "hold" ? "—" : signed(p.gross_gain_horizon)}</td>
-                      <td>{p.hit_cost_vs_hold ? `−${p.hit_cost_vs_hold}` : "0"}{p.hit_now ? ` (${p.hit_now} now)` : ""}</td>
-                      <td className="small">{p.label === "hold" ? "—" : `${signed(p.gain_horizon.p10, 0)} / ${signed(p.gain_horizon.p90, 0)}`}</td>
+                      <td className="num" data-testid={`net-${p.label}`}>{p.label === "hold" ? <span className="muted">baseline</span> : signed(p.gain_horizon.mean)}</td>
+                      <td className="num">{p.label === "hold" ? "—" : signed(p.gross_gain_horizon)}</td>
+                      <td className="num">{p.hit_cost_vs_hold ? `−${p.hit_cost_vs_hold}` : "0"}{p.hit_now ? ` (${p.hit_now} now)` : ""}</td>
+                      <td className="small nowrap">{p.label === "hold" ? "—" : `${signed(p.gain_horizon.p10, 0)} / ${signed(p.gain_horizon.p90, 0)}`}</td>
                       <td>{p.label === "hold" ? "—" : <Badge tone={confidenceTone(p.gain_horizon.probability_positive)}>{pct(p.gain_horizon.probability_positive)}</Badge>}</td>
-                      <td>{p.expected_points_1gw.toFixed(1)}</td>
-                      <td className="small">{money(p.bank_after)} / {p.free_transfers_after}</td>
+                      <td className="num">{p.expected_points_1gw.toFixed(1)}</td>
+                      <td className="small nowrap">{money(p.bank_after)} / {p.free_transfers_after}</td>
                       <td title={p.optimality}>{p.proven_optimal ? <Badge tone="good">proven optimal</Badge> : <Badge tone="warn">{p.optimality.startsWith("best valid plan among those explored") ? "best explored" : "best within limit"}</Badge>}</td>
                       <td><button className="secondary" onClick={() => { setSelected(p.label); track("workbench_plan_selected", { kind: p.kind }); }} data-testid={`details-${p.label}`}>Details</button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
               <p className="small">
                 Net = expected points of the plan minus holding over the horizon, paired per simulation sample and net of hits; gross adds the hit cost back. Expected gains
                 are estimates, not guarantees.
@@ -366,25 +369,28 @@ function PlanDetails({ plan, hold, names }: { plan: WorkbenchPlan; hold: Workben
         {plan.reason} · {plan.action} · {plan.valid ? "passes the independent rules check" : `illegal: ${plan.issues.join("; ")}`} · {plan.optimality}
       </p>
       {plan.moves_in.length ? (
+        <div className="table-wrap">
         <table>
-          <thead><tr><th></th><th>Player</th><th>Pos</th><th>Club</th><th>Price</th><th>xP next</th><th>xP horizon</th><th>Start</th></tr></thead>
+          <thead><tr><th></th><th>Player</th><th>Pos</th><th>Club</th><th>Price</th><th className="num">xP next</th><th className="num">xP horizon</th><th className="num">Start</th></tr></thead>
           <tbody>
             {plan.moves_out.map((m) => (
               <tr key={`o${m.player_code}`}><td>out</td><td>{m.name}</td><td>{m.position}</td><td>{m.team}</td><td>sells for {money(m.selling_price)}</td><td>{m.xp_next.toFixed(1)}</td><td>{m.xp_horizon.toFixed(1)}</td><td>{pct(m.p_start_next)}</td></tr>
             ))}
             {plan.moves_in.map((m) => (
-              <tr key={`i${m.player_code}`}><td>in</td><td>{m.name}</td><td>{m.position}</td><td>{m.team}</td><td>{money(m.price)}</td><td>{m.xp_next.toFixed(1)}</td><td>{m.xp_horizon.toFixed(1)}</td><td>{pct(m.p_start_next)}</td></tr>
+              <tr key={`i${m.player_code}`}><td>in</td><td>{m.name}</td><td>{m.position}</td><td>{m.team}</td><td>{money(m.price)}</td><td className="num">{m.xp_next.toFixed(1)}</td><td className="num">{m.xp_horizon.toFixed(1)}</td><td className="num">{pct(m.p_start_next)}</td></tr>
             ))}
           </tbody>
         </table>
+        </div>
       ) : null}
       <p className="small" data-testid="squad-impact">
         Squad after: XI {plan.lineup.starters.map(n).join(", ")} · bench {plan.lineup.bench.map(n).join(", ")} · captain {n(plan.lineup.captain)} (vice {n(plan.lineup.vice_captain)}) · bank{" "}
         {money(plan.bank_after)} · {plan.free_transfers_after} free transfer(s) next GW
         {plan.squad_after.filter((c) => !outSet.has(c)).length !== 15 ? "" : ""}
       </p>
+      <div className="table-wrap">
       <table>
-        <thead><tr><th>GW</th><th>Action</th><th>Transfers</th><th>Hit</th><th>xP</th><th>p10 / p90</th><th>vs hold</th><th>P(better)</th><th>Captain</th></tr></thead>
+        <thead><tr><th>GW</th><th>Action</th><th>Transfers</th><th className="num">Hit</th><th className="num">xP</th><th>p10 / p90</th><th className="num">vs hold</th><th>P(better)</th><th>Captain</th></tr></thead>
         <tbody>
           {plan.timeline.map((s, i) => (
             <tr key={s.gameweek}>
@@ -401,6 +407,7 @@ function PlanDetails({ plan, hold, names }: { plan: WorkbenchPlan; hold: Workben
           ))}
         </tbody>
       </table>
+      </div>
       {plan.follow_up.length ? (
         <p className="small">Later moves in this plan: {plan.follow_up.map((f) => `GW${f.gameweek} ${f.out.map(n).join(",")} → ${f.in.map(n).join(",")}${f.hit_points ? ` (−${f.hit_points})` : ""}`).join("; ")}</p>
       ) : null}

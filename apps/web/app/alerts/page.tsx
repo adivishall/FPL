@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Badge, Card, State, useApi } from "@/components/ui";
+import { Badge, Card, PageHeader, State, useApi } from "@/components/ui";
 import { type Job, jobFailureMessage, type Notification, post, waitForJob } from "@/lib/api";
 import { when } from "@/lib/format";
 import { loadSettings } from "@/lib/settings";
@@ -32,12 +32,11 @@ export default function Alerts() {
   const items = n.data?.notifications ?? [];
   return (
     <>
-      <h1>Alerts</h1>
+      <PageHeader
+        title="Alerts"
+        lede="Alerts fire only when a change clears a materiality threshold (expected points at stake, or the probability that price moves make the plan unaffordable). Repeated evaluations of unchanged information never re-alert."
+      />
       <Card testId="alerts">
-        <p className="small">
-          Alerts fire only when a change clears a materiality threshold (expected points at stake, or the probability
-          that price moves make the plan unaffordable). Repeated evaluations of unchanged information never re-alert.
-        </p>
         <button onClick={evaluate} data-testid="evaluate-alerts">Evaluate now</button>{" "}
         {msg ? <span role="status" data-testid="alerts-msg">{msg}</span> : null}
         <State loading={n.loading} error={n.error} empty={n.data && !items.length ? "No alerts — nothing material has changed." : undefined} />

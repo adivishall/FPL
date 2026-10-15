@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Card, useApi } from "@/components/ui";
+import { Card, PageHeader, useApi } from "@/components/ui";
 import { ApiError, post, type SquadState } from "@/lib/api";
 import { pct, pts, signed } from "@/lib/format";
 import { effectiveHorizon, loadSettings } from "@/lib/settings";
@@ -67,7 +67,7 @@ export default function WhatIf() {
   const wi = chipRes?.what_if as { gain_mean: number; gain_p10: number; gain_p90: number; probability_positive: number } | undefined;
   return (
     <>
-      <h1>What-If Simulator</h1>
+      <PageHeader title="What-If Simulator" lede="Re-simulate your squad under a scenario — an injury, a minutes shock, a harder run of fixtures — paired with the base forecast, and see what a transfer or a chip would do under it." />
       <div className="grid">
         <Card title="Scenario (re-simulated, paired with the base forecast)" testId="scenario">
           <div className="row">

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { useUser } from "@/components/auth";
-import { Card, FreshnessBanner } from "@/components/ui";
+import { Card, FreshnessBanner, PageHeader } from "@/components/ui";
 import { ApiError, api, post, type EntryPreview, type SyncResult } from "@/lib/api";
 import { money } from "@/lib/format";
 import { track } from "@/lib/analytics";
@@ -84,14 +84,14 @@ export default function Onboarding() {
   const st = result?.state;
   return (
     <>
-      <h1>Set up your team</h1>
+      <PageHeader title="Set up your team" lede="Three steps: your FPL ID, a check that it is your team, and the import of your real squad from the public FPL API. No FPL password is ever asked for." />
       <ol className="steps" aria-label="steps">
         <li className={step === "id" ? "active" : "done"}>1 · Your FPL ID</li>
         <li className={step === "preview" ? "active" : step === "done" ? "done" : ""}>2 · Confirm it is your team</li>
         <li className={step === "done" ? "active" : ""}>3 · Squad imported</li>
       </ol>
       {step === "id" ? (
-        <Card title="Enter your FPL ID" testId="onboarding-id">
+        <Card title="Enter your FPL ID" testId="onboarding-id" tone="accent">
           <form onSubmit={lookUp} className="row">
             <label htmlFor="entry">FPL ID</label>
             <input id="entry" inputMode="numeric" value={entryId} onChange={(e) => setEntryId(e.target.value)} placeholder="e.g. 1234567" required />

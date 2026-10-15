@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import { ActionSummary, AdherenceBadge, EvaluationBadge, evaluationLabel } from "@/components/journal";
 import { lifecycleLabel, lifecycleTone } from "@/components/lifecycle";
-import { Badge, Card, State, confidenceTone, useApi } from "@/components/ui";
+import { Badge, Card, PageHeader, State, confidenceTone, useApi } from "@/components/ui";
 import type { JournalEntry, Lifecycle } from "@/lib/api";
 import { pct, signed, when } from "@/lib/format";
 import { loadSettings } from "@/lib/settings";
@@ -56,13 +56,12 @@ export default function Journal() {
   }, [all.data]);
   return (
     <>
-      <h1>Decision Journal</h1>
-      <p className="small">
-        What Copilot recommended, what you decided, and — once the official results are final — how it turned out against what was expected
-        when you decided. One gameweek is a single draw from the forecast: a sound decision can lose points and a poor one can gain them.
-      </p>
+      <PageHeader
+        title="Decision Journal"
+        lede="What Copilot recommended, what you decided, and — once the official results are final — how it turned out against what was expected when you decided. One gameweek is a single draw from the forecast: a sound decision can lose points and a poor one can gain them."
+      />
       <Card title="Your decisions" testId="decisions">
-        <div className="row small">
+        <div className="toolbar small">
           <label>Gameweek <select value={gw} onChange={(e) => setGw(e.target.value)} data-testid="filter-gameweek"><option value="">all</option>{gameweeks.map((g) => <option key={g} value={g}>GW{g}</option>)}</select></label>
           <label>Action <select value={action} onChange={(e) => setAction(e.target.value)} data-testid="filter-action"><option value="">all</option>{["HOLD", "TRANSFER", "HIT", "CHIP", "DEFER", "UNKNOWN"].map((a) => <option key={a} value={a}>{a}</option>)}</select></label>
           <label>Outcome <select value={evaluation} onChange={(e) => setEvaluation(e.target.value)} data-testid="filter-evaluation"><option value="">all</option>{["pending", "partial", "final", "unavailable"].map((a) => <option key={a} value={a}>{a}</option>)}</select></label>
@@ -74,6 +73,7 @@ export default function Journal() {
           empty={d.data && !d.data.entries.length ? "No decisions recorded yet — record one from the Overview or the Transfer Workbench." : undefined}
         />
         {d.data?.entries.length ? (
+          <div className="table-wrap">
           <table>
             <thead><tr><th>GW</th><th>Your decision</th><th>Copilot</th><th>Relation</th><th>Recorded</th><th>Outcome</th><th></th></tr></thead>
             <tbody>
@@ -113,12 +113,14 @@ export default function Journal() {
               })}
             </tbody>
           </table>
+          </div>
         ) : null}
       </Card>
       <Card title="Recommendations" testId="journal">
         <State loading={j.loading} error={j.error} empty={j.data && !j.data.journal.length ? "No recommendations yet." : undefined} />
+        <div className="table-wrap">
         <table>
-          <thead><tr><th>Created</th><th>GW</th><th>Action</th><th>Gain vs hold</th><th>Confidence</th><th>Status</th><th>Your decision</th></tr></thead>
+          <thead><tr><th>Created</th><th>GW</th><th>Action</th><th className="num">Gain vs hold</th><th>Confidence</th><th>Status</th><th>Your decision</th></tr></thead>
           <tbody>
             {j.data?.journal.map((e) => {
               const decided = decidedFor.get(e.id);
@@ -128,7 +130,7 @@ export default function Journal() {
                   <td><Link href={`/journal/${e.id}`}>{when(e.created_at)}</Link></td>
                   <td>{e.gameweek}</td>
                   <td>{e.action}</td>
-                  <td>{signed(e.expected_gain_vs_hold)}</td>
+                  <td className="num">{signed(e.expected_gain_vs_hold)}</td>
                   <td><Badge tone={confidenceTone(e.confidence)}>{pct(e.confidence)}</Badge></td>
                   <td data-testid={`journal-status-${e.id}`} data-state={e.lifecycle.state}>
                     <Badge tone={lifecycleTone(e.lifecycle)}>{lifecycleLabel(e.lifecycle)}</Badge>
@@ -148,6 +150,7 @@ export default function Journal() {
             })}
           </tbody>
         </table>
+        </div>
       </Card>
     </>
   );
