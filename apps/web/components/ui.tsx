@@ -8,54 +8,132 @@ import { signOut, useUser } from "@/components/auth";
 import { ApiError, api, type Freshness } from "@/lib/api";
 import { pct, when } from "@/lib/format";
 
-const NAV: [string, string][] = [
-  ["/", "Overview"],
-  ["/transfers", "Transfer Workbench"],
-  ["/squad", "Squad Planner"],
-  ["/planner", "Future Planner"],
-  ["/players", "Player Lab"],
-  ["/what-if", "What-If"],
-  ["/journal", "Journal"],
-  ["/season-review", "Season Review"],
-  ["/alerts", "Alerts"],
-  ["/backtests", "Backtest Lab"],
-  ["/health", "Data Health"],
-  ["/settings", "Settings"],
+// Navigation in task groups (M1.6): what to do this gameweek, what to explore, what was
+// recorded, and the system. Link labels are stable (the browser tests and the docs use them).
+const NAV: [string, [string, string][]][] = [
+  [
+    "Plan",
+    [
+      ["/", "Overview"],
+      ["/transfers", "Transfer Workbench"],
+      ["/squad", "Squad Planner"],
+      ["/planner", "Future Planner"],
+    ],
+  ],
+  [
+    "Explore",
+    [
+      ["/players", "Player Lab"],
+      ["/what-if", "What-If"],
+    ],
+  ],
+  [
+    "Record",
+    [
+      ["/journal", "Journal"],
+      ["/season-review", "Season Review"],
+      ["/alerts", "Alerts"],
+    ],
+  ],
+  [
+    "System",
+    [
+      ["/backtests", "Backtest Lab"],
+      ["/health", "Data Health"],
+      ["/settings", "Settings"],
+    ],
+  ],
 ];
 
 export function Nav() {
   const path = usePathname();
   const { user } = useUser();
+  // the strip scrolls sideways on narrow screens: keep the current page's link in view
+  useEffect(() => {
+    const strip = document.querySelector<HTMLElement>(".nav .inner");
+    if (!strip || strip.scrollWidth <= strip.clientWidth) return;
+    strip.querySelector<HTMLElement>("a.active")?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [path, user]);
   return (
-    <nav className="nav" aria-label="Main">
-      <span className="brand">FPL Decision Engine</span>
-      {user
-        ? NAV.map(([href, label]) => (
-            <Link key={href} href={href} className={path === href ? "active" : ""}>
-              {label}
-            </Link>
-          ))
-        : null}
+    <header>
+      <div className="topbar">
+        <div className="inner">
+          <Link href="/" className="brand" aria-label="FPL Copilot home">
+            <span className="mark" aria-hidden="true" />
+            FPL Copilot <span className="beta">beta</span>
+          </Link>
+          {user ? (
+            <span className="account" data-testid="account">
+              <span className="who">{user.email}</span>
+              <button type="button" className="secondary" onClick={() => void signOut()} data-testid="sign-out">
+                Sign out
+              </button>
+            </span>
+          ) : (
+            <Link href="/login" className={`signin${path === "/login" ? " active" : ""}`}>Sign in</Link>
+          )}
+        </div>
+      </div>
       {user ? (
-        <span className="small account" data-testid="account">
-          {user.email} ·{" "}
-          <button type="button" className="secondary" onClick={() => void signOut()} data-testid="sign-out">
-            Sign out
-          </button>
-        </span>
-      ) : (
-        <Link href="/login" className={path === "/login" ? "active" : ""}>Sign in</Link>
-      )}
-    </nav>
+        <nav className="nav" aria-label="Main">
+          <div className="inner">
+            {NAV.map(([group, links]) => (
+              <span key={group} style={{ display: "contents" }}>
+                <span className="group" aria-hidden="true">{group}</span>
+                {links.map(([href, label]) => (
+                  <Link key={href} href={href} className={path === href ? "active" : ""} aria-current={path === href ? "page" : undefined}>
+                    {label}
+                  </Link>
+                ))}
+              </span>
+            ))}
+          </div>
+        </nav>
+      ) : null}
+    </header>
   );
 }
 
-export function Card(props: { title?: string; children: ReactNode; testId?: string; wide?: boolean }) {
+/** Page title, an optional one-line explanation, and actions aligned to the right. */
+export function PageHeader(props: { title: ReactNode; lede?: ReactNode; actions?: ReactNode; testId?: string }) {
   return (
-    <section className={`card${props.wide ? " wide" : ""}`} data-testid={props.testId}>
+    <div className="page-head" data-testid={props.testId}>
+      <h1>{props.title}</h1>
+      {props.actions ? <div className="actions">{props.actions}</div> : null}
+      {props.lede ? <p className="lede small">{props.lede}</p> : null}
+    </div>
+  );
+}
+
+export function Card(props: { title?: string; children: ReactNode; testId?: string; wide?: boolean; tone?: "accent" | "brand" }) {
+  return (
+    <section className={`card${props.wide ? " wide" : ""}${props.tone ? ` ${props.tone}` : ""}`} data-testid={props.testId}>
       {props.title ? <h2>{props.title}</h2> : null}
       {props.children}
     </section>
+  );
+}
+
+/** A row of headline numbers (label, value, hint); tone colours the value, the label says why. */
+export function Stats({ children }: { children: ReactNode }) {
+  return <div className="stats">{children}</div>;
+}
+
+export function Stat(props: { label: string; value: ReactNode; hint?: ReactNode; tone?: "good" | "warn" | "bad"; testId?: string }) {
+  return (
+    <div className={`stat${props.tone ? ` ${props.tone}` : ""}`} data-testid={props.testId}>
+      <span className="label">{props.label}</span>
+      <span className="value">{props.value}</span>
+      {props.hint ? <span className="hint">{props.hint}</span> : null}
+    </div>
+  );
+}
+
+export function Callout(props: { tone?: "info" | "good" | "warn" | "bad" | "pending"; children: ReactNode; testId?: string; role?: "status" | "alert" }) {
+  return (
+    <div className={`callout${props.tone ? ` ${props.tone}` : ""}`} data-testid={props.testId} role={props.role}>
+      {props.children}
+    </div>
   );
 }
 
@@ -86,11 +164,11 @@ export function DistBar(props: { p10: number; p25?: number; p75?: number; p90: n
   const x = (v: number) => Math.max(0, Math.min(w, (v / Math.max(props.max, 1)) * w));
   return (
     <svg width={w} height={14} role="img" aria-label={`p10 ${props.p10}, mean ${props.mean.toFixed(1)}, p90 ${props.p90}`}>
-      <line x1={x(props.p10)} x2={x(props.p90)} y1={7} y2={7} stroke="var(--muted)" strokeWidth={2} />
+      <line x1={x(props.p10)} x2={x(props.p90)} y1={7} y2={7} stroke="var(--line-strong)" strokeWidth={2} />
       {props.p25 !== undefined && props.p75 !== undefined ? (
         <rect x={x(props.p25)} y={3} width={Math.max(1, x(props.p75) - x(props.p25))} height={8} fill="var(--accent-soft)" />
       ) : null}
-      <circle cx={x(props.mean)} cy={7} r={3.5} fill="var(--accent)" />
+      <circle cx={x(props.mean)} cy={7} r={3.5} fill="var(--brand)" />
     </svg>
   );
 }

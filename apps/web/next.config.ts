@@ -4,6 +4,8 @@ const config: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   poweredByHeader: false,
+  agentRules: false, // never generate AGENTS.md / CLAUDE.md in the repository
+
   async headers() {
     return [
       {
