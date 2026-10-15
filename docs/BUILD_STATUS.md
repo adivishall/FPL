@@ -443,6 +443,51 @@ on every job: lint, security, test, optimiser suite, web e2e and container build
 tab-role defect fixed there). This documentation commit, with the regenerated screenshots in
 `docs/images/`, is checked by its own run. The GW7 checkpoint (§2g) is still in the future.
 
+## 2i. Release sprint — public deployment path, browser extension, configurable name (2026-10-16)
+
+Scope (owner directive of 2026-10-16, hard deadline Sunday 18 October 2026, 23:59 IST): ship the
+existing stack on a real public HTTPS URL with the invite-only beta flow intact (P0), and the
+smallest useful Chrome Manifest V3 extension (P1); resolve the "FPL Copilot" naming collision
+(fplcopilot.com is another FPL product) without derailing the release; GW7 capture (§2g) stays a
+parallel task. No forecasting, optimisation, scoring, journal, invalidation, ownership or API
+change. **There is still no public URL at this writing**: this section records what was built and
+verified on the development machine, and exactly what the owner must provide.
+
+| Area | Status | Result |
+|---|---|---|
+| Blockers found in the first 10 minutes | reported | checkout clean at `c95ea4e` (= `develop`, `main` `b4c8fde`), CI green, GitHub auth working, Colima and the local stack healthy; **no hosting account, cloud CLI, SSH target, tunnel login or DNS zone on this machine**, so nothing could be deployed publicly; no extension code existed (the docs were right); the naming collision is recorded in `docs/PRODUCT_GAP_ANALYSIS.md` |
+| Owner inputs requested (one message) | BLOCKED on the owner | a Linux host (Ubuntu 24.04, 4 vCPU, 8 GB, ≥ 40 GB, ports 22/80/443; SSH public key `fpl-copilot-deploy` created on the development machine); a domain and its DNS; the Let's Encrypt e-mail; the product name (candidates: *Holdline*, *Fanchart*, *Deadline Ledger* — "Squad Ledger" dropped, an existing sports-team finance product); whether a Chrome Web Store developer account exists; keep or drop the outer site login (recommended: drop). Costs stated: VM ≈ US$12–48 per month, domain ≈ $10–40 per year, Web Store $5 once |
+| Deployment preparation | PASS (development machine) | `infra/scripts/host_setup.sh` executes the runbook on a fresh Ubuntu host, idempotently and without printing a secret (Docker from Docker's apt repository, the repository at `FPL_GIT_REF`, `.env` with a generated database password, both API keys from `fpl-api create-key` with only hashes in `.env` and the operator key in `/srv/fpl-secrets/operator_key`, images built with the revision recorded, migrations, historical data, snapshot, serving forecast, the stack behind Caddy, a daily backup in cron with 14 days kept, `ufw`); `bash -n` and shellcheck clean; the key-generation and `.env`-editing snippets dry-run against a scratch copy of `.env.example` with keys from the local image (3 values set, key file mode 600, keys discarded). **Not run on a real host** (none exists) |
+| Outer site login | PASS | optional since M1.1a made accounts the authentication: an empty `auth.caddy` turns the gate off, a `basic_auth` block keeps it; both validated with `caddy validate` (caddy 2.10 image); Caddyfile comment and runbook updated |
+| Product name | PASS | `FPL_PRODUCT_NAME` is read by the web server on every request (`lib/product.ts`; root layout `force-dynamic`; `ProductProvider` → brand, `aria-label`, page title, sign-in text); a throw-away `fpl-web` container started with `FPL_PRODUCT_NAME="Example Name"` served `<title>Example Name</title>` and `aria-label="Example Name home"`; the local stack keeps the default "FPL Copilot" until the owner chooses. "Copilot" elsewhere in the UI names the advisor, not the product (unchanged; the browser tests assert "followed Copilot") |
+| Onboarding hand-off | PASS | `/onboarding?entry=<id>`: a valid id (1–10 digits, no leading zero) is filled in and looked up once as if typed, with a note that it came from the link; the confirmation step and sign-in still stand; an invalid id in the link is refused with a message; the sign-in redirect now keeps the query string and the sign-up link carries `next`. Dev Playwright: the new flow and the existing onboarding flow **2 passed** (built UI + throw-away API). Production Playwright against the local stack with the rebuilt web image and `E2E_FPL_ENTRY_ID=1`: the onboarding test, now hand-off path then typed path with the real import, **1 passed** (throw-away account erased by the suite) |
+| Browser extension | PASS (built, tested) | `apps/extension/`: Manifest V3, permission `activeTab` only (no host permissions, content scripts, background worker, storage or credentials); the popup reads the clicked tab's address and offers *Open team <ID> in <product>* → `<site>/onboarding?entry=<ID>` on a `fantasy.premierleague.com/entry/<ID>/…` page, otherwise *Open <product>* with a hint; `build.sh --url --name` writes `dist/unpacked/` and a reproducible ZIP (sorted entries, fixed timestamps) with its SHA-256; unit tests **7 passed** (address patterns incl. unsupported pages, missing, zero, non-numeric, over-long and look-alike-host ids; decisions; manifest permissions; two builds byte-identical; refusal of a plain-http or path-bearing production address); browser tests **5 passed** (the built extension loaded in Chromium against a stand-in web app: manifest, both popup states, the hand-off sends one GET with no cookie, authorisation or custom header, nine unsupported/invalid addresses, and an unreachable web app leaving the user on the browser's own error page). Store listing draft (`STORE_LISTING.md`), privacy notice (`docs/EXTENSION_PRIVACY.md`), 1280×800 store screenshots renderer (`tools/store_shots.sh`). Release ZIP, checksum and store submission: **NOT RUN** — they need the public URL and the product name |
+| Manual "Load unpacked" in Google Chrome | NOT RUN | Google Chrome 155 on this machine ignores `--load-extension` (branded builds dropped it in 137; `chrome-extension://…` answered `ERR_BLOCKED_BY_CLIENT`), so the flow cannot be driven from this session, and the Claude in Chrome connection was not available. Playwright's Chromium loads the same unpacked directory through the same path (the id derived from the directory, as Chrome does). The owner's step: `chrome://extensions` → Developer mode → Load unpacked → `apps/extension/dist/unpacked` (`apps/extension/README.md`) |
+| Web verification (source `22a8406`) | PASS | `tsc --noEmit` clean; `next build` clean (every route dynamic by design, for the runtime name); the local `fpl-web` image rebuilt from `22a8406` and running on the local stack |
+| Backend | untouched | no Python source in the API, worker or packages changed; the extension's two tools and the host script pass ruff. CI's first run of the sprint commits failed one consistency test, `test_env_example_names_map_to_settings` (every `FPL_*` name in `.env.example` must be a `Settings` field or a known web-server variable): `FPL_PRODUCT_NAME` is a web-server variable, so the test's allow-list gained it, with a new assertion that the compose `web` environment carries it (`6dea528`); the other 541 tests passed in that run |
+| GW7 capture | NOT RUN | cutoff 2026-10-17 08:30Z is still ahead; the scheduler path is unchanged and armed (§2g); the session waiter is session-bound |
+| Public deployment | NOT RUN / BLOCKED | no host, domain or DNS access; a local Docker deployment, green CI or an image build is not a public deployment and is not claimed as one |
+| Defects 52 and 53 | unchanged | still **open** |
+
+Definition of done (owner directive §10), as of this writing: **Website** — public HTTPS URL
+BLOCKED (owner inputs); deployed SHA, image identifiers, public health and smoke test, production
+browser totals, account/import flow on the public site, worker and scheduler on the host,
+database persistence, external access, security posture and backup on the host: NOT RUN.
+**Extension** — source and version PASS (`apps/extension/`, 0.1.0); build and test commands
+with results PASS; ZIP, checksum, manual installation, store submission: NOT RUN (public URL and
+name needed). **Repository** — clean tree, commits pushed, CI on the exact commit: below;
+`develop` updated only after the required checks; `main` untouched; deployment documentation
+updated to describe the script and the optional gate, and this section records the real state.
+
+CI: the sprint source (`96c27a1` web, `8f33260` extension, `22a8406` ops, `6dea528` test
+allow-list) — [run 38811378979](https://github.com/adivishall/fpl-copilot/actions/runs/38811378979)
+on `6dea528` **success** on every job: lint, security, test, optimiser suite, web e2e and
+container builds. The earlier run of `22a8406`
+([38809210431](https://github.com/adivishall/fpl-copilot/actions/runs/38809210431)) failed only
+the consistency test described above (541 passed; container builds skipped behind it). This
+documentation commit is checked by its own run; `develop` is fast-forwarded only after that run
+is green. The public deployment, the extension release and the GW7 capture remain NOT RUN.
+
 ## 3. Environment
 
 Apple M4 (10 logical CPUs), 16 GB RAM, macOS 27.0.1; Python 3.12.15 (uv), Node 22.23, PostgreSQL
@@ -478,7 +523,9 @@ Genuinely open items, in priority order (details in the audit and limitations):
 1. ~~Ingest completed-gameweek results from the live API~~ — done in the V1 work (§2a).
 2. Real per-user authentication/authorisation if the system is ever exposed beyond a trusted group.
 3. Expose league analytics (head-to-head, template, differential) through the API/UI.
-4. A public deployment target (VM + TLS reverse proxy), Alertmanager routing, and archival of
+4. A public deployment target (VM + TLS reverse proxy; the host script and every owner input
+   are listed in §2i — the host, domain and name are still missing), the browser extension's
+   release ZIP and Chrome Web Store submission (§2i), Alertmanager routing, and archival of
    raw payloads / live-observation tables (snapshot and cache retention is done).
 5. Evaluate the live models on 2026-27 outcomes as the season progresses (first unseen season):
    the forecast record and the evaluation run since M1.5 (§2g); the first formal look needs

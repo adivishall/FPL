@@ -43,7 +43,8 @@ generated reports so they cannot drift from this page.
 * **Laptop sleep.** Long jobs on a sleeping development machine are interrupted and re-run (§7).
 * **Webhooks.** A DNS-rebinding window remains between validation and connection (§6).
 * **One machine.** Every timing comes from one development machine and its Docker VM (§5).
-* **Not yet public.** Deployment is verified locally, TLS included; no public URL exists yet (§7).
+* **Not yet public.** Deployment is verified locally, TLS included; no public URL exists yet
+  (`docs/BUILD_STATUS.md` §2i lists the host script and the owner inputs still missing).
 
 ## 1. What has been verified against real FPL data — and what has not
 
