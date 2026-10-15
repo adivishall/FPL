@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import { useUser } from "@/components/auth";
 import { Card, FreshnessBanner, PageHeader } from "@/components/ui";
@@ -28,23 +28,28 @@ function explain(e: unknown): string {
   return String(e);
 }
 
-export default function Onboarding() {
+const ENTRY_PARAM = /^[1-9][0-9]{0,9}$/; // a public FPL entry id handed over in the URL
+
+function OnboardingFlow() {
   const router = useRouter();
+  const params = useSearchParams();
   const { user, reload } = useUser();
+  const handed = params.get("entry")?.trim() ?? "";
+  const handedId = ENTRY_PARAM.test(handed) ? handed : "";
   const [step, setStep] = useState<Step>("id");
-  const [entryId, setEntryId] = useState("");
+  const [entryId, setEntryId] = useState(handedId);
   const [preview, setPreview] = useState<EntryPreview | null>(null);
   const [result, setResult] = useState<SyncResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function lookUp(e: React.FormEvent) {
-    e.preventDefault();
+  async function lookUp(e?: React.FormEvent, raw: string = entryId) {
+    e?.preventDefault();
     setErr(null);
     setBusy(true);
     track("onboarding_started");
     try {
-      const id = Number(entryId.trim());
+      const id = Number(raw.trim());
       if (!Number.isInteger(id) || id <= 0) throw new ApiError(422, "an FPL ID is a positive whole number");
       setPreview(await api<EntryPreview>(`/fpl/entry/${id}`));
       setStep("preview");
@@ -81,6 +86,15 @@ export default function Onboarding() {
     }
   }
 
+  // an id in the URL is looked up once, as if typed and submitted (the confirmation step stays)
+  const looked = useRef(false);
+  useEffect(() => {
+    if (!handedId || looked.current) return;
+    looked.current = true;
+    void lookUp(undefined, handedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handedId]);
+
   const st = result?.state;
   return (
     <>
@@ -97,6 +111,14 @@ export default function Onboarding() {
             <input id="entry" inputMode="numeric" value={entryId} onChange={(e) => setEntryId(e.target.value)} placeholder="e.g. 1234567" required />
             <button type="submit" disabled={busy} data-testid="lookup-entry">{busy ? "Checking…" : "Look up"}</button>
           </form>
+          {handedId && handed === entryId ? (
+            <p className="small" data-testid="entry-handed">
+              FPL ID {handedId} was filled in from the link you followed. Check on the next step that it is your team before importing.
+            </p>
+          ) : null}
+          {handed && !handedId ? (
+            <p className="error" role="alert" data-testid="entry-handed-invalid">The link you followed did not carry a valid FPL ID (a positive whole number). Enter it yourself below.</p>
+          ) : null}
           <p className="small">
             Find it on fantasy.premierleague.com → Points: the number in the address bar after <code>/entry/</code>. Only public data is read; no FPL password is ever asked for.
             Prefer to type the squad yourself? <Link href="/squad">Enter it manually</Link>.
@@ -145,5 +167,13 @@ export default function Onboarding() {
         </Card>
       ) : null}
     </>
+  );
+}
+
+export default function Onboarding() {
+  return (
+    <Suspense>
+      <OnboardingFlow />
+    </Suspense>
   );
 }

@@ -118,6 +118,26 @@ test("onboarding validates the FPL ID and surfaces an unavailable live source wi
   await expect(page.getByRole("link", { name: "Enter it manually" })).toBeVisible();
 });
 
+test("an FPL ID handed over in the link is looked up, an invalid one is refused, and sign-in keeps the destination", async ({ page, browser }) => {
+  // the browser extension opens /onboarding?entry=<id>: the id is filled in and looked up as if
+  // typed; the team must still be confirmed, so nothing is imported from the link alone
+  await page.goto("/onboarding?entry=1234567");
+  await expect(page.getByTestId("entry-handed")).toContainText("1234567");
+  await expect(page.getByLabel("FPL ID")).toHaveValue("1234567");
+  await expect(page.getByTestId("onboarding-error")).toContainText(/cannot be reached|disabled/);
+  await page.goto("/onboarding?entry=12ab");
+  await expect(page.getByTestId("entry-handed-invalid")).toContainText("not carry a valid FPL ID");
+  await expect(page.getByLabel("FPL ID")).toHaveValue("");
+  // signed out, the whole destination (query included) survives the sign-in redirect, and the
+  // sign-up link keeps it too
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } }); // no session
+  const fresh = await ctx.newPage();
+  await fresh.goto("/onboarding?entry=1234567");
+  await expect(fresh).toHaveURL(/\/login\?next=%2Fonboarding%3Fentry%3D1234567$/);
+  await expect(fresh.getByRole("link", { name: "Have an invitation? Create an account" })).toHaveAttribute("href", "/register?next=%2Fonboarding%3Fentry%3D1234567");
+  await ctx.close();
+});
+
 test("player picker searches the real pool, filters, and picks with the keyboard", async ({ page }) => {
   await page.goto("/squad");
   const picker = page.getByTestId("player-picker");

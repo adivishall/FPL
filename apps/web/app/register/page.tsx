@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { useUser } from "@/components/auth";
 import { Card } from "@/components/ui";
 
-export default function Register() {
+function RegisterForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const { reload } = useUser();
+  const next = params.get("next") || "/onboarding";
   const [invite, setInvite] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +31,7 @@ export default function Register() {
       const body = (await res.json().catch(() => ({}))) as { detail?: unknown };
       if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : `sign-up failed (${res.status})`);
       await reload();
-      router.replace("/onboarding");
+      router.replace(next.startsWith("/") ? next : "/onboarding");
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -61,5 +63,13 @@ export default function Register() {
       </p>
     </Card>
     </div>
+  );
+}
+
+export default function Register() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
   );
 }

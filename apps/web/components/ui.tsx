@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { signOut, useUser } from "@/components/auth";
+import { useProductName } from "@/components/product";
 import { ApiError, api, type Freshness } from "@/lib/api";
 import { pct, when } from "@/lib/format";
 
@@ -48,6 +49,7 @@ const NAV: [string, [string, string][]][] = [
 export function Nav() {
   const path = usePathname();
   const { user } = useUser();
+  const product = useProductName();
   // the strip scrolls sideways on narrow screens: keep the current page's link in view
   useEffect(() => {
     const strip = document.querySelector<HTMLElement>(".nav .inner");
@@ -58,9 +60,9 @@ export function Nav() {
     <header>
       <div className="topbar">
         <div className="inner">
-          <Link href="/" className="brand" aria-label="FPL Copilot home">
+          <Link href="/" className="brand" aria-label={`${product} home`}>
             <span className="mark" aria-hidden="true" />
-            FPL Copilot <span className="beta">beta</span>
+            {product} <span className="beta">beta</span>
           </Link>
           {user ? (
             <span className="account" data-testid="account">

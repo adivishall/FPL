@@ -520,7 +520,13 @@ test("onboarding imports a real FPL team by ID through the proxy (E2E_FPL_ENTRY_
   const entry = process.env.E2E_FPL_ENTRY_ID;
   test.skip(!entry, "E2E_FPL_ENTRY_ID not provided (a public FPL entry id to import)");
   await asManager(page);
-  await page.goto("/onboarding");
+  // the browser extension's hand-off: the id in the link is looked up without typing, and the
+  // confirmation step still stands between the link and any import
+  await page.goto(`/onboarding?entry=${entry}`);
+  await expect(page.getByTestId("onboarding-preview")).toBeVisible();
+  await page.getByRole("button", { name: "No, different ID" }).click();
+  await expect(page.getByTestId("onboarding-id")).toBeVisible();
+  // the typed path
   await page.getByLabel("FPL ID").fill(entry!);
   await page.getByTestId("lookup-entry").click();
   await expect(page.getByTestId("onboarding-preview")).toBeVisible();

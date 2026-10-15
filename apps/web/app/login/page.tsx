@@ -5,12 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 import { useUser } from "@/components/auth";
+import { useProductName } from "@/components/product";
 import { Card } from "@/components/ui";
 
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { reload } = useUser();
+  const product = useProductName();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -41,7 +43,7 @@ function LoginForm() {
   return (
     <div className="auth">
     <Card title="Sign in" testId="login" tone="accent">
-      <p className="small">FPL Copilot is an invite-only beta: probabilistic forecasts, whole-squad planning and a journal that checks itself against the official results.</p>
+      <p className="small">{product} is an invite-only beta: probabilistic forecasts, whole-squad planning and a journal that checks itself against the official results.</p>
       <form onSubmit={submit} className="kv">
         <label htmlFor="email">E-mail</label>
         <input id="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -50,7 +52,7 @@ function LoginForm() {
         <span />
         <div className="row">
           <button type="submit" disabled={busy} data-testid="login-submit">{busy ? "Signing in…" : "Sign in"}</button>
-          <Link href="/register" className="small">Have an invitation? Create an account</Link>
+          <Link href={next !== "/" ? `/register?next=${encodeURIComponent(next)}` : "/register"} className="small">Have an invitation? Create an account</Link>
         </div>
       </form>
       {err ? <p className="error" role="alert">{err}</p> : null}

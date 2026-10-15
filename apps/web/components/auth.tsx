@@ -55,7 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       if (e instanceof ApiError && e.status === 401) {
         setError(null);
-        if (!PUBLIC.has(path)) router.replace(`/login?next=${encodeURIComponent(path)}`);
+        if (!PUBLIC.has(path)) {
+          // the whole destination, query included (e.g. an FPL ID handed over by the extension)
+          const dest = path + (typeof window !== "undefined" ? window.location.search : "");
+          router.replace(`/login?next=${encodeURIComponent(dest)}`);
+        }
       } else {
         // the API is down, unreachable or refused the server's key: say so, never spin forever
         setError(e instanceof ApiError ? `${e.status}: ${e.message}` : String(e));

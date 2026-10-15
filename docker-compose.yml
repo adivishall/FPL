@@ -95,6 +95,7 @@ services:
     environment:
       FPL_API_INTERNAL_URL: http://api:8000
       FPL_API_KEY: ${FPL_WEB_API_KEY:-}
+      FPL_PRODUCT_NAME: ${FPL_PRODUCT_NAME:-}   # display name (default "FPL Copilot"); read per request
     ports: ["127.0.0.1:3000:3000"]
     depends_on: [api]
 
