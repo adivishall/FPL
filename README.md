@@ -19,14 +19,16 @@ manager's real squad and state, simulates outcomes jointly, optimises the whole 
 coming gameweeks, checks every plan against the rules independently, and shows the evidence,
 the downside and what happens if you do nothing.
 
-> **Status:** active development — milestone M1.3 (result lifecycle) complete. The full
-> production topology (TLS proxy, web, API, worker, scheduler, PostgreSQL, Redis) is verified
-> **locally** with Docker Compose. **There is no public demo yet.**
+> **Status:** active development — milestone M1.6 (FPL Copilot design system) complete; the
+> first live-season evidence (the GW7 forecast checkpoint) is captured after 2026-10-17 08:30 UTC.
+> The full production topology (TLS proxy, web, API, worker, scheduler, PostgreSQL, Redis) is
+> verified **locally** with Docker Compose. **There is no public demo yet.**
 
 [![Copilot Home: the manager's situation, squad health, recommended action with its lifecycle status and captain profiles](docs/images/copilot-home.png)](docs/images/copilot-home-full.png)
 
 <sub>Screenshots are from the locally deployed stack with a squad built by the optimiser (no real
-manager's data); the app's header still carries its working title, "FPL Decision Engine".</sub>
+manager's data). FPL Copilot is an independent tool: it is not affiliated with or endorsed by the
+Premier League or Fantasy Premier League.</sub>
 
 ## What it does today
 
@@ -54,6 +56,10 @@ manager's data); the app's header still carries its working title, "FPL Decision
   <tr>
     <td width="50%"><a href="docs/images/traceability.png"><img src="docs/images/traceability.png" alt="Traceability chain and explanation"></a><br><sub><b>Traceability</b> — recommendation → optimisation run → prediction set → feature snapshot → data snapshot → source revision.</sub></td>
     <td width="50%"><a href="docs/images/backtest-lab.png"><img src="docs/images/backtest-lab.png" alt="Backtest Lab"></a><br><sub><b>Backtest Lab</b> — walk-forward evaluation against six benchmark strategies.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/images/season-review.png"><img src="docs/images/season-review.png" alt="Season Review: the live record timeline, past seasons and the calibration state"></a><br><sub><b>Season Review</b> — the live record (nothing frozen before the first cutoff), the past seasons over the same weeks, and the calibration state.</sub></td>
+    <td width="50%"><a href="docs/images/copilot-home-mobile.png"><img src="docs/images/copilot-home-mobile.png" alt="Copilot Home on a phone" width="45%"></a> <a href="docs/images/transfer-workbench-mobile.png"><img src="docs/images/transfer-workbench-mobile.png" alt="Transfer Workbench on a phone" width="45%"></a><br><sub><b>On a phone</b> — the same pages at 390 px; wide tables scroll sideways instead of breaking the layout.</sub></td>
   </tr>
 </table>
 

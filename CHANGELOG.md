@@ -2,6 +2,28 @@
 
 User-visible behaviour changes (§78). Milestones follow `docs/BUILD_STATUS.md`.
 
+## M1.6 — FPL Copilot design system and redesigned pages (2026-10-15)
+
+### Changed
+- **Look and feel.** One design system in the visual language of the official FPL site —
+  deep purple for the brand bar and navigation, vivid green for primary actions and selected
+  states, white and pale-lavender surfaces, player and statistics tables — with the product
+  identity FPL Copilot (no official affiliation, no protected assets). Status is never colour
+  alone: every badge carries a word; focus is visible; contrast meets AA on every pair in use.
+- **Copilot Home** is a gameweek dashboard: the deadline countdown, a headline strip (XI
+  expected, bench, bank, free transfers, flagged players), the recommended action first with
+  its lifecycle state, then the situation, squad health, captain profiles, the squad with
+  FPL-rated fixture difficulty, and the plan.
+- **Transfer Workbench** keeps the HOLD baseline row highlighted, illegal plans marked, and
+  solver status, uncertainty and hit costs in their own columns.
+- **Decision Journal, Season Review, Squad Planner, Player Lab, Future Planner, What-If,
+  Alerts, Backtest Lab, Data Health, Settings, sign-in, registration and onboarding** use the
+  same header, cards, tables and callouts. Wide tables scroll sideways on a phone instead of
+  breaking the page.
+- Nothing about forecasts, optimisation, scoring, the journal, snapshot invalidation,
+  ownership or the API changed: honesty labels (stale results, uncertainty, small samples,
+  unproven optimality) are shown as before, now consistently.
+
 ## M1.5 — Season Review: the forecast record and live-season evaluation (2026-10-14)
 
 ### Added

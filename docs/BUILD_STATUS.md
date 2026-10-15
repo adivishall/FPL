@@ -415,6 +415,34 @@ bounds, provenance, idempotent recapture, retention and ledger run-once, restart
 background waiter in the development session only: it depends on that session and the host
 staying available, and is otherwise run by hand after the capture.
 
+## 2h. M1.6 — FPL Copilot design system and redesigned pages (2026-10-15)
+
+Scope: the visual language of the official FPL site — deep purple, vivid green, light surfaces,
+player and statistics tables, a clear gameweek dashboard — on the real Next.js application, with
+the product identity FPL Copilot (no official affiliation, no protected assets), and without
+changing forecasting, optimisation, scoring, journal semantics, snapshot invalidation, ownership
+or the API. Started only after the GW7 capture readiness was re-verified and recorded (§2g); the
+GW7 capture itself is still in the future at this writing.
+
+| Area | Result |
+|---|---|
+| Audit | the live app (11 pages, 7 components, plain CSS with tokens, dark theme), both browser suites and the committed screenshots were inspected first; a throw-away beta account with an optimiser-built squad, a worker recommendation and a workbench run was used on a `next dev` server (port 3100) against the live API, and erased afterwards |
+| Design system | `apps/web/app/globals.css`: tokens (`--brand #37003c`, `--green #00ff87`, surfaces `#f3f2f7` / `#fff` / `#faf8fc`, status pairs that pass AA), typography, spacing, radii, shadows, visible focus, reduced motion; status badges always carry a word; a 720 px breakpoint; wide tables in `.table-wrap` scroll sideways on a phone |
+| Shell | `components/ui.tsx`: purple brand bar with the account, a white navigation strip in four groups (Plan, Explore, Record, System) with a green active underline that scrolls sideways on narrow screens; shared `PageHeader`, `Stats`/`Stat`, `Callout`, `Card` tones; `layout.tsx` titled FPL Copilot with the brand theme colour. Link labels and every `data-testid` unchanged |
+| Pages, in the required order | Copilot Home as a gameweek dashboard (deadline countdown, headline strip: XI expected, bench, bank, free transfers, flagged players; the recommended action first with its lifecycle state; situation, squad health, captain profiles, the squad with FPL difficulty chips, the plan); Transfer Workbench (HOLD baseline row, illegal plans marked, hit cost / uncertainty / solver columns); Decision Journal, entry and traceability; Season Review (headline strip, status callout, every table scrollable); then auth, onboarding, Squad Planner (FPL-style pitch), Player Lab, Future Planner, What-If, Alerts, Backtest Lab, Data Health and Settings |
+| Honesty preserved | stale / historical results, "timing not proven", insufficient samples, unproven optimality and degraded data are shown with the same words as before, now in one consistent style; nothing was hidden to make a page tidier |
+| Defect found and fixed | the Backtest Lab tabs briefly took `role="tab"`, which removed them from the button role the browser test (and assistive technology) addresses them by: reverted to buttons with `aria-pressed` (`6af332a`) |
+| Verification (source `6af332a`) | `tsc --noEmit` clean; `next build` clean; dev Playwright **15 passed** (0 failed; the full suite re-run after the fix); production Playwright against the local stack on the final web image `0f846fb0c7a1` with both auxiliary containers **24 passed, 0 skipped**; rendered pages inspected at 1440 and 390 px — zero horizontal overflow on every page after two fixes (a select wider than a phone viewport on Settings; the navigation strip scrolling at desktop width); committed screenshots regenerated from the production stack, now including the Season Review and phone views with a no-sideways-scroll assertion |
+| Backend | untouched: no Python source changed in M1.6, so the M1.5 regression results stand (549 passed locally; CI green on `47f81ac`) |
+| Defects 52 and 53 | unchanged and still **open** |
+
+CI: `6af332a` (the M1.6 source: `71592f6`, `c297330`, `64dc080`, `6af332a`) —
+[run 38758418989](https://github.com/adivishall/fpl-copilot/actions/runs/38758418989) **success**
+on every job: lint, security, test, optimiser suite, web e2e and container builds. The run of
+`64dc080` was cancelled when `6af332a` superseded it (its web-e2e job would have failed on the
+tab-role defect fixed there). This documentation commit, with the regenerated screenshots in
+`docs/images/`, is checked by its own run. The GW7 checkpoint (§2g) is still in the future.
+
 ## 3. Environment
 
 Apple M4 (10 logical CPUs), 16 GB RAM, macOS 27.0.1; Python 3.12.15 (uv), Node 22.23, PostgreSQL
