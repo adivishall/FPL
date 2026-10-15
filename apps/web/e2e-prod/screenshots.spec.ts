@@ -96,8 +96,30 @@ test("capture the decision workflow", async ({ page }) => {
   await expect(page.getByTestId("services")).toContainText("live_source");
   await fullShot(page, "data-health.png");
 
+  await page.goto("/season-review");
+  await expect(page.getByTestId("timeline")).toContainText("before the record");
+  await fullShot(page, "season-review.png");
+
   await page.goto("/backtests");
   await page.waitForLoadState("networkidle");
   await page.locator("img[data-figure='backtest_cumulative_difference.svg']").scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${OUT}/backtest-lab.png` }); // the full report is ~11k px tall
+});
+
+
+// the same pages at a phone width (M1.6): the layout must hold without sideways scrolling
+test("capture the phone layout", async ({ page }) => {
+  await signedIn(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const [path, name, ready] of [
+    ["/", "copilot-home-mobile.png", "decision-text"],
+    ["/transfers", "transfer-workbench-mobile.png", "plan-hold"],
+    ["/season-review", "season-review-mobile.png", "timeline"],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.getByTestId(ready)).toBeVisible({ timeout: 120_000 });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${path} overflows the phone viewport`).toBe(0);
+    await fullShot(page, name);
+  }
 });
