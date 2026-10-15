@@ -149,11 +149,15 @@ Internet ──80/443──▶ caddy  TLS (Let's Encrypt) · HTTP→HTTPS · sit
 only one publishing ports (80, 443 TCP/UDP). The API, database, Redis and metrics stay off the
 internet; operators reach the API through SSH (`ssh -L 8000:127.0.0.1:8000 <host>`).
 
-**Why a site login.** V1 is single-tenant: the web server calls the API with one key on behalf of
-whoever reaches it, and a manager key is an identifier, not a credential. Exposed without a gate,
-anyone could start expensive jobs or read and erase data under a guessed manager key. Caddy
-therefore requires one login (HTTP Basic over TLS, bcrypt-hashed) for the whole site and refuses
-to start without `infra/deployment/caddy/auth.caddy`. Per-user accounts are V2.
+**The outer site login is optional.** Before M1.1a the web server acted for whoever reached
+it, so Caddy gated the whole site with one HTTP Basic login. Since M1.1a the invite-only
+accounts are the authentication (every manager-scoped route checks the signed-in owner; sign-up
+needs an invitation; failed logins are rate-limited), so the outer gate is a choice: keep it for
+a closed test, or turn it off for beta users, who then see only the product's own sign-in.
+`infra/deployment/caddy/auth.caddy` must exist either way (Caddy refuses to start without it):
+with a `basic_auth` block the gate is on; **an empty file turns it off** (validated with
+`caddy validate`, 2026-10-16). The smoke test and the browser suite take the login when
+`FPL_SMOKE_WEB_AUTH` / `E2E_HTTP_USER` are set and run without it otherwise.
 
 **Logs.** Caddy keeps no access log, and its error log drops request URIs (manager keys appear in
 paths and queries) and authorisation headers.
@@ -169,8 +173,9 @@ with Compose v2. Inbound 80/443 (and SSH); outbound `fantasy.premierleague.com`,
 2. On the VM: check out the release, `cp .env.example .env` and fill it in (*First deployment*
    step 1), plus `FPL_PUBLIC_DOMAIN=<site name>`, `FPL_TLS=<ACME e-mail address>` and
    `FPL_SOLVER_WORKERS=<vCPUs>`.
-3. Site login: `docker run --rm caddy:2.10-alpine caddy hash-password --plaintext '<password>'`,
-   then create `infra/deployment/caddy/auth.caddy` from `auth.caddy.example` with that hash
+3. Site login (optional, above): `docker run --rm caddy:2.10-alpine caddy hash-password
+   --plaintext '<password>'`, then create `infra/deployment/caddy/auth.caddy` from
+   `auth.caddy.example` with that hash — or create it empty to run without the outer gate
    (`chmod 600`; git-ignored).
 4. *First deployment* steps 2–4, then
    `docker compose -f docker-compose.yml -f docker-compose.public.yml up -d`.
@@ -181,6 +186,25 @@ with Compose v2. Inbound 80/443 (and SSH); outbound `fantasy.premierleague.com`,
    (`E2E_API_URL` through the SSH tunnel).
 6. Schedule `infra/scripts/backup.sh` daily and copy the backups off the host (*Backup and
    restore*).
+
+**All of the above as one script.** `infra/scripts/host_setup.sh` executes steps 2–6 and the
+*First deployment* steps on a fresh Ubuntu 24.04 host, idempotently (a re-run skips what is
+done): Docker Engine and Compose from Docker's apt repository, the repository at a given commit
+under `/srv/fpl`, `.env` from the example with a generated database password, the images built
+with the revision recorded (`FPL_BUILD_REVISION`, `FPL_IMAGE_TAG`), the two API keys (`fpl-api
+create-key`; the operator key is written once to `/srv/fpl-secrets/operator_key`, root-only,
+and printed nowhere), migrations, the pinned historical data, a snapshot, the serving forecast,
+the stack behind Caddy, a daily backup in `/etc/cron.d/fpl-backup` (14 days kept under
+`/srv/fpl-backups`) and `ufw` (22, 80, 443). Inputs are environment variables:
+`FPL_PUBLIC_DOMAIN`, `FPL_TLS`, `FPL_GIT_REF`, `FPL_PRODUCT_NAME` (below) and, to keep the
+outer gate, `FPL_SITE_LOGIN_PASSWORD`. It never prints a secret. Operators then reach the API
+through `ssh -L 8000:127.0.0.1:8000 <host>` with the key in `/srv/fpl-secrets/operator_key`.
+
+**Product name.** The web UI shows `FPL_PRODUCT_NAME` (brand, page titles, sign-in; empty
+means "FPL Copilot") — read by the web server on every request, so renaming the product is a
+change of `.env` and `docker compose up -d web`, no rebuild. The browser extension is built
+with the same name (`apps/extension/build.sh --name`). The word *Copilot* elsewhere in the UI
+names the advisor inside the product (what it recommended), not the product.
 
 **Verified on the development machine (2026-10-07)** with `FPL_PUBLIC_DOMAIN=fpl.localhost` and
 `FPL_TLS=internal` (Caddy's own CA): certificate chain valid against Caddy's root, TLS 1.3, TLS 1.1
@@ -203,6 +227,20 @@ certificate and a reachable public URL — they need the operator inputs below.
 | Production secrets, generated on the host | `POSTGRES_PASSWORD`, the API key and its hash (never committed) |
 | Optional: an HTTPS endpoint you control | verifying webhook delivery (`FPL_WEBHOOK_ALLOWED_HOSTS`) |
 | Optional: off-host backup storage | copies of `infra/scripts/backup.sh` output |
+
+## Browser extension
+
+`apps/extension/` is a Chrome (Manifest V3) extension with one job: on a public team page of
+fantasy.premierleague.com (an address containing `/entry/<ID>/`) its button opens
+`https://<site>/onboarding?entry=<ID>`; elsewhere it opens the site. Its only permission is
+`activeTab` (the clicked tab's address, per click); it has no host permissions, content
+scripts, background worker, storage or credentials, and sign-in and the team confirmation
+happen in the web app as for any visitor. Build the release with
+`apps/extension/build.sh --url https://<site> --name "<product name>"`: `dist/unpacked/` for
+Chrome's *Load unpacked* and a reproducible ZIP with its SHA-256 for the Chrome Web Store.
+Tests: `npm test` (unit, incl. build reproducibility) and `npm run test:browser` (the built
+extension in Chromium against a stand-in web app). Listing text, permission justification and
+the privacy disclosure: `apps/extension/STORE_LISTING.md`, `docs/EXTENSION_PRIVACY.md`.
 
 ## Network policy
 

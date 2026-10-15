@@ -22,9 +22,10 @@
 {$FPL_PUBLIC_DOMAIN} {
 	tls {$FPL_TLS}
 
-	# V1 is single-tenant: the web server acts for whoever reaches it, so the whole site sits
-	# behind one login. auth.caddy is required (generate it from auth.caddy.example); without it
-	# Caddy refuses to start rather than serve an open site.
+	# Optional outer site login (docs/DEPLOYMENT.md "Public deployment"): auth.caddy holds a
+	# basic_auth block (generate it from auth.caddy.example) or is empty, which turns the gate
+	# off — the invite-only accounts are the authentication since M1.1a. The file must exist:
+	# a missing file stops Caddy rather than silently serving an unintended configuration.
 	import /etc/caddy/auth.caddy
 
 	encode zstd gzip

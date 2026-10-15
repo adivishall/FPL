@@ -2,6 +2,33 @@
 
 User-visible behaviour changes (§78). Milestones follow `docs/BUILD_STATUS.md`.
 
+## Release sprint — public deployment path, browser extension, configurable name (2026-10-16)
+
+### Added
+- **Browser extension** (`apps/extension/`, Chrome Manifest V3, permission `activeTab` only):
+  a toolbar button that opens the web app and, on a public team page of
+  fantasy.premierleague.com (`/entry/<ID>/…`), opens the squad import with that team's ID
+  filled in. It reads only the clicked tab's address, holds no credential, has no host
+  permission, content script, background worker or storage, and collects nothing. A
+  reproducible ZIP for the Chrome Web Store (`build.sh`, byte-identical for the same inputs),
+  unit and browser tests, a store listing draft and a privacy notice
+  (`docs/EXTENSION_PRIVACY.md`).
+- **Onboarding accepts a team ID in the link** (`/onboarding?entry=<ID>`): the ID is filled in
+  and looked up as if typed; the confirmation step still stands, sign-in is still required, and
+  the destination — query included — survives the sign-in redirect and the sign-up link. An
+  invalid ID in the link is refused with a message.
+- **Configurable product name** (`FPL_PRODUCT_NAME`): brand, page title and sign-in text are
+  read from the environment on every request (no rebuild to rename); the extension is built
+  with the same name. "FPL Copilot" stays the default and working name.
+- **`infra/scripts/host_setup.sh`**: the runbook's first public deployment on a fresh Ubuntu
+  host, idempotent, secrets never printed (Docker, the repository at a commit, `.env`, keys,
+  images with the revision recorded, migrations, data, forecast, the stack behind Caddy, a
+  daily backup, the firewall).
+
+### Changed
+- **The outer site login at the TLS proxy is optional**: an empty `auth.caddy` turns it off and
+  the invite-only accounts remain the authentication (`docs/DEPLOYMENT.md`).
+
 ## M1.6 — FPL Copilot design system and redesigned pages (2026-10-15)
 
 ### Changed

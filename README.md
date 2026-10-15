@@ -66,9 +66,14 @@ Premier League or Fantasy Premier League.</sub>
 Also: alerts with materiality thresholds (deadline, availability, price risk, plan invalidation),
 a Backtest Lab and a data-health page.
 
+**Browser extension** (`apps/extension/`, Chrome Manifest V3): one button that opens the web
+app and, on a public team page of fantasy.premierleague.com, opens the squad import with that
+team's ID filled in. Its only permission is `activeTab`; it reads nothing but the page address,
+holds no credential and collects nothing. Build, install and test: `apps/extension/README.md`.
+
 **Not built yet** (roadmap, `docs/PRODUCT_GAP_ANALYSIS.md`): any recalibration of the live
-models (measurement only until 8 live gameweeks are final), mini-league strategy, a
-conversational assistant and a browser extension.
+models (measurement only until 8 live gameweeks are final), mini-league strategy and a
+conversational assistant.
 
 ## How it works
 
@@ -261,9 +266,13 @@ step), key or session errors, live-source failures, backups and restore: see
   (M1.4); forecast record and Season Review with the live-season evaluation contract (M1.5).
 * **Next:** the first formal live look after 8 final live gameweeks (GW7–14 of 2026-27), then any
   calibration change only through a shadow test on later live gameweeks.
-* **Not done:** a public deployment (it needs a host, a domain and secrets); mini-league
-  strategy, an assistant and a browser extension; live evidence on 2026-27 starts at GW7 and is
-  not yet final.
+* **Release sprint (October 2026):** the product display name is a setting
+  (`FPL_PRODUCT_NAME`; "FPL Copilot" is a working name that another FPL product already uses,
+  so the public release ships under a different one); `infra/scripts/host_setup.sh` performs
+  the runbook's first public deployment on a fresh host; the browser extension above.
+* **Not done:** a verified public deployment (it needs a host, a domain and secrets — see
+  `docs/BUILD_STATUS.md` for the actual state); mini-league strategy and an assistant; live
+  evidence on 2026-27 starts at GW7 and is not yet final.
 * **Known limitations:** [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) — e.g. heavy
   requests take tens of seconds, timings come from one machine, the availability model is
   uncalibrated, and the design was iterated on the evaluated seasons.
