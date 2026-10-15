@@ -384,6 +384,37 @@ fixes `750c9e2` and this record are checked by their own runs. The GW7 checkpoin
 unattended by the stack's scheduler after the cutoff on 2026-10-17 and recorded here once
 verified.
 
+### M1.5 stage status (verified against the running stack, 2026-10-15 14:11 UTC)
+
+One stage succeeding says nothing about the others; each is recorded on its own.
+
+| Stage | Status | Evidence |
+|---|---|---|
+| Rehearsal | done — **not live evidence** | a copy of the stack's database, 2026-10-14 (above): `prospective` with the attestations, `prospective_unverified` without them |
+| Forecast generation (live) | running, host-bound | the hourly forecast job promotes a GW7 forecast whenever the host is awake: 16 promotions since 2026-10-14 03:26 UTC, the newest `snap_46964195640b52a22f9e` / `fc_cd62808ae4137e7e` exported 2026-10-15 14:03 UTC |
+| Time attestation (live) | running | each of the 9 promotions made since migration 0008 has a `generation` attestation from FPL's clock on the first attempt (one `existence` row for the promotion just before 0008; the `forecast_attest` job ran once and succeeded); the newest forecast existed by 2026-10-15 14:09:51 UTC by FPL's clock, 42.3 h before the cutoff |
+| Prospective checkpoint (GW7) | **not run** — the cutoff, 2026-10-17 08:30 UTC, is in the future | 0 `forecast_checkpoints`, 0 `predictions`; `due_gameweeks` empty; the capture is the scheduler's `forecast_ledger` task (every 15 min, registered once, one scheduler process, no second capture path) |
+| Scoring | **not run** | 0 `season_evaluations`; calibration `deferred` ("0 of 8 live gameweeks final"); GW7 results expected final around 2026-10-22 19:00 UTC |
+| Public deployment | **not done** | no public URL exists (§2b handoff) |
+
+Readiness check for the GW7 capture (read-only, 2026-10-15 14:11 UTC): the official deadline
+re-read from FPL (`is_next`, 2026-10-17 10:00 UTC) agrees with the `gameweeks` row
+(`deadline_source` official); the ruleset's 90-minute buffer gives the cutoff 08:30 UTC; every
+service is healthy; `checkpoint_candidate` for GW7 at the cutoff selects the newest attested
+forecast, whose file (4.5 MB, hash equal to the promotion's) and snapshot are stored and which
+`pending_candidates` keeps; no promotion lacks FPL's time; FPL's `Date` equalled the host clock
+(`Age` 215 s). Operational limit observed: the host sleeps often — 37 scheduler ticks in 30 hours
+instead of about 120, with gaps of 2–5 hours (macOS power log: repeated clamshell and idle
+sleeps) — and the Colima VM pauses with it, so the scheduler runs only while the host is awake. A
+host asleep at the cutoff captures at its next wake (capture time is not a criterion) and freezes
+the last forecast promoted before 08:30 UTC, which can be hours old; for the freshest forecast the
+host must be awake, on power, with Colima and the stack healthy from about 07:30 UTC (13:00 IST)
+on 2026-10-17. Colima is not a login service (no decision recorded; `brew services start colima`
+is the operator's option). The post-capture verification (`verify_gw7.sh`: counts, attestation
+bounds, provenance, idempotent recapture, retention and ledger run-once, restart) is armed as a
+background waiter in the development session only: it depends on that session and the host
+staying available, and is otherwise run by hand after the capture.
+
 ## 3. Environment
 
 Apple M4 (10 logical CPUs), 16 GB RAM, macOS 27.0.1; Python 3.12.15 (uv), Node 22.23, PostgreSQL
