@@ -46,13 +46,15 @@ def test_schedule_tasks_exist_and_compose_runs_every_process() -> None:
     assert compose["worker"]["command"] == ["fpl-worker", "work"]
     assert compose["scheduler"]["command"] == ["fpl-worker", "schedule"]
     assert "FPL_API_KEY" in compose["web"]["environment"]  # key stays server-side
+    assert "FPL_PRODUCT_NAME" in compose["web"]["environment"]  # the display name, read per request
 
 
 def test_env_example_names_map_to_settings() -> None:
     from fpl_api.settings import Settings
 
     fields = {f"FPL_{k.upper()}" for k in Settings.model_fields}
-    extra = {"FPL_WEB_API_KEY"}  # consumed by docker-compose for the web proxy
+    # consumed by docker-compose for the web server (its proxy key; the product's display name)
+    extra = {"FPL_WEB_API_KEY", "FPL_PRODUCT_NAME"}
     for line in (ROOT / ".env.example").read_text().splitlines():
         if line.startswith("FPL_"):
             name = line.split("=", 1)[0]
