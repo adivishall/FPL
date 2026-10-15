@@ -1,0 +1,14 @@
+{
+  "name": "fpl-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome (Manifest V3) extension: open the FPL team page you are on in the web app",
+  "scripts": {
+    "test": "node --test test/lib.test.mjs",
+    "test:browser": "playwright test",
+    "build": "./build.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

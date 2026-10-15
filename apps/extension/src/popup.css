@@ -1,0 +1,51 @@
+/* The same colours as the web app's design system: deep purple brand, vivid green action. */
+:root {
+  --brand: #37003c;
+  --green: #00ff87;
+  --ink: #1b1b26;
+  --muted: #5a5a6e;
+  --line: #e6e4ee;
+  --surface: #ffffff;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  width: 320px;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--surface);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: inset 0 0 0 3px var(--brand), 0 0 0 2px var(--green);
+}
+main { padding: 14px; display: grid; gap: 10px; }
+.status { margin: 0; color: var(--muted); }
+.action {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--green);
+  color: var(--brand);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  border: 2px solid var(--brand);
+}
+.action:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.hint { margin: 0; color: var(--muted); }
+.dest { margin: 0; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.dest span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }

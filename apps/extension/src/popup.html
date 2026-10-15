@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FPL Copilot</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="brand"><span class="mark" aria-hidden="true"></span><span id="product">FPL Copilot</span></header>
+  <main>
+    <p id="status" class="status" role="status">Reading the page address…</p>
+    <a id="action" class="action" target="_blank" rel="noopener" hidden>Open</a>
+    <p id="hint" class="hint" hidden></p>
+    <p class="dest">Opens <span id="dest"></span>. Sign-in and the team confirmation happen there; nothing is imported from this page.</p>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
