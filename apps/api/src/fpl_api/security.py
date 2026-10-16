@@ -2,9 +2,12 @@
 
 * API keys are compared by SHA-256 hash in constant time (plaintext keys are never stored or
   logged). When ``require_api_key`` is on, every non-GET endpoint needs ``X-API-Key``.
-* Token-bucket rate limiting per client (API key hash or client IP); expensive endpoints draw
-  from a separate, smaller bucket. In-process buckets suffice for a single API replica; the
-  limiter interface is where a Redis-backed limiter plugs in for multiple replicas.
+* Token-bucket rate limiting per client (API key hash or client IP; behind the TLS proxy, the
+  web proxy's requests count per visitor address from ``X-Forwarded-For`` when
+  ``trust_forwarded_for`` is on); expensive endpoints draw from a separate, smaller bucket;
+  sign-in attempts are limited per e-mail address as well. In-process buckets suffice for a
+  single API replica; the limiter interface is where a Redis-backed limiter plugs in for
+  multiple replicas.
 * No FPL account credentials are accepted anywhere: manager sync uses the public manager id.
 """
 
@@ -91,6 +94,10 @@ class Guard:
         self.users = users
         self.general = TokenBucket(settings.rate_limit_per_minute)
         self.expensive = TokenBucket(settings.expensive_rate_limit_per_minute)
+        self.logins = TokenBucket(settings.login_attempts_per_minute)
+
+    def _is_web_key(self, digest: str) -> bool:
+        return any(hmac.compare_digest(digest, h) for h in self.settings.web_api_keys_sha256)
 
     def client_id(self, request: Request) -> str:
         principal = getattr(request.state, "principal", None)
@@ -98,8 +105,27 @@ class Guard:
             return "u:" + principal.user_id[:16]
         key = request.headers.get("x-api-key")
         if key:
-            return "k:" + hash_key(key)[:16]
+            digest = hash_key(key)
+            # the web proxy's key names the proxy, not the visitor: behind the TLS proxy (which
+            # sets X-Forwarded-For from the connection and drops any client-supplied value) each
+            # visitor address has its own bucket, so one visitor cannot throttle everyone
+            if self.settings.trust_forwarded_for and self._is_web_key(digest):
+                forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+                if forwarded:
+                    return "ip:" + forwarded[:45]
+            return "k:" + digest[:16]
         return "ip:" + (request.client.host if request.client else "unknown")
+
+    def check_login(self, email: str) -> None:
+        """Sign-in attempts per e-mail address, whatever the client: password guessing against
+        one account is bounded even from many addresses."""
+        ok, wait = self.logins.take("e:" + hash_key(email.strip().lower())[:16])
+        if not ok:
+            raise HTTPException(
+                status_code=429,
+                detail="too many sign-in attempts for this e-mail address; try again shortly",
+                headers={"Retry-After": str(max(1, int(wait) + 1))},
+            )
 
     def principal(self, request: Request) -> Principal:
         """Who is asking: a session token names a user (even alongside an API key); an

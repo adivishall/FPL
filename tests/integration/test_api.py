@@ -357,6 +357,40 @@ def test_api_key_and_rate_limit(tmp_path: Path) -> None:
         assert 'fpl_security_events_total{kind="rate_limited"}' in sec
 
 
+def test_behind_the_proxy_the_web_key_is_limited_per_forwarded_visitor(tmp_path: Path) -> None:
+    web, ops = "web-proxy-key", "operator-key"
+    common: dict[str, object] = {
+        "require_api_key": True,
+        "web_api_keys_sha256": [hash_key(web)],
+        "api_keys_sha256": [hash_key(ops)],
+        "rate_limit_per_minute": 3,
+    }
+    gw = "/api/v1/gameweeks/current"
+    # X-Forwarded-For is ignored unless the deployment says the proxy sets it: one bucket
+    st = _settings(None, tmp_path, **common)
+    with TestClient(create_app(st, AppServices.build(st, DS))) as c:
+        codes = [
+            c.get(gw, headers={"X-API-Key": web, "X-Forwarded-For": f"198.51.100.{i}"}).status_code
+            for i in range(5)
+        ]
+        assert 429 in codes
+    # trusted (docker-compose.public.yml): each visitor address has its own bucket, so one
+    # visitor exhausting theirs does not throttle the next; without the header, the key's
+    # bucket; an operator key is never a visitor, whatever it forwards
+    st = _settings(None, tmp_path, trust_forwarded_for=True, **common)
+    with TestClient(create_app(st, AppServices.build(st, DS))) as c:
+        one = {"X-API-Key": web, "X-Forwarded-For": "198.51.100.1, 10.0.0.2"}
+        assert [c.get(gw, headers=one).status_code for _ in range(4)] == [200, 200, 200, 429]
+        two = {"X-API-Key": web, "X-Forwarded-For": "198.51.100.2"}
+        assert c.get(gw, headers=two).status_code == 200
+        assert c.get(gw, headers={"X-API-Key": web}).status_code == 200
+        codes = [
+            c.get(gw, headers={"X-API-Key": ops, "X-Forwarded-For": f"203.0.113.{i}"}).status_code
+            for i in range(5)
+        ]
+        assert 429 in codes
+
+
 def test_manager_linked_reads_need_a_key_reference_reads_do_not(tmp_path: Path) -> None:
     key = "s3cret-key"
     st = _settings(None, tmp_path, require_api_key=True, api_keys_sha256=[hash_key(key)])

@@ -1840,6 +1840,7 @@ def create_app(settings: Settings | None = None, services: AppServices | None = 
     @r.post("/auth/login")
     def login(body: s.LoginIn) -> dict[str, Any]:
         u = need_users()
+        guard.check_login(body.email)  # per e-mail address, before the password is checked
         try:
             token, who = u.login(body.email, body.password)
         except AuthError:

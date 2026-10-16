@@ -99,6 +99,21 @@ def test_registration_needs_a_valid_unused_invite(client: TestClient) -> None:
     assert r.status_code == 410 and r.json()["code"] == "invite_expired"
 
 
+def test_sign_in_attempts_are_limited_per_email_address(client: TestClient) -> None:
+    # password guessing against one account is bounded whatever the client (default 10/min);
+    # another address is unaffected, and the answer says when to retry
+    email = "guessed@example.test"
+    codes = [
+        client.post("/api/v1/auth/login", json={"email": email, "password": f"x{i}"}).status_code
+        for i in range(10)
+    ]
+    assert codes == [401] * 10
+    r = client.post("/api/v1/auth/login", json={"email": email.upper(), "password": "x"})
+    assert r.status_code == 429 and r.headers.get("retry-after")
+    other = client.post("/api/v1/auth/login", json={"email": "other@example.test", "password": "x"})
+    assert other.status_code == 401
+
+
 def test_login_logout_and_session_expiry(client: TestClient) -> None:
     _register(client, "login@example.test")
     bad = client.post(

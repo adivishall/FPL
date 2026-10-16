@@ -104,6 +104,16 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     rate_limit_per_minute: int = 120
     expensive_rate_limit_per_minute: int = 12
+    login_attempts_per_minute: int = Field(
+        10, ge=1, description="sign-in attempts per e-mail address per minute (password guessing)"
+    )
+    trust_forwarded_for: bool = Field(
+        False,
+        description="behind the TLS proxy (docker-compose.public.yml), which sets "
+        "X-Forwarded-For from the connection: rate-limit the web proxy's requests per visitor "
+        "address instead of one bucket for every browser; never enable where browsers reach the "
+        "web server directly",
+    )
     max_body_bytes: int = 256_000
     webhook_allowed_hosts: list[str] = Field(
         default_factory=list, description="hosts manager webhooks may target (SSRF guard)"
