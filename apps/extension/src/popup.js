@@ -6,7 +6,8 @@ import { decide } from "./lib.js";
 async function activeTabUrl() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    return tab?.url ?? "";
+    // a navigation still in flight is the page the user means; otherwise the committed one
+    return tab?.pendingUrl ?? tab?.url ?? "";
   } catch {
     return "";
   }

@@ -111,6 +111,17 @@ test("the build is reproducible and substitutes only the address and the name", 
   }
 });
 
+test("the build refuses a name that would splice into the JSON or HTML", () => {
+  const out = mkdtempSync(path.join(tmpdir(), "ext-"));
+  try {
+    for (const bad of ['Ex"ample', "Ex<b>ample", "Ex&ample", "a".repeat(46)]) {
+      assert.throws(() => execFileSync(path.join(here, "../build.sh"), ["--url", "https://app.example.test", "--name", bad, "--out", out], { stdio: "pipe" }), bad);
+    }
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+});
+
 test("the build refuses a plain-http production address and a path", () => {
   const out = mkdtempSync(path.join(tmpdir(), "ext-"));
   try {

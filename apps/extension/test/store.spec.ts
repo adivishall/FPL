@@ -50,6 +50,17 @@ test("store screenshots", async () => {
     await expect(site.locator("#action")).toHaveAttribute("data-kind", "site");
     await stage(site, "Anywhere else: open the web app, and see which pages carry a team ID");
     await site.screenshot({ path: path.join(out, "popup-site.png"), fullPage: false });
+
+    // the small promo tile the store requires (440×280): the brand mark and the product name
+    const name = (await site.locator("#product").textContent())!.trim();
+    const tile = await context.newPage();
+    await tile.setViewportSize({ width: 440, height: 280 });
+    await tile.setContent(`<!doctype html><html><body style="margin:0;width:440px;height:280px;background:#37003c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:system-ui,sans-serif;color:#fff">
+      <div style="width:56px;height:56px;border-radius:50%;background:#00ff87;box-shadow:inset 0 0 0 12px #37003c,0 0 0 6px #00ff87"></div>
+      <div style="font-size:34px;font-weight:700;letter-spacing:.01em">${name.replace(/[<>&"]/g, "")}</div>
+      <div style="font-size:15px;color:#d8ccdf">one click from your FPL team page to the squad import</div>
+    </body></html>`);
+    await tile.screenshot({ path: path.join(out, "promo-small.png"), fullPage: false });
   } finally {
     await context.close();
   }

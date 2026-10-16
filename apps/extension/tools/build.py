@@ -45,6 +45,8 @@ def main() -> None:
     url, name = check_url(a.url), a.name.strip()
     if not name or len(name) > 45:  # the Web Store's limit for the name
         raise SystemExit("build: --name must be 1–45 characters")
+    if re.search(r'["\\<>&\x00-\x1f]', name):  # spliced into JSON and HTML as plain text
+        raise SystemExit('build: --name may not contain " \\ < > & or control characters')
 
     unpacked = out / "unpacked"
     if unpacked.exists():
