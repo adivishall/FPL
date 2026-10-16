@@ -109,8 +109,12 @@ The product is an **invite-only beta**. Accounts, sessions and ownership live in
   hash with a per-user salt, standard library); a 256-bit session token stored hashed, 30 days
   (`FPL_SESSION_TTL_DAYS`), kept by the Next server in an HttpOnly, SameSite=Lax (Secure over
   HTTPS) cookie and forwarded to the API as a bearer. Sign-out revokes the session. Failed logins
-  are security events (`login_failed`) and are rate-limited per client; there is no lockout and no
-  password reset yet (an operator can issue a new invitation).
+  are security events (`login_failed`); sign-in attempts are limited per e-mail address
+  (`FPL_LOGIN_ATTEMPTS_PER_MINUTE`, default 10, whatever the client) on top of the per-client
+  limit; there is no lockout and no password reset yet (an operator can issue a new
+  invitation). Sign-in and sign-up are not reachable through the web proxy's `/backend/*`
+  path: only the Next server's own `/auth/*` handlers call them, so the session token never
+  reaches browser scripts.
 * **Manager keys** are created by the API for the signed-in user (`POST /api/v1/auth/managers`;
   onboarding does this) — a user can never name a key the account does not own. Erasing a
   manager releases its key; `DELETE /api/v1/auth/me` erases the account and every manager it owns.
@@ -148,6 +152,14 @@ Internet ──80/443──▶ caddy  TLS (Let's Encrypt) · HTTP→HTTPS · sit
 `docker-compose.public.yml` adds one service, `caddy` (`infra/deployment/caddy/Caddyfile`), the
 only one publishing ports (80, 443 TCP/UDP). The API, database, Redis and metrics stay off the
 internet; operators reach the API through SSH (`ssh -L 8000:127.0.0.1:8000 <host>`).
+
+**Rate limits per visitor.** The web server calls the API with one key for every browser, so
+without more information the API's per-client limits (120 requests and 12 expensive requests a
+minute) would be one bucket for the whole site. Caddy sets `X-Forwarded-For` from the
+connection (any client-supplied value is dropped), the Next server forwards it, and with
+`FPL_TRUST_FORWARDED_FOR=true` (set by `host_setup.sh`; false by default and in
+`.env.example`) the API counts the web key's requests per visitor address. Operator keys are
+always counted per key. Never set it where browsers reach the web server directly.
 
 **The outer site login is optional.** Before M1.1a the web server acted for whoever reached
 it, so Caddy gated the whole site with one HTTP Basic login. Since M1.1a the invite-only
@@ -189,7 +201,9 @@ with Compose v2. Inbound 80/443 (and SSH); outbound `fantasy.premierleague.com`,
 
 **All of the above as one script.** `infra/scripts/host_setup.sh` executes steps 2–6 and the
 *First deployment* steps on a fresh Ubuntu 24.04 host, idempotently (a re-run skips what is
-done): Docker Engine and Compose from Docker's apt repository, the repository at a given commit
+done); it re-executes itself under `sudo -E` (root-only secrets and system files), bounds
+container logs, and refuses to start Caddy until the site name resolves to the host's public
+address (a failed certificate issuance backs off for hours): Docker Engine and Compose from Docker's apt repository, the repository at a given commit
 under `/srv/fpl`, `.env` from the example with a generated database password, the images built
 with the revision recorded (`FPL_BUILD_REVISION`, `FPL_IMAGE_TAG`), the two API keys (`fpl-api
 create-key`; the operator key is written once to `/srv/fpl-secrets/operator_key`, root-only,

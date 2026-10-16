@@ -19,6 +19,12 @@
 # the firewall (22, 80, 443). Secrets never appear in the output.
 set -euo pipefail
 
+# everything below writes system files, root-only secrets and Docker state: run as root, with
+# the FPL_* inputs preserved (a sudo-group member may preserve the environment for ALL commands)
+if [ "$(id -u)" != 0 ]; then
+  exec sudo -E -- bash "$0" "$@"
+fi
+
 : "${FPL_PUBLIC_DOMAIN:?the site DNS name, e.g. fpl.example.com}"
 : "${FPL_TLS:?the ACME e-mail address for the certificate}"
 : "${FPL_GIT_REF:?the commit to deploy (full sha or tag)}"
@@ -67,6 +73,13 @@ fi
 docker_ compose version >/dev/null
 log "docker $(docker_ version --format '{{.Server.Version}}'), $(docker_ compose version --short)"
 
+# bounded container logs (json-file is unbounded by default; the disk is small)
+if [ ! -f /etc/docker/daemon.json ]; then
+  log "bounding container logs (50 MB × 3 per container)"
+  printf '{\n  "log-driver": "json-file",\n  "log-opts": {"max-size": "50m", "max-file": "3"}\n}\n' > /etc/docker/daemon.json
+  systemctl restart docker
+fi
+
 # a little swap keeps the image build and the forecast safe on an 8 GB host
 if [ "$(awk '/SwapTotal/ {print $2}' /proc/meminfo)" = "0" ] && [ ! -f /swapfile ]; then
   log "adding a 2 GB swap file"
@@ -103,13 +116,15 @@ set_env FPL_TLS "$FPL_TLS"
 set_env FPL_CORS_ORIGINS "[\"https://${FPL_PUBLIC_DOMAIN}\"]"
 set_env FPL_SOLVER_WORKERS "$(nproc)"
 set_env FPL_PRODUCT_NAME "$FPL_PRODUCT_NAME"
+set_env FPL_TRUST_FORWARDED_FOR true   # Caddy sets X-Forwarded-For: rate limits per visitor
 set_env FPL_BUILD_REVISION "$REV"
 set_env FPL_IMAGE_TAG "${REV:0:12}"
 
 # the outer site login at the proxy: on with a password, otherwise off (an empty import)
 if [ -n "${FPL_SITE_LOGIN_PASSWORD:-}" ]; then
   log "site login: on (HTTP Basic at the proxy, user operator)"
-  HASH=$(docker_ run --rm caddy:2.10-alpine caddy hash-password --plaintext "$FPL_SITE_LOGIN_PASSWORD")
+  # the password goes in on stdin: never on a command line (process lists, sudo's log)
+  HASH=$(printf '%s' "$FPL_SITE_LOGIN_PASSWORD" | docker_ run -i --rm caddy:2.10-alpine caddy hash-password)
   printf 'basic_auth {\n\toperator %s\n}\n' "$HASH" > infra/deployment/caddy/auth.caddy
   unset HASH
 else
@@ -128,9 +143,11 @@ if ! grep -q '^FPL_API_KEYS_SHA256=\["' .env; then
   log "generating the operator key and the web proxy's key"
   OPS=$(compose run --rm --no-deps -T api fpl-api create-key | head -1)
   WEB=$(compose run --rm --no-deps -T api fpl-api create-key | head -1)
-  python3 - "$OPS" "$WEB" "$FPL_SECRETS/operator_key" <<'PY'
+  # the keys reach python on stdin, never as arguments (readable in /proc while running)
+  KEYS_TO_ENV='
 import json, os, pathlib, sys
-ops, web, dest = json.loads(sys.argv[1]), json.loads(sys.argv[2]), pathlib.Path(sys.argv[3])
+ops, web = json.loads(sys.stdin.readline()), json.loads(sys.stdin.readline())
+dest = pathlib.Path(sys.argv[1])
 fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
 with os.fdopen(fd, "w") as f:
     f.write(ops["api_key"] + "\n")
@@ -139,7 +156,8 @@ lines = p.read_text().splitlines()
 rep = {"FPL_API_KEYS_SHA256": json.dumps([ops["sha256"]]), "FPL_WEB_API_KEYS_SHA256": json.dumps([web["sha256"]]), "FPL_WEB_API_KEY": web["api_key"]}
 out = [f"{k}={rep[k]}" if (k := line.split("=", 1)[0]) in rep else line for line in lines]
 p.write_text("\n".join(out) + "\n")
-PY
+'
+  printf '%s\n%s\n' "$OPS" "$WEB" | python3 -c "$KEYS_TO_ENV" "$FPL_SECRETS/operator_key"
   unset OPS WEB
   sudo chown root:root "$FPL_SECRETS/operator_key" && sudo chmod 600 "$FPL_SECRETS/operator_key"
   log "operator key written to $FPL_SECRETS/operator_key (root, 600); its hash and the web key are in .env"
@@ -167,6 +185,17 @@ done
 compose exec -T worker sh -c 'ls /data/artifacts/serving/*.ready' >/dev/null || { log "no serving forecast after 10 minutes: see docker compose logs worker"; exit 1; }
 
 # ---------------------------------------------------------------- 6. the whole stack, behind Caddy
+# the certificate needs the name to point here first (a failed issuance backs off for hours)
+PUBLIC_IP=$(curl -4 -sS --max-time 10 https://api.ipify.org || true)
+RESOLVED=$(getent ahostsv4 "$FPL_PUBLIC_DOMAIN" | awk '{print $1}' | sort -u | tr '\n' ' ')
+if [ -z "$PUBLIC_IP" ] || ! printf '%s' "$RESOLVED" | grep -qw -- "$PUBLIC_IP"; then
+  log "DNS: $FPL_PUBLIC_DOMAIN resolves to [${RESOLVED:-nothing}] but this host's public address is [${PUBLIC_IP:-unknown}]; fix the A record and re-run"
+  exit 1
+fi
+if getent ahostsv6 "$FPL_PUBLIC_DOMAIN" | grep -q . && ! ss -ltn | grep -q '\[::\]:443'; then
+  log "DNS: $FPL_PUBLIC_DOMAIN has an AAAA record but this host does not listen on IPv6; remove the AAAA record or Let's Encrypt (IPv6 first) will fail"
+  exit 1
+fi
 log "starting api, scheduler, web and the TLS proxy"
 compose up -d --wait
 compose ps
