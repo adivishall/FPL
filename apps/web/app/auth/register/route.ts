@@ -7,7 +7,7 @@ import { apiAuth, sessionCookie } from "../session";
 
 export async function POST(req: NextRequest): Promise<Response> {
   const body = await req.text();
-  const res = await apiAuth("/api/v1/auth/register", body);
+  const res = await apiAuth("/api/v1/auth/register", body, undefined, req.headers.get("x-forwarded-for"));
   if (!res.ok) return res.passthrough;
   const headers = new Headers({ "content-type": "application/json" });
   headers.append("set-cookie", sessionCookie(req, res.json.session_token as string));

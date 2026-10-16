@@ -7,6 +7,7 @@ import { Suspense, useState } from "react";
 import { useUser } from "@/components/auth";
 import { useProductName } from "@/components/product";
 import { Card } from "@/components/ui";
+import { sameSitePath } from "@/lib/nav";
 
 function LoginForm() {
   const router = useRouter();
@@ -32,7 +33,7 @@ function LoginForm() {
       const body = (await res.json().catch(() => ({}))) as { detail?: string };
       if (!res.ok) throw new Error(body.detail ?? `sign-in failed (${res.status})`);
       await reload();
-      router.replace(next.startsWith("/") ? next : "/");
+      router.replace(sameSitePath(next, "/"));
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {

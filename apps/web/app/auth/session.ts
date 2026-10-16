@@ -16,10 +16,12 @@ export interface AuthResult {
 
 /** POST a JSON body to an auth route on the API with the server-held key (and the current
  * session as bearer when one exists). */
-export async function apiAuth(path: string, body: string, session?: string): Promise<AuthResult> {
+export async function apiAuth(path: string, body: string, session?: string, forwardedFor?: string | null): Promise<AuthResult> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (process.env.FPL_API_KEY) headers["x-api-key"] = process.env.FPL_API_KEY;
   if (session) headers.authorization = `Bearer ${session}`;
+  // the visitor's address from the TLS proxy, for the API's per-visitor rate limiting
+  if (forwardedFor) headers["x-forwarded-for"] = forwardedFor;
   let res: Response;
   try {
     res = await fetch(new URL(path, ORIGIN), {

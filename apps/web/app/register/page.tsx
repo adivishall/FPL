@@ -6,6 +6,7 @@ import { Suspense, useState } from "react";
 
 import { useUser } from "@/components/auth";
 import { Card } from "@/components/ui";
+import { sameSitePath } from "@/lib/nav";
 
 function RegisterForm() {
   const router = useRouter();
@@ -31,7 +32,7 @@ function RegisterForm() {
       const body = (await res.json().catch(() => ({}))) as { detail?: unknown };
       if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : `sign-up failed (${res.status})`);
       await reload();
-      router.replace(next.startsWith("/") ? next : "/onboarding");
+      router.replace(sameSitePath(next, "/onboarding"));
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -52,7 +53,7 @@ function RegisterForm() {
         <span />
         <div className="row">
           <button type="submit" disabled={busy} data-testid="register-submit">{busy ? "Creating…" : "Create account"}</button>
-          <Link href="/login" className="small">Already registered? Sign in</Link>
+          <Link href={next !== "/onboarding" ? `/login?next=${encodeURIComponent(next)}` : "/login"} className="small">Already registered? Sign in</Link>
         </div>
       </form>
       {err ? <p className="error" role="alert">{err}</p> : null}

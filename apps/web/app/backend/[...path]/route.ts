@@ -8,11 +8,17 @@ const ORIGIN = process.env.FPL_API_INTERNAL_URL ?? "http://localhost:8000";
 const SAFE = /^[A-Za-z0-9_.\-]+$/;
 export const SESSION_COOKIE = "fpl_session";
 const TIMEOUT_MS = 120_000; // above the API's slowest synchronous route; long work runs as jobs
+// sign-in and sign-up answer with the session token: only this origin's /auth/* handlers call
+// them, and they keep the token in the HttpOnly cookie — it never reaches browser scripts
+const NOT_PROXIED = new Set(["auth/login", "auth/register"]);
 
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }): Promise<Response> {
   const { path } = await ctx.params;
   if (!path.every((p) => SAFE.test(p) && p !== "..")) {
     return Response.json({ detail: "invalid path" }, { status: 400 });
+  }
+  if (NOT_PROXIED.has(path.join("/"))) {
+    return Response.json({ detail: "not available through the proxy" }, { status: 404 });
   }
   const url = new URL(`/api/v1/${path.join("/")}`, ORIGIN);
   url.search = req.nextUrl.search;
@@ -24,6 +30,10 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   if (session) headers.authorization = `Bearer ${session}`;
   const rid = req.headers.get("x-request-id");
   if (rid) headers["x-request-id"] = rid;
+  // the visitor's address as the TLS proxy reports it (it replaces any client-supplied value),
+  // so the API can rate-limit per visitor rather than per proxy (FPL_TRUST_FORWARDED_FOR)
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) headers["x-forwarded-for"] = forwarded;
   let res: Response;
   try {
     res = await fetch(url, {

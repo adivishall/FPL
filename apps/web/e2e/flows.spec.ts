@@ -135,6 +135,29 @@ test("an FPL ID handed over in the link is looked up, an invalid one is refused,
   await fresh.goto("/onboarding?entry=1234567");
   await expect(fresh).toHaveURL(/\/login\?next=%2Fonboarding%3Fentry%3D1234567$/);
   await expect(fresh.getByRole("link", { name: "Have an invitation? Create an account" })).toHaveAttribute("href", "/register?next=%2Fonboarding%3Fentry%3D1234567");
+  await fresh.goto("/register?next=%2Fonboarding%3Fentry%3D1234567");
+  await expect(fresh.getByRole("link", { name: "Already registered? Sign in" })).toHaveAttribute("href", "/login?next=%2Fonboarding%3Fentry%3D1234567");
+  // a second beta user signs in through that page and lands on the handed-over id, looked up
+  const inv = await fresh.request.post("http://127.0.0.1:8000/api/v1/auth/invites", { data: { label: "e2e-handoff", days: 1 }, headers: { "x-api-key": "e2e-ops-key" } });
+  expect(inv.ok(), await inv.text()).toBe(true);
+  const email = `e2e-handoff-${Date.now()}@example.test`;
+  const reg = await fresh.request.post("/auth/register", { data: { invite_code: (await inv.json()).invite_code, email, password: "e2e-password-123" } });
+  expect(reg.ok(), await reg.text()).toBe(true);
+  await ctx.clearCookies();
+  await fresh.goto("/login?next=%2Fonboarding%3Fentry%3D1234567");
+  await fresh.getByLabel("E-mail").fill(email);
+  await fresh.getByLabel("Password").fill("e2e-password-123");
+  await fresh.getByTestId("login-submit").click();
+  await expect(fresh).toHaveURL(/\/onboarding\?entry=1234567$/);
+  await expect(fresh.getByTestId("entry-handed")).toContainText("1234567");
+  await expect(fresh.getByTestId("onboarding-error")).toContainText(/cannot be reached|disabled/);
+  // the destination must be a path on this site: a protocol-relative address is not followed
+  await fresh.goto("/login?next=%2F%2Fexample.org%2Fx");
+  await fresh.getByLabel("E-mail").fill(email);
+  await fresh.getByLabel("Password").fill("e2e-password-123");
+  await fresh.getByTestId("login-submit").click();
+  await expect(fresh).toHaveURL("http://127.0.0.1:3000/");
+  await fresh.request.delete("/backend/auth/me"); // the second user leaves nothing behind
   await ctx.close();
 });
 

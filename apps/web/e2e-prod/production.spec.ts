@@ -98,6 +98,13 @@ test("API key enforcement on the API itself (missing / invalid / valid)", async 
   expect((await api.get(`/api/v1/squad?manager_key=${MANAGER}`, { headers: { "x-api-key": WEB_KEY } })).status()).toBe(401);
   expect((await api.post("/api/v1/recommendations/generate", { data: gen, headers: { "x-api-key": WEB_KEY } })).status()).toBe(401);
   expect((await api.get("/api/v1/gameweeks/current", { headers: { "x-api-key": WEB_KEY } })).status()).toBe(200);
+  // sign-in and sign-up are not proxied: only this origin's /auth/* handlers call them, and
+  // they keep the session token in the HttpOnly cookie — a raw token never reaches a script
+  for (const path of ["/backend/auth/login", "/backend/auth/register"]) {
+    const r = await web.post(path, { data: { email: "x@example.test", password: "0123456789", invite_code: "x" } });
+    expect(r.status(), path).toBe(404);
+    expect(await r.text(), path).not.toContain("session_token");
+  }
   // a signed-in user cannot name a manager key the account does not own
   const other = await web.get("/backend/squad?manager_key=m_000000000000beef");
   expect(other.status()).toBe(403);
