@@ -467,6 +467,8 @@ verified on the development machine, and exactly what the owner must provide.
 | Backend | untouched | no Python source in the API, worker or packages changed; the extension's two tools and the host script pass ruff. CI's first run of the sprint commits failed one consistency test, `test_env_example_names_map_to_settings` (every `FPL_*` name in `.env.example` must be a `Settings` field or a known web-server variable): `FPL_PRODUCT_NAME` is a web-server variable, so the test's allow-list gained it, with a new assertion that the compose `web` environment carries it (`6dea528`); the other 541 tests passed in that run |
 | GW7 capture | NOT RUN | cutoff 2026-10-17 08:30Z is still ahead; the scheduler path is unchanged and armed (§2g); the session waiter is session-bound |
 | Public deployment | NOT RUN / BLOCKED | no host, domain or DNS access; a local Docker deployment, green CI or an image build is not a public deployment and is not claimed as one |
+| Three read-only reviews (deployment readiness, extension release, launch prerequisites; 2026-10-16) | PASS (findings fixed) | **Deployment:** behind the proxy every browser shared one rate-limit bucket (the web key's), so one visitor could throttle everyone's sign-in and password guessing was bounded only site-wide — fixed: with `FPL_TRUST_FORWARDED_FOR` (set by the host script) the web key's requests count per `X-Forwarded-For` address, which Caddy sets from the connection and the Next server forwards; operator keys count per key; sign-in attempts are limited per e-mail address (`FPL_LOGIN_ATTEMPTS_PER_MINUTE`, default 10); sign-in and sign-up are no longer proxied through `/backend/*` (the raw session token never reaches a script). `host_setup.sh` would have failed writing the root-only operator key as an unprivileged user — it now re-executes under `sudo -E`, passes secrets on stdin (never on a command line), bounds container logs and refuses to start Caddy until the site name resolves to the host's public address. **Extension:** the register page's sign-in link dropped the hand-off and `?next=//host` was an open redirect after sign-in — fixed (`lib/nav.ts`: same-site paths only), the popup prefers a pending navigation's address, the build refuses names that would splice into JSON or HTML, and the store's required 440×280 promo tile is rendered. **Prerequisites:** Holdline is crowded (a Windows dictation product owns getholdline.com and holdline.app); Fanchart and Deadline Ledger have no product, app or extension conflicts, with fanchart.app/.io and deadlineledger.com/.app/.io unregistered; Hetzner's 4-vCPU cost-optimised plans are out of stock and new accounts face identity checks, so DigitalOcean (8 GB, $48/month, BLR1 or LON1) or Vultr ($48, Mumbai/London) is the frictionless host for this weekend; Chrome Web Store needs 2-Step Verification, the one-time fee, a privacy policy URL, 1–5 screenshots at 1280×800 and the promo tile, offers unlisted visibility, and may reject a popup whose only function is opening a site (the popup shows its detected-team work; the risk is noted) |
+| Verification of the review fixes (source `56e08c7`) | PASS | backend: ruff, mypy clean; the rate-limit, forwarded-visitor, sign-in-limit, login/session and ops-config tests **9 passed**; dev Playwright hand-off flow (sign-in through `next`, register link, `//host` refused) **2 passed** on a rebuilt UI; production suite against the local stack rebuilt from `56e08c7`: key enforcement incl. the proxy denial **1 passed**, onboarding hand-off + real import **1 passed**; extension unit **8 passed**, browser **5 passed** |
 | Defects 52 and 53 | unchanged | still **open** |
 
 Definition of done (owner directive §10), as of this writing: **Website** — public HTTPS URL
@@ -484,9 +486,12 @@ allow-list) — [run 38811378979](https://github.com/adivishall/fpl-copilot/acti
 on `6dea528` **success** on every job: lint, security, test, optimiser suite, web e2e and
 container builds. The earlier run of `22a8406`
 ([38809210431](https://github.com/adivishall/fpl-copilot/actions/runs/38809210431)) failed only
-the consistency test described above (541 passed; container builds skipped behind it). This
-documentation commit is checked by its own run; `develop` is fast-forwarded only after that run
-is green. The public deployment, the extension release and the GW7 capture remain NOT RUN.
+the consistency test described above (541 passed; container builds skipped behind it). The review
+fixes (`696472f` API, `6ed0d66` web, `ae71f8c` extension, `56e08c7` ops) —
+[run 38861918750](https://github.com/adivishall/fpl-copilot/actions/runs/38861918750) on
+`56e08c7` **success** on every job. This documentation commit is checked by its own run;
+`develop` is fast-forwarded only after that run is green. The public deployment, the extension
+release and the GW7 capture remain NOT RUN.
 
 ## 3. Environment
 
