@@ -185,16 +185,19 @@ done
 compose exec -T worker sh -c 'ls /data/artifacts/serving/*.ready' >/dev/null || { log "no serving forecast after 10 minutes: see docker compose logs worker"; exit 1; }
 
 # ---------------------------------------------------------------- 6. the whole stack, behind Caddy
-# the certificate needs the name to point here first (a failed issuance backs off for hours)
-PUBLIC_IP=$(curl -4 -sS --max-time 10 https://api.ipify.org || true)
-RESOLVED=$(getent ahostsv4 "$FPL_PUBLIC_DOMAIN" | awk '{print $1}' | sort -u | tr '\n' ' ')
-if [ -z "$PUBLIC_IP" ] || ! printf '%s' "$RESOLVED" | grep -qw -- "$PUBLIC_IP"; then
-  log "DNS: $FPL_PUBLIC_DOMAIN resolves to [${RESOLVED:-nothing}] but this host's public address is [${PUBLIC_IP:-unknown}]; fix the A record and re-run"
-  exit 1
-fi
-if getent ahostsv6 "$FPL_PUBLIC_DOMAIN" | grep -q . && ! ss -ltn | grep -q '\[::\]:443'; then
-  log "DNS: $FPL_PUBLIC_DOMAIN has an AAAA record but this host does not listen on IPv6; remove the AAAA record or Let's Encrypt (IPv6 first) will fail"
-  exit 1
+# the certificate needs the name to point here first (a failed issuance backs off for hours);
+# FPL_SKIP_DNS_CHECK=1 is for a rehearsal with FPL_TLS=internal on a private VM only
+if [ "${FPL_SKIP_DNS_CHECK:-}" != "1" ]; then
+  PUBLIC_IP=$(curl -4 -sS --max-time 10 https://api.ipify.org || true)
+  RESOLVED=$(getent ahostsv4 "$FPL_PUBLIC_DOMAIN" | awk '{print $1}' | sort -u | tr '\n' ' ')
+  if [ -z "$PUBLIC_IP" ] || ! printf '%s' "$RESOLVED" | grep -qw -- "$PUBLIC_IP"; then
+    log "DNS: $FPL_PUBLIC_DOMAIN resolves to [${RESOLVED:-nothing}] but this host's public address is [${PUBLIC_IP:-unknown}]; fix the A record and re-run"
+    exit 1
+  fi
+  if getent ahostsv6 "$FPL_PUBLIC_DOMAIN" | grep -q . && ! ss -ltn | grep -q '\[::\]:443'; then
+    log "DNS: $FPL_PUBLIC_DOMAIN has an AAAA record but this host does not listen on IPv6; remove the AAAA record or Let's Encrypt (IPv6 first) will fail"
+    exit 1
+  fi
 fi
 log "starting api, scheduler, web and the TLS proxy"
 compose up -d --wait
