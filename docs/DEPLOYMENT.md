@@ -242,6 +242,43 @@ certificate and a reachable public URL — they need the operator inputs below.
 | Optional: an HTTPS endpoint you control | verifying webhook delivery (`FPL_WEBHOOK_ALLOWED_HOSTS`) |
 | Optional: off-host backup storage | copies of `infra/scripts/backup.sh` output |
 
+## Zero-cost hosting (Oracle Cloud Always Free)
+
+The stack runs unchanged on an Oracle Cloud *Always Free* Arm instance: the images are
+multi-architecture by construction (the development machine builds and runs them as `arm64`),
+and Oracle's documented allowance — for the life of a Free Tier account, home region only —
+is 2 Ampere A1 OCPUs and 12 GB of memory (`VM.Standard.A1.Flex`, one or two instances), 200 GB
+of block storage including boot volumes (minimum 47 GB each), 10 TB a month of outbound data
+and an ephemeral public IPv4 address. Nothing in this topology needs another billable service:
+no load balancer, managed database, object storage or backup service (`backup.sh` writes to the
+instance's own disk; copy backups off with `scp`).
+
+* **Eligible configuration**: shape `VM.Standard.A1.Flex`, 2 OCPUs, 12 GB (the Console shows
+  the *Always Free-eligible* label), Canonical Ubuntu 24.04 (aarch64), default boot volume,
+  one VCN with a public subnet, "assign a public IPv4 address". Set `FPL_SOLVER_WORKERS=2`
+  (the script uses `nproc`). Never upgrade the account to Pay As You Go for this deployment.
+* **Ports**: the VCN's security list must allow ingress 80/tcp, 443/tcp and 443/udp from
+  `0.0.0.0/0`, and the Ubuntu image's persistent iptables rules (which reject everything but
+  SSH) must accept them: `host_setup.sh` inserts and saves those rules when it finds the image's
+  rule file.
+* **Known failure modes**: "Out of host capacity" when creating the instance (a temporary
+  shortage of free Arm hosts in that availability domain — retry another domain or later);
+  account creation held "under review" after sign-up (card verification is a temporary
+  authorisation, not a charge; prepaid cards are refused); **idle reclamation** — Oracle may
+  reclaim an Always Free instance whose CPU (95th percentile), network and memory utilisation
+  all stay under 20 % for seven days; the hourly live refresh and forecast and the resident
+  services (PostgreSQL, Redis, API, worker, scheduler, web, Caddy) normally keep it above that,
+  so the stack must not be stopped for a week.
+* **Free hostname and certificate**: a free `*.duckdns.org` name (DuckDNS, sign-in with GitHub,
+  one A record per name set from its web page) is an ordinary DNS name, so Caddy obtains the
+  Let's Encrypt certificate as for any `FPL_PUBLIC_DOMAIN`; `duckdns.org` is on the public
+  suffix list, so Let's Encrypt's per-domain rate limits apply per subdomain. No domain is
+  bought; the product name stays a display setting (`FPL_PRODUCT_NAME`).
+* **Browser extension at zero cost**: the Chrome Web Store needs a paid developer registration,
+  so the extension is distributed as a GitHub Release asset (the reproducible ZIP and its
+  SHA-256) with Developer-mode *Load unpacked* instructions (`apps/extension/README.md`); it is
+  not listed in the store.
+
 ## Browser extension
 
 `apps/extension/` is a Chrome (Manifest V3) extension with one job: on a public team page of

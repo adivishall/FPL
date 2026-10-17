@@ -68,6 +68,22 @@ IDs (`/entry/0/…`, `/entry/12ab/…`, plain `http://`, look-alike hosts) fall 
 link; and with the web app unreachable the popup still renders and the browser's own error page
 is all the user sees.
 
+## Release without the Chrome Web Store (GitHub Release)
+
+Store publication needs a paid developer registration. At zero cost the ZIP is published as a
+GitHub Release asset and installed with *Load unpacked* (unzip first):
+
+```bash
+cd apps/extension
+./build.sh --url https://<site> --name "<product name>"
+npm test && npm run test:browser
+gh release create extension-v<version> dist/*.zip dist/*.zip.sha256 \
+  --title "<product name> browser extension <version>" \
+  --notes "Unzip, then chrome://extensions → Developer mode → Load unpacked → the unzipped folder. SHA-256 in the .sha256 file."
+```
+
+Users verify the download with `shasum -a 256 -c <name>.zip.sha256` before unzipping.
+
 ## Privacy and permissions
 
 * `activeTab` grants the extension the address of the current tab only when you click its button,

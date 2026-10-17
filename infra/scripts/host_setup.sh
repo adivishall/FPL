@@ -211,6 +211,19 @@ if ! sudo ufw status | grep -q "Status: active"; then
   sudo ufw allow OpenSSH >/dev/null && sudo ufw allow 80/tcp >/dev/null && sudo ufw allow 443/tcp >/dev/null && sudo ufw allow 443/udp >/dev/null
   sudo ufw --force enable >/dev/null
 fi
+# Oracle Cloud's Ubuntu image ships persistent iptables rules that reject everything but SSH
+# (INPUT and FORWARD); the site's ports must be accepted ahead of those rules, and the VCN's
+# security list must allow them too (docs/DEPLOYMENT.md "Zero-cost hosting")
+if [ -f /etc/iptables/rules.v4 ] && grep -q -- '--reject-with icmp-host-prohibited' /etc/iptables/rules.v4; then
+  log "opening 80/443 in the image's persistent iptables rules"
+  for chain in INPUT FORWARD; do
+    for rule in "-p tcp --dport 80" "-p tcp --dport 443" "-p udp --dport 443"; do
+      # shellcheck disable=SC2086
+      iptables -C $chain $rule -j ACCEPT 2>/dev/null || iptables -I $chain 1 $rule -j ACCEPT
+    done
+  done
+  netfilter-persistent save >/dev/null 2>&1 || iptables-save > /etc/iptables/rules.v4
+fi
 
 log "done. listening sockets:"
 sudo ss -ltnp | awk 'NR==1 || /:(80|443|8000|3000|5432|6379|9101|9090) /'
