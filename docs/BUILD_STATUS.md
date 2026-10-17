@@ -384,18 +384,18 @@ fixes `750c9e2` and this record are checked by their own runs. The GW7 checkpoin
 unattended by the stack's scheduler after the cutoff on 2026-10-17 and recorded here once
 verified.
 
-### M1.5 stage status (verified against the running stack, 2026-10-15 14:11 UTC)
+### M1.5 stage status (live GW7 capture verified against the running stack, 2026-10-17 12:37 UTC)
 
 One stage succeeding says nothing about the others; each is recorded on its own.
 
 | Stage | Status | Evidence |
 |---|---|---|
 | Rehearsal | done — **not live evidence** | a copy of the stack's database, 2026-10-14 (above): `prospective` with the attestations, `prospective_unverified` without them |
-| Forecast generation (live) | running, host-bound | the hourly forecast job promotes a GW7 forecast whenever the host is awake: 16 promotions since 2026-10-14 03:26 UTC, the newest `snap_46964195640b52a22f9e` / `fc_cd62808ae4137e7e` exported 2026-10-15 14:03 UTC |
-| Time attestation (live) | running | each of the 9 promotions made since migration 0008 has a `generation` attestation from FPL's clock on the first attempt (one `existence` row for the promotion just before 0008; the `forecast_attest` job ran once and succeeded); the newest forecast existed by 2026-10-15 14:09:51 UTC by FPL's clock, 42.3 h before the cutoff |
-| Prospective checkpoint (GW7) | **not run** — the cutoff, 2026-10-17 08:30 UTC, is in the future | 0 `forecast_checkpoints`, 0 `predictions`; `due_gameweeks` empty; the capture is the scheduler's `forecast_ledger` task (every 15 min, registered once, one scheduler process, no second capture path) |
-| Scoring | **not run** | 0 `season_evaluations`; calibration `deferred` ("0 of 8 live gameweeks final"); GW7 results expected final around 2026-10-22 19:00 UTC |
-| Public deployment | **not done** | no public URL exists (§2b handoff) |
+| Forecast generation (live) | **ran** | the forecast frozen for GW7, `fc_ca59948a7a8b1486` on `snap_a4e41581660ffe2024a1`, was exported 2026-10-17 07:00:56 UTC and promoted 07:02:06 UTC (host clocks, `build_revision` `750c9e2`, 3,335 rows, 1,000 simulations); 29 promotions preceded the cutoff by the host clock |
+| Time attestation (live) | **ran** | the frozen forecast's `generation` attestation: FPL answered `Date: Sat, 17 Oct 2026 07:02:06 GMT`, `Age: 114`, so the file existed between 07:01:04 and 07:04:01 UTC by FPL's clock (host skew 0.7 s), hash equal to the checkpoint's; `forecast_attest` jobs since 0008: 2 succeeded, 1 failed (12:29 UTC, FPL unreachable — recorded as a failed job and re-submitted by the next tick, which succeeded at 12:32 UTC) |
+| Prospective checkpoint (GW7) | **done — `prospective`** | `ckp_757799b78ea4e3cf`, `reasons []`, `attested_at` 07:04:01 UTC (86 min before the 08:30 UTC cutoff); every check holds: FPL server time before the cutoff, file unchanged since promotion, identity matches the promotion, cutoff equals the gameweek's, no FPL news stamped after the cutoff (latest 2026-10-16 17:30 UTC), no results of the gameweek; informational: the capture-time FPL read failed ("FPL not reached"), which is not a criterion. Captured at 09:43:53 UTC by `job_c1c32f6548a4425d`, submitted by the first `forecast_ledger` tick after the cutoff (09:32 UTC: the host slept from 07:33 to 09:32 UTC, as the readiness note anticipated — the capture time is not a criterion, and the frozen forecast is the newest one promoted before the cutoff). 3,335 `predictions` rows, 2 blobs, row digest `62267b9b…` identical before and after a restart of api, worker, scheduler and web, after a retention run and after `forecast_ledger` run-once ("skipped", nothing due); re-capture returns the same checkpoint id every time (counts 1 / 3,335 / 2 unchanged). Season Review: GW7 `prospective` with its attestation time; GW1–6 `before_record`; GW8+ `upcoming` |
+| Scoring | **not run** | `season_evaluations` seq 1 (trigger `first`, 2026-10-17 09:46 UTC) with every window `not_started`; GW7 results expected final around 2026-10-22 19:00 UTC; calibration `deferred` until 8 live gameweeks are final |
+| Public deployment | **not done** | no public URL exists (§2i: the host, domain and name are still owner inputs) |
 
 Readiness check for the GW7 capture (read-only, 2026-10-15 14:11 UTC): the official deadline
 re-read from FPL (`is_next`, 2026-10-17 10:00 UTC) agrees with the `gameweeks` row
@@ -414,6 +414,14 @@ is the operator's option). The post-capture verification (`verify_gw7.sh`: count
 bounds, provenance, idempotent recapture, retention and ledger run-once, restart) is armed as a
 background waiter in the development session only: it depends on that session and the host
 staying available, and is otherwise run by hand after the capture.
+
+Outcome (2026-10-17): the session waiter did not survive the session, as documented; the
+capture itself needed nothing from it — the scheduler's `forecast_ledger` tick submitted the
+capture at the first wake after the cutoff and the verification was run by hand at 12:37 UTC
+(`verify_gw7.sh`: the table above). One other job failed in the window: a `forecast` job
+abandoned at 11:21 UTC ("queue reports failed", the host asleep while it ran), which concerns a
+later snapshot and not the frozen forecast; the next forecast was promoted and attested
+(`existence`, 12:32 UTC) as designed.
 
 ## 2h. M1.6 — FPL Copilot design system and redesigned pages (2026-10-15)
 
@@ -465,7 +473,7 @@ verified on the development machine, and exactly what the owner must provide.
 | Manual "Load unpacked" in Google Chrome | NOT RUN | Google Chrome 155 on this machine ignores `--load-extension` (branded builds dropped it in 137; `chrome-extension://…` answered `ERR_BLOCKED_BY_CLIENT`), so the flow cannot be driven from this session, and the Claude in Chrome connection was not available. Playwright's Chromium loads the same unpacked directory through the same path (the id derived from the directory, as Chrome does). The owner's step: `chrome://extensions` → Developer mode → Load unpacked → `apps/extension/dist/unpacked` (`apps/extension/README.md`) |
 | Web verification (source `22a8406`) | PASS | `tsc --noEmit` clean; `next build` clean (every route dynamic by design, for the runtime name); the local `fpl-web` image rebuilt from `22a8406` and running on the local stack |
 | Backend | untouched | no Python source in the API, worker or packages changed; the extension's two tools and the host script pass ruff. CI's first run of the sprint commits failed one consistency test, `test_env_example_names_map_to_settings` (every `FPL_*` name in `.env.example` must be a `Settings` field or a known web-server variable): `FPL_PRODUCT_NAME` is a web-server variable, so the test's allow-list gained it, with a new assertion that the compose `web` environment carries it (`6dea528`); the other 541 tests passed in that run |
-| GW7 capture | NOT RUN | cutoff 2026-10-17 08:30Z is still ahead; the scheduler path is unchanged and armed (§2g); the session waiter is session-bound |
+| GW7 capture | PASS (`prospective`) | captured unattended by the scheduler at its first tick after the cutoff (09:32 UTC; the host slept through the cutoff) and verified by hand 2026-10-17 12:37 UTC — §2g stage table |
 | Public deployment | NOT RUN / BLOCKED | no host, domain or DNS access; a local Docker deployment, green CI or an image build is not a public deployment and is not claimed as one |
 | Three read-only reviews (deployment readiness, extension release, launch prerequisites; 2026-10-16) | PASS (findings fixed) | **Deployment:** behind the proxy every browser shared one rate-limit bucket (the web key's), so one visitor could throttle everyone's sign-in and password guessing was bounded only site-wide — fixed: with `FPL_TRUST_FORWARDED_FOR` (set by the host script) the web key's requests count per `X-Forwarded-For` address, which Caddy sets from the connection and the Next server forwards; operator keys count per key; sign-in attempts are limited per e-mail address (`FPL_LOGIN_ATTEMPTS_PER_MINUTE`, default 10); sign-in and sign-up are no longer proxied through `/backend/*` (the raw session token never reaches a script). `host_setup.sh` would have failed writing the root-only operator key as an unprivileged user — it now re-executes under `sudo -E`, passes secrets on stdin (never on a command line), bounds container logs and refuses to start Caddy until the site name resolves to the host's public address. **Extension:** the register page's sign-in link dropped the hand-off and `?next=//host` was an open redirect after sign-in — fixed (`lib/nav.ts`: same-site paths only), the popup prefers a pending navigation's address, the build refuses names that would splice into JSON or HTML, and the store's required 440×280 promo tile is rendered. **Prerequisites:** Holdline is crowded (a Windows dictation product owns getholdline.com and holdline.app); Fanchart and Deadline Ledger have no product, app or extension conflicts, with fanchart.app/.io and deadlineledger.com/.app/.io unregistered; Hetzner's 4-vCPU cost-optimised plans are out of stock and new accounts face identity checks, so DigitalOcean (8 GB, $48/month, BLR1 or LON1) or Vultr ($48, Mumbai/London) is the frictionless host for this weekend; Chrome Web Store needs 2-Step Verification, the one-time fee, a privacy policy URL, 1–5 screenshots at 1280×800 and the promo tile, offers unlisted visibility, and may reject a popup whose only function is opening a site (the popup shows its detected-team work; the risk is noted) |
 | Verification of the review fixes (source `56e08c7`) | PASS | backend: ruff, mypy clean; the rate-limit, forwarded-visitor, sign-in-limit, login/session and ops-config tests **9 passed**; dev Playwright hand-off flow (sign-in through `next`, register link, `//host` refused) **2 passed** on a rebuilt UI; production suite against the local stack rebuilt from `56e08c7`: key enforcement incl. the proxy denial **1 passed**, onboarding hand-off + real import **1 passed**; extension unit **8 passed**, browser **5 passed** |
@@ -490,8 +498,8 @@ the consistency test described above (541 passed; container builds skipped behin
 fixes (`696472f` API, `6ed0d66` web, `ae71f8c` extension, `56e08c7` ops) —
 [run 38861918750](https://github.com/adivishall/fpl-copilot/actions/runs/38861918750) on
 `56e08c7` **success** on every job. This documentation commit is checked by its own run;
-`develop` is fast-forwarded only after that run is green. The public deployment, the extension
-release and the GW7 capture remain NOT RUN.
+`develop` is fast-forwarded only after that run is green. The public deployment and the extension
+release remain NOT RUN; the GW7 capture is recorded in §2g.
 
 ## 3. Environment
 
